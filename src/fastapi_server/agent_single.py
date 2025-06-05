@@ -23,28 +23,21 @@ agent = None
 session = None
 stdio_context = None
 tool_dict = {}
+tracer = None
 
 def make_tracer():
-    import os
-    from langsmith.client import Client
-
-    tags_str = os.getenv("LANGSMITH_EXPERIMENT_TAGS", "")
-    tags = [t.strip() for t in tags_str.split(",") if t.strip()]
-    project = os.getenv("LANGCHAIN_PROJECT", "canvasbench-default")
-
-    return LangChainTracer(project_name=project, tags=tags)
-
-tracer = make_tracer()
+    return None
 
 CONFIG = None
 
 def initialize_model(agent_type: str = "single"):
-    global CONFIG, model
+    global CONFIG, model, tracer
     CONFIG = load_server_config(agent_type)
     models = CONFIG.get("models", [])
     if not models:
         raise ValueError("No models defined in config")
     model = get_model(models[0])
+    tracer = make_tracer()
 
 # Stdio MCP server path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -76,18 +69,19 @@ async def shutdown():
         await stdio_context.__aexit__(None, None, None)
 
 async def run_single_agent(user_input: list, metadata: dict = None):
-    global agent
+    global agent, tracer
     human_message = HumanMessage(content=user_input)
     tags = [f"{k}={v}" for k, v in (metadata or {}).items()]
 
+    config = {
+        "recursion_limit": 100,
+        "tags": tags,
+        "metadata": metadata or {}
+    }
+
     return await agent.ainvoke(
         {"messages": [human_message]},
-        config={
-            "recursion_limit": 100,
-            "callbacks": [tracer],
-            "tags": tags,
-            "metadata": metadata or {}
-        }
+        config=config
     )
 
 async def call_tool(tool_name: str, args: dict = {}):
