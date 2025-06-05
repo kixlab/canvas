@@ -11,6 +11,34 @@ from dataclasses import dataclass
 import logging
 from config import load_experiment_config
 
+@dataclass
+class ExperimentConfig:
+    model: str
+    variants: List[str]
+    channel: str
+    config_name: str
+    batch_name: Optional[str] = None
+    task: Optional[str] = None
+    batches_config_path: Optional[str] = None
+    multi_agent: bool = False
+    guidance: Optional[str] = None
+    use_langsmith: bool = False
+
+    @classmethod
+    def from_args(cls, args):
+        return cls(
+            model=args.model,
+            variants=args.variants.split(","),
+            channel=args.channel,
+            config_name=args.config_name,
+            batch_name=getattr(args, 'batch_name', None),
+            task=getattr(args, 'task', None),
+            batches_config_path=getattr(args, 'batches_config_path', None),
+            multi_agent=getattr(args, 'multi_agent', False),
+            guidance=getattr(args, 'guidance', None),
+            use_langsmith=getattr(args, 'use_langsmith', False)
+        )
+
 class ExperimentLogger:
     def __init__(self, log_dir: Path):
         self.logger = logging.getLogger("experiment")
@@ -43,7 +71,7 @@ class ExperimentLogger:
         self.logger.warning(message)
 
 class BaseExperiment:
-    def __init__(self, config):
+    def __init__(self, config: ExperimentConfig):
         self.config = config
         self.setup_environment()
         self.logger = ExperimentLogger(self.results_dir)
