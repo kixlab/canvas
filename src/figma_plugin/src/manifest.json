@@ -1,0 +1,8 @@
+{
+  "name": "Centered-Frame Example",
+  "id": "com.example.centered-frame",
+  "api": "1.0.0",
+  "editorType": ["figma"],
+  "main": "code.js",
+  "ui": "ui.html"
+}

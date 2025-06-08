@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2017", // Figma plugin API supports ES2017 (QuickJS)
+    "lib": [
+      "DOM",
+      "ES2017" // Figma plugin API supports ES2017 (QuickJS)
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "downlevelIteration": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "types": [
+      "vite/client",
+      "@figma/plugin-typings"
+    ],
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": [
+    "src"
+  ]
+}

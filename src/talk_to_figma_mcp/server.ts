@@ -499,7 +499,7 @@ server.tool(
     try {
       const results = await Promise.all(
         nodeIds.map(async (nodeId) => {
-          const { result } = await sendCommandToFigma("get_node_info", {
+          const result = await sendCommandToFigma("get_node_info", {
             nodeId,
           });
           return { nodeId, info: result };
@@ -2498,10 +2498,11 @@ server.tool(
   },
   async ({ nodeId, itemSpacing }) => {
     try {
-      const { result } = await sendCommandToFigma("set_item_spacing", {
+      const result = await sendCommandToFigma("set_item_spacing", {
         nodeId,
         itemSpacing,
       });
+
       const typedResult = result as { name: string };
 
       return {
