@@ -82,10 +82,10 @@ export default defineConfig({
         chunkFileNames: '[name].js',
         assetFileNames: '[name].[ext]',
       },
-      // treeshake: false, // disable treeshaking to keep all code
+      treeshake: false, // disable treeshaking to keep all code
     },
 
-    // minify: false, // disable minification for easier debugging
+    minify: false, // disable minification for easier debugging
   },
 
   plugins: [

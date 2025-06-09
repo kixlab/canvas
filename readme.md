@@ -99,10 +99,10 @@ The MCP server provides the following tools for interacting with Figma:
 
 ### Layout
 
-- `set_padding` -
-- `set_axis_align` - 
-- `set_layout_sizing` - 
-- `set_item_spacing` - 
+- `set_padding` - Set padding (top, right, bottom, left) for auto-layout frames
+- `set_axis_align` - Set primary and counter axis alignment for auto-layout frames
+- `set_layout_sizing` - Set horizontal and vertical layout sizing (FIXED, HUG, FILL) for auto-layout frames
+- `set_item_spacing` - Set spacing between items in auto-layout frames
 
 ### Component
 

@@ -34,12 +34,10 @@ export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-// Helper functions
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// --- Utility: makeSolidPaint ---
 export function makeSolidPaint(color: {
   r: number;
   g: number;
@@ -97,7 +95,6 @@ function uniqBy<T, K extends PropertyKey>(
   arr: T[],
   predicate: PropertyAccessor<T, K>
 ): T[] {
-  // Normalise the accessor to a function
   const cb: (item: T) => K =
     typeof predicate === 'function'
       ? (predicate as (item: T) => K)
@@ -377,7 +374,6 @@ export async function setCharacters(
     node.fontName = fallbackFont;
   }
 
-  // ── Finally, set the characters ───────────────────────
   try {
     node.characters = characters;
     return true;
@@ -387,7 +383,6 @@ export async function setCharacters(
   }
 }
 
-// Function to generate simple UUIDs for command IDs
 export function generateCommandId() {
   return (
     'cmd_' +
@@ -404,7 +399,6 @@ export async function processTextNode(
   if (node.type !== 'TEXT') return null;
 
   try {
-    // Safely extract font information
     let fontFamily = '';
     let fontStyle = '';
 
@@ -415,7 +409,6 @@ export async function processTextNode(
       }
     }
 
-    // Create a safe representation of the text node
     const safeTextNode = {
       id: node.id,
       name: node.name || 'Text',
@@ -432,7 +425,6 @@ export async function processTextNode(
       depth: depth,
     };
 
-    // Highlight the node briefly (optional visual feedback)
     try {
       const originalFills = JSON.parse(JSON.stringify(node.fills));
       node.fills = [
@@ -443,7 +435,6 @@ export async function processTextNode(
         },
       ];
 
-      // Brief delay for the highlight to be visible
       await delay(100);
 
       try {
@@ -463,23 +454,18 @@ export async function processTextNode(
   }
 }
 
-// define a type for our simplified text node representation, based on the TextNode interface, omitting them
-
 export async function findTextNodes(
   node: BaseNode,
   parentPath: string[] = [],
   depth: number = 0,
   textNodes: MinimalTextNode[] = []
 ): Promise<void> {
-  // Skip invisible nodes
   if ('visible' in node && node.visible === false) return;
 
-  // Get the path to this node including its name
   const nodePath = [...parentPath, node.name || `Unnamed ${node.type}`];
 
   if (node.type === 'TEXT') {
     try {
-      // Safely extract font information to avoid Symbol serialization issues
       let fontFamily = '';
       let fontStyle = '';
 
@@ -490,7 +476,6 @@ export async function findTextNodes(
         }
       }
 
-      // Create a safe representation of the text node with only serializable properties
       const safeTextNode = {
         id: node.id,
         name: node.name || 'Text',
@@ -507,9 +492,7 @@ export async function findTextNodes(
         depth: depth,
       };
 
-      // Only highlight the node if it's not being done via API
       try {
-        // Safe way to create a temporary highlight without causing serialization issues
         const originalFills = JSON.parse(JSON.stringify(node.fills));
         node.fills = [
           {
@@ -519,7 +502,6 @@ export async function findTextNodes(
           },
         ];
 
-        // Promise-based delay instead of setTimeout
         await delay(500);
 
         try {
@@ -529,17 +511,14 @@ export async function findTextNodes(
         }
       } catch (highlightErr) {
         console.error('Error highlighting text node:', highlightErr);
-        // Continue anyway, highlighting is just visual feedback
       }
 
       textNodes.push(safeTextNode);
     } catch (nodeErr) {
       console.error('Error processing text node:', nodeErr);
-      // Skip this node but continue with others
     }
   }
 
-  // Recursively process children of container nodes
   if ('children' in node) {
     for (const child of node.children) {
       await findTextNodes(child, nodePath, depth + 1, textNodes);
@@ -547,27 +526,22 @@ export async function findTextNodes(
   }
 }
 
-// Helper function to collect all nodes that need to be processed
 export async function collectNodesToProcess(
   node: BaseNode,
   parentPath: string[] = [],
   depth: number = 0,
   nodesToProcess: NodeInfo[] = []
 ): Promise<void> {
-  // Skip invisible nodes
   if ('visible' in node && node.visible === false) return;
 
-  // Get the path to this node
   const nodePath = [...parentPath, node.name || `Unnamed ${node.type}`];
 
-  // Add this node to the processing list
   nodesToProcess.push({
     node: node,
     parentPath: nodePath,
     depth: depth,
   });
 
-  // Recursively add children
   if ('children' in node) {
     for (const child of node.children) {
       await collectNodesToProcess(child, nodePath, depth + 1, nodesToProcess);
@@ -580,10 +554,8 @@ export async function findNodesByTypes(
   types: string[],
   matchingNodes: MinimalNodeMatch[] = []
 ): Promise<void> {
-  // Skip invisible nodes
   if ('visible' in node && node.visible === false) return;
 
-  // Check if this node matches one of the requested types
   if (types.includes(node.type)) {
     matchingNodes.push({
       id: node.id,
@@ -600,7 +572,6 @@ export async function findNodesByTypes(
     });
   }
 
-  // Recursively process container children
   if ('children' in node) {
     for (const child of node.children) {
       await findNodesByTypes(child, types, matchingNodes);
@@ -628,9 +599,7 @@ export function customBase64Encode(bytes: Uint8Array): string {
   let a, b, c, d;
   let chunk;
 
-  // Main loop deals with bytes in chunks of 3
   for (let i = 0; i < mainLength; i = i + 3) {
-    // Combine the three bytes into a single integer
     chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
 
     // Use bitmasks to extract 6-bit segments from the triplet

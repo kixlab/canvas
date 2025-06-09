@@ -1,5 +1,3 @@
-// Types and interfaces for Figma plugin
-
 export type ProgressStatus = 'started' | 'in_progress' | 'completed' | 'error';
 export type ProgressPayload = Record<string, any> | null;
 
@@ -29,17 +27,6 @@ export interface NodeInfo {
   parentPath: string[];
   depth: number;
 }
-
-/** Minimal description of a text-node we emit to clients. */
-export interface TextNodeInfo {
-  node: TextNode;
-  /** The nesting path from the root, expressed as node names. */
-  parentPath: string[];
-  /** Depth of the node within the scene-graph. */
-  depth: number;
-}
-
-// Define a type for our simplified text node representation
 export type MinimalTextNode = {
   id: string;
   name: string;
@@ -56,7 +43,6 @@ export type MinimalTextNode = {
   depth: number;
 };
 
-/** Convenience shape returned by this helper */
 export interface CategoryInfo {
   id: string;
   label: string;
@@ -67,7 +53,7 @@ export interface CategoryInfo {
 export interface MinimalNodeMatch {
   id: string;
   name: string;
-  type: BaseNode['type']; // uses the union type from figma typings
+  type: BaseNode['type'];
   bbox: {
     x: number;
     y: number;
