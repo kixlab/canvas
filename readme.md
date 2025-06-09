@@ -64,7 +64,7 @@ The MCP server provides the following tools for interacting with Figma:
 - `get_nodes_info` - Get detailed information about multiple nodes by providing an array of node IDs
 - `scan_nodes_by_types` - Scan for nodes with specific types (useful for finding annotation targets)
 
-### Operate
+### Operation
 
 - `move_node` - Move a node to a new position
 - `resize_node` - Resize a node with new dimensions
@@ -72,44 +72,45 @@ The MCP server provides the following tools for interacting with Figma:
 - `delete_multiple_nodes` - Delete multiple nodes at once efficiently
 - `clone_node` - Create a copy of an existing node with optional position offset
 
-### Annotate
+### Annotation <
 
 - `get_annotations` - Get all annotations in the current document or specific node
 - `set_annotation` - Create or update an annotation with markdown support
 - `set_multiple_annotations` - Batch create/update multiple annotations efficiently
 
-### Create
+### Creation <
 
 - `create_rectangle` - Create a new rectangle with position, size, and optional name
 - `create_frame` - Create a new frame with position, size, and optional name
 - `create_text` - Create a new text node with customizable font properties
 
-### Text
+### Text <
 
 - `scan_text_nodes` - Scan text nodes with intelligent chunking for large designs
 - `set_text_content` - Set the text content of a single text node
 - `set_multiple_text_contents` - Batch update multiple text nodes efficiently
 
-### Style
+### Style <
 
 - `set_fill_color` - Set the fill color of a node (RGBA)
 - `set_stroke_color` - Set the stroke color and weight of a node
 - `set_corner_radius` - Set the corner radius of a node with optional per-corner control
 - `get_styles` - Get information about local styles
 
-### Layout
+### Layout <
 
 - `set_padding` - Set padding (top, right, bottom, left) for auto-layout frames
 - `set_axis_align` - Set primary and counter axis alignment for auto-layout frames
 - `set_layout_sizing` - Set horizontal and vertical layout sizing (FIXED, HUG, FILL) for auto-layout frames
 - `set_item_spacing` - Set spacing between items in auto-layout frames
+- `set_layout_mode` - 
 
-### Component
+### Component <
 
 - `get_local_components` - Get information about local components
 - `create_component_instance` - Create an instance of a component
 
-### Export & Advanced
+### Miscellaneous
 
 - `export_node_as_image` - Export a node as an image (PNG, JPG, SVG, or PDF) - limited support on image currently returning base64 as text
 

@@ -6,8 +6,10 @@
   "type": "module",
   "scripts": {
     "start": "node --loader ts-node/esm server.ts",
+    "start:modular": "node --loader ts-node/esm server-modular.ts",
     "build": "tsc",
-    "dev": "node --loader ts-node/esm --watch server.ts"
+    "dev": "node --loader ts-node/esm --watch server.ts",
+    "dev:modular": "node --loader ts-node/esm --watch server-modular.ts"
   },
   "keywords": [
     "figma",
