@@ -1,5 +1,5 @@
 // Entry point for Figma plugin
-import { handleCommand } from './core/handlers';
+import { handleCommand } from './code/handlers';
 
 const internalState = {
   serverPort: 3055 as number,
