@@ -1,81 +1,91 @@
 // Command dispatch and plugin message handlers
-import * as Commands from './commands';
-import { getErrorMessage } from './utils';
+import * as AnnotateCommand from './commands/annotateCommand';
+import * as ComponentCommand from './commands/componentCommand';
+import * as CreateCommand from './commands/createCommand';
+import * as LayoutCommand from './commands/layoutCommand';
+import * as MiscellaneousCommand from './commands/miscellaneousCommand';
+import * as OperateCommand from './commands/operateCommand';
+import * as StyleCommand from './commands/styleCommand';
+import * as TextCommand from './commands/textCommand';
+import * as InspectCommand from './commands/inspectCommand';
 
 export async function handleCommand(command: string, params: any) {
   switch (command) {
     case 'get_document_info':
-      return await Commands.getDocumentInfo();
+      return await InspectCommand.getDocumentInfo();
     case 'get_selection':
-      return await Commands.getSelection();
+      return await InspectCommand.getSelection();
     case 'get_node_info':
-      if (!params || !params.nodeId) {
-        throw new Error('Missing nodeId parameter');
-      }
-      return await Commands.getNodeInfo(params.nodeId);
+      return await InspectCommand.getNodeInfo(params);
     case 'get_nodes_info':
-      if (!params || !params.nodeIds || !Array.isArray(params.nodeIds)) {
-        throw new Error('Missing or invalid nodeIds parameter');
-      }
-      return await Commands.getNodesInfo(params.nodeIds);
+      return await InspectCommand.getNodesInfo(params);
     case 'read_my_design':
-      return await Commands.readMyDesign();
-    case 'create_rectangle':
-      return await Commands.createRectangle(params);
-    case 'create_frame':
-      return await Commands.createFrame(params);
-    case 'create_text':
-      return await Commands.createText(params);
-    case 'set_fill_color':
-      return await Commands.setFillColor(params);
-    case 'set_stroke_color':
-      return await Commands.setStrokeColor(params);
-    case 'move_node':
-      return await Commands.moveNode(params);
-    case 'resize_node':
-      return await Commands.resizeNode(params);
-    case 'delete_node':
-      return await Commands.deleteNode(params);
-    case 'delete_multiple_nodes':
-      return await Commands.deleteMultipleNodes(params);
-    case 'get_styles':
-      return await Commands.getStyles();
-    case 'get_local_components':
-      return await Commands.getLocalComponents();
-    // case "get_team_components":
-    //   return await getTeamComponents();
-    case 'create_component_instance':
-      return await Commands.createComponentInstance(params);
-    case 'export_node_as_image':
-      return await Commands.exportNodeAsImage(params);
-    case 'set_corner_radius':
-      return await Commands.setCornerRadius(params);
-    case 'set_text_content':
-      return await Commands.setTextContent(params);
-    case 'clone_node':
-      return await Commands.cloneNode(params);
-    case 'scan_text_nodes':
-      return await Commands.scanTextNodes(params);
-    case 'set_multiple_text_contents':
-      return await Commands.setMultipleTextContents(params);
-    case 'get_annotations':
-      return await Commands.getAnnotations(params);
-    case 'set_annotation':
-      return await Commands.setAnnotation(params);
+      return await InspectCommand.readMyDesign();
     case 'scan_nodes_by_types':
-      return await Commands.scanNodesByTypes(params);
+      return await InspectCommand.scanNodesByTypes(params);
+
+    case 'clone_node':
+      return await OperateCommand.cloneNode(params);
+    case 'move_node':
+      return await OperateCommand.moveNode(params);
+    case 'resize_node':
+      return await OperateCommand.resizeNode(params);
+    case 'delete_node':
+      return await OperateCommand.deleteNode(params);
+    case 'delete_multiple_nodes':
+      return await OperateCommand.deleteMultipleNodes(params);
+
+    case 'create_rectangle':
+      return await CreateCommand.createRectangle(params);
+    case 'create_frame':
+      return await CreateCommand.createFrame(params);
+    case 'create_text':
+      return await CreateCommand.createText(params);
+
+    case 'set_fill_color':
+      return await StyleCommand.setFillColor(params);
+    case 'set_stroke_color':
+      return await StyleCommand.setStrokeColor(params);
+    case 'get_styles':
+      return await StyleCommand.getStyles();
+    case 'set_corner_radius':
+      return await StyleCommand.setCornerRadius(params);
+
+    case 'get_local_components':
+      return await ComponentCommand.getLocalComponents();
+    // case "get_team_components":
+    //   return await ComponentCommand.getTeamComponents();
+    case 'create_component_instance':
+      return await ComponentCommand.createComponentInstance(params);
+
+    case 'set_text_content':
+      return await TextCommand.setTextContent(params);
+    case 'scan_text_nodes':
+      return await TextCommand.scanTextNodes(params);
+    case 'set_multiple_text_contents':
+      return await TextCommand.setMultipleTextContents(params);
+
+    case 'get_annotations':
+      return await AnnotateCommand.getAnnotations(params);
+    case 'set_annotation':
+      return await AnnotateCommand.setAnnotation(params);
     case 'set_multiple_annotations':
-      return await Commands.setMultipleAnnotations(params);
+      return await AnnotateCommand.setMultipleAnnotations(params);
+
     case 'set_layout_mode':
-      return await Commands.setLayoutMode(params);
+      return await LayoutCommand.setLayoutMode(params);
     case 'set_padding':
-      return await Commands.setPadding(params);
+      return await LayoutCommand.setPadding(params);
     case 'set_axis_align':
-      return await Commands.setAxisAlign(params);
+      return await LayoutCommand.setAxisAlign(params);
     case 'set_layout_sizing':
-      return await Commands.setLayoutSizing(params);
+      return await LayoutCommand.setLayoutSizing(params);
     case 'set_item_spacing':
-      return await Commands.setItemSpacing(params);
+      return await LayoutCommand.setItemSpacing(params);
+
+    case 'export_node_as_image':
+      return await MiscellaneousCommand.exportNodeAsImage(params);
+
     default:
       throw new Error(`Unknown command: ${command}`);
   }

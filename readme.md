@@ -55,40 +55,16 @@ talk-to-figma MCP server 코드를 수정해서 bunx 패키지 로드 아닌 다
 
 The MCP server provides the following tools for interacting with Figma:
 
-### Document & Selection
+### Inspect
 
 - `get_document_info` - Get information about the current Figma document
 - `get_selection` - Get information about the current selection
 - `read_my_design` - Get detailed node information about the current selection without parameters
 - `get_node_info` - Get detailed information about a specific node
 - `get_nodes_info` - Get detailed information about multiple nodes by providing an array of node IDs
-
-### Annotations
-
-- `get_annotations` - Get all annotations in the current document or specific node
-- `set_annotation` - Create or update an annotation with markdown support
-- `set_multiple_annotations` - Batch create/update multiple annotations efficiently
 - `scan_nodes_by_types` - Scan for nodes with specific types (useful for finding annotation targets)
 
-### Creating Elements
-
-- `create_rectangle` - Create a new rectangle with position, size, and optional name
-- `create_frame` - Create a new frame with position, size, and optional name
-- `create_text` - Create a new text node with customizable font properties
-
-### Modifying text content
-
-- `scan_text_nodes` - Scan text nodes with intelligent chunking for large designs
-- `set_text_content` - Set the text content of a single text node
-- `set_multiple_text_contents` - Batch update multiple text nodes efficiently
-
-### Styling
-
-- `set_fill_color` - Set the fill color of a node (RGBA)
-- `set_stroke_color` - Set the stroke color and weight of a node
-- `set_corner_radius` - Set the corner radius of a node with optional per-corner control
-
-### Layout & Organization
+### Operate
 
 - `move_node` - Move a node to a new position
 - `resize_node` - Resize a node with new dimensions
@@ -96,9 +72,40 @@ The MCP server provides the following tools for interacting with Figma:
 - `delete_multiple_nodes` - Delete multiple nodes at once efficiently
 - `clone_node` - Create a copy of an existing node with optional position offset
 
-### Components & Styles
+### Annotate
 
+- `get_annotations` - Get all annotations in the current document or specific node
+- `set_annotation` - Create or update an annotation with markdown support
+- `set_multiple_annotations` - Batch create/update multiple annotations efficiently
+
+### Create
+
+- `create_rectangle` - Create a new rectangle with position, size, and optional name
+- `create_frame` - Create a new frame with position, size, and optional name
+- `create_text` - Create a new text node with customizable font properties
+
+### Text
+
+- `scan_text_nodes` - Scan text nodes with intelligent chunking for large designs
+- `set_text_content` - Set the text content of a single text node
+- `set_multiple_text_contents` - Batch update multiple text nodes efficiently
+
+### Style
+
+- `set_fill_color` - Set the fill color of a node (RGBA)
+- `set_stroke_color` - Set the stroke color and weight of a node
+- `set_corner_radius` - Set the corner radius of a node with optional per-corner control
 - `get_styles` - Get information about local styles
+
+### Layout
+
+- `set_padding` -
+- `set_axis_align` - 
+- `set_layout_sizing` - 
+- `set_item_spacing` - 
+
+### Component
+
 - `get_local_components` - Get information about local components
 - `create_component_instance` - Create an instance of a component
 
