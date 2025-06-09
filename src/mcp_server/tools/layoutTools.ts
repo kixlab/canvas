@@ -33,7 +33,7 @@ export function registerLayoutTools(server: McpServer) {
         const typedResult = result as { name: string };
 
         // Create a message about which padding values were set
-        const paddingMessages = [];
+        const paddingMessages: string[] = [];
         if (paddingTop !== undefined)
           paddingMessages.push(`top: ${paddingTop}`);
         if (paddingRight !== undefined)
@@ -86,7 +86,7 @@ export function registerLayoutTools(server: McpServer) {
         const typedResult = result as { name: string };
 
         // Create a message about which alignments were set
-        const alignMessages = [];
+        const alignMessages: string[] = [];
         if (primaryAxisAlignItems !== undefined)
           alignMessages.push(`primary: ${primaryAxisAlignItems}`);
         if (counterAxisAlignItems !== undefined)
@@ -135,7 +135,7 @@ export function registerLayoutTools(server: McpServer) {
         const typedResult = result as { name: string };
 
         // Create a message about which sizing modes were set
-        const sizingMessages = [];
+        const sizingMessages: string[] = [];
         if (layoutSizingHorizontal !== undefined)
           sizingMessages.push(`horizontal: ${layoutSizingHorizontal}`);
         if (layoutSizingVertical !== undefined)

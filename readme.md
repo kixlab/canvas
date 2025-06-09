@@ -1,50 +1,76 @@
-## Project Structure
+## Folder Structure
 
-- `src/talk_to_figma_mcp/` - TypeScript MCP server를 거의 그대로 사용하고 있습니다.
-- `src/cursor_mcp_plugin/` - Figma plugin 입니다. 기존에서 channel authentification 제거해서 `bun socket` 해서 소켓서버 여시고 connect 누리면 바로 연결됩니다.
-- `src/socket.ts` - 소켓 서버입니다. 장기적으로 plugin or MCP server 사이드로 통합할 방법을 모색중입니다.
+- `src/fastapi_server`: MCP client for communicating with the remote LLM API.
+- `src/figma_plugin`: Figma plugin for executing commands.
+- `src/mcp_server`: MCP server for listing up the tools for LLM agent.
+- `src/socket_server`: Socket server for broadcasting messages between the plugin and the MCP server.
 
 ## Get Started
 
-1. Install Bun if you haven't already:
+### Prerequisites
+- Install Node.js (v18+ recommended)
 
+### Quick Setup
 ```bash
-curl -fsSL https://bun.sh/install | bash
+# Build all services
+chmod +x ./sh/build_service.sh
+./sh/build_service.sh
 ```
 
-2. Run setup, this will also install MCP in your Cursor's active project
+### Manual Setup
 
+**1. Socket Server**
 ```bash
-bun setup
+cd src/socket_server
+npm install && npm run build
 ```
 
-3. Start the Websocket server
-
+**2. Figma Plugin**
 ```bash
-bun socket
+cd src/figma_plugin
+npm install && npm run build
 ```
 
-4. Build the Figma plugin
-- Move to `src/figma_plugin` by `cd src/figma_plugin`
-- Run `npm install` and `npm run build`
-- Toggle the Figma Desktop client.
-- Move through menus in the following order: `client > Figma logo > plugins > Development`
-- Load the manifeset.json in the dist folder: `src/figma_plugin/dist/manifest.json`
-- Click `Connect` to conenct to the Websocket server.
+**3. MCP Server**
+```bash
+cd src/mcp_server
+npm install && npm run build
+```
 
-5. Build the MCP Server
-- Move to `src/mcp_server` by `cd src/mcp_server`
-- Run `npm run build`
-- For debugging, run the following command: `npx @modelcontextprotocol/inspector dist/server.js`. This will start a debuggin MCP server with a local access URL.
+### Running Services
 
-6. FastAPI server
+**1. Start Socket Server**
+```bash
+chmod +x ./sh/run_socket.sh
+./sh/run_socket.sh
+```
+or
+```
+cd src/socket_server
+npm run start
+```
 
-- In root path `./`, define the value for `.env` file and `OPENAI_API_KEY` variable.
-- Move to `./src/fastapi_server`
-- Install `requirement.txt` using `venv` or `conda`
-- Load the server by running the script `app.py` 
-- Connect to `0.0.0.0:8080` for accessing the chat-based interface.
+**2. Load Figma Plugin**
+- Open Figma Desktop
+- Go to: **Figma logo → Plugins → Development**
+- Load manifest: `src/figma_plugin/dist/manifest.json`
+- Click **Connect**
 
+**3. Debug MCP Server (Optional)**
+```bash
+cd src/mcp_server
+npx @modelcontextprotocol/inspector dist/server.js
+```
+
+**4. FastAPI Server (Optional)**
+```bash
+# Setup environment
+echo "OPENAI_API_KEY=your_key_here" > .env
+
+cd src/fastapi_server
+pip install -r requirements.txt
+python app.py
+```
 
 ## MCP Tools
 

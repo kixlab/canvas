@@ -55,6 +55,33 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 print_status "Project root: $PROJECT_ROOT"
 
+# Setup Socket Server
+print_status "Setting up Socket Server..."
+cd "$PROJECT_ROOT/src/socket_server"
+
+if [ ! -f "package.json" ]; then
+    print_error "Socket Server package.json not found"
+    exit 1
+fi
+
+print_status "Installing Socket Server dependencies..."
+npm install
+
+if [ $? -ne 0 ]; then
+    print_error "Failed to install Socket Server dependencies"
+    exit 1
+fi
+
+print_status "Building Socket Server..."
+npm run build
+
+if [ $? -ne 0 ]; then
+    print_error "Failed to build Socket Server"
+    exit 1
+fi
+
+print_success "Socket Server setup completed"
+
 # Setup MCP Server
 print_status "Setting up MCP Server..."
 cd "$PROJECT_ROOT/src/mcp_server"
@@ -109,12 +136,12 @@ fi
 
 print_success "Figma Plugin setup completed"
 
-# Check if Bun is available for socket server
-cd "$PROJECT_ROOT"
+# Run WebSocket Server
+print_status "Starting WebSocket Server..."
+cd "$PROJECT_ROOT/src/socket_server"
+if ! npm run start; then
+    print_error "Failed to start WebSocket Server"
+    exit 1
+fi 
 
-if command_exists bun; then
-    print_success "Bun is available for socket server"
-else
-    print_warning "Bun is not installed. You'll need it to run the socket server."
-    print_status "Install Bun with: curl -fsSL https://bun.sh/install | bash"
-fi
+print_success "WebSocket Server started successfully"
