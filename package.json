@@ -15,7 +15,7 @@
   "scripts": {
     "start": "bun run dist/server.js",
     "socket": "bun run src/socket.ts",
-    "setup": "./scripts/setup.sh",
+    "setup": "./sh/setup.sh",
     "build": "tsup",
     "build:watch": "tsup --watch",
     "dev": "bun run build:watch",

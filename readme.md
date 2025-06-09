@@ -24,38 +24,33 @@ bun setup
 bun socket
 ```
 
-4. Figma development 플러그인 로드 (로드 안한 경우)
+4. Build the Figma plugin
+- Move to `src/figma_plugin` by `cd src/figma_plugin`
+- Run `npm install` and `npm run build`
+- Toggle the Figma Desktop client.
+- Move through menus in the following order: `client > Figma logo > plugins > Development`
+- Load the manifeset.json in the dist folder: `src/figma_plugin/dist/manifest.json`
+- Click `Connect` to conenct to the Websocket server.
 
-- Figma PC 클라이언트 > 로고 > plugins > Developmnet 이동
-- `src/figma_mcp_plugin/manifest.json` 으로 잡아주시면 플러그인 로드됩니다.
-- `Connect` 누르시면 바로 Websocket 서버로 바로 연결됩니다.
-
-5. MCP server
-
-talk-to-figma MCP server 코드를 수정해서 bunx 패키지 로드 아닌 다음과 같은 실행이 필요합니다.
-
-- `src/talk_to_figma_mcp` 로 진입
-- `npm run build` 실행: 타입 스크립트 컴파일러(tsc) 사용한 js 서버 빌드
-
-이후 MCP client 실행 시 스스로 서버 로드합니다.
+5. Build the MCP Server
+- Move to `src/mcp_server` by `cd src/mcp_server`
+- Run `npm run build`
+- For debugging, run the following command: `npx @modelcontextprotocol/inspector dist/server.js`. This will start a debuggin MCP server with a local access URL.
 
 6. FastAPI server
 
-- 최상단 경로 `./` 에 `.env` 파일 및 `OPENAI_API_KEY` 변수 정의
-- `./src/fastapi_server` 진입
-- `venv` 또는 `conda` 통해서 requirement.txt 설치
-- `app.py` 실행하면 서버 로드 
-- `0.0.0.0:8080` 로 진입하면 test 목적의 웹페이지 접속 (chat interface 및 커맨드 실행)
+- In root path `./`, define the value for `.env` file and `OPENAI_API_KEY` variable.
+- Move to `./src/fastapi_server`
+- Install `requirement.txt` using `venv` or `conda`
+- Load the server by running the script `app.py` 
+- Connect to `0.0.0.0:8080` for accessing the chat-based interface.
 
-8. MCP Debugging 방법
-- `./figma_mcp_plugin` 진입하여 아래 명령어 수행
-`npx @modelcontextprotocol/inspector node src/talk_to_figma_mcp/dist/server.js`
 
 ## MCP Tools
 
-The MCP server provides the following tools for interacting with Figma:
+CanvasBench Tool Lists
 
-### Inspect
+### Inspection
 
 - `get_document_info` - Get information about the current Figma document
 - `get_selection` - Get information about the current selection
@@ -72,40 +67,40 @@ The MCP server provides the following tools for interacting with Figma:
 - `delete_multiple_nodes` - Delete multiple nodes at once efficiently
 - `clone_node` - Create a copy of an existing node with optional position offset
 
-### Annotation <
+### Annotation
 
 - `get_annotations` - Get all annotations in the current document or specific node
 - `set_annotation` - Create or update an annotation with markdown support
 - `set_multiple_annotations` - Batch create/update multiple annotations efficiently
 
-### Creation <
+### Creation
 
 - `create_rectangle` - Create a new rectangle with position, size, and optional name
 - `create_frame` - Create a new frame with position, size, and optional name
 - `create_text` - Create a new text node with customizable font properties
 
-### Text <
+### Text
 
 - `scan_text_nodes` - Scan text nodes with intelligent chunking for large designs
 - `set_text_content` - Set the text content of a single text node
 - `set_multiple_text_contents` - Batch update multiple text nodes efficiently
 
-### Style <
+### Style
 
 - `set_fill_color` - Set the fill color of a node (RGBA)
 - `set_stroke_color` - Set the stroke color and weight of a node
 - `set_corner_radius` - Set the corner radius of a node with optional per-corner control
 - `get_styles` - Get information about local styles
 
-### Layout <
+### Layout
 
 - `set_padding` - Set padding (top, right, bottom, left) for auto-layout frames
 - `set_axis_align` - Set primary and counter axis alignment for auto-layout frames
 - `set_layout_sizing` - Set horizontal and vertical layout sizing (FIXED, HUG, FILL) for auto-layout frames
 - `set_item_spacing` - Set spacing between items in auto-layout frames
-- `set_layout_mode` - 
+- `set_layout_mode` - Set the layout mode (NONE, HORIZONTAL, VERTICAL) and wrap behavior for auto-layout frames
 
-### Component <
+### Component
 
 - `get_local_components` - Get information about local components
 - `create_component_instance` - Create an instance of a component
@@ -113,18 +108,6 @@ The MCP server provides the following tools for interacting with Figma:
 ### Miscellaneous
 
 - `export_node_as_image` - Export a node as an image (PNG, JPG, SVG, or PDF) - limited support on image currently returning base64 as text
-
-## Development
-
-### Building the Figma Plugin
-
-1. Navigate to the Figma plugin directory:
-
-   ```
-   cd src/cursor_mcp_plugin
-   ```
-
-2. Edit code.js and ui.html
 
 ## Best Practices
 
