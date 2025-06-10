@@ -56,21 +56,27 @@ npm run start
 - Load manifest: `src/figma_plugin/dist/manifest.json`
 - Click **Connect**
 
-**3. Debug MCP Server (Optional)**
+**3. Debug MCP Server**
 ```bash
 cd src/mcp_server
 npx @modelcontextprotocol/inspector dist/server.js
 ```
 
-**4. FastAPI Server (Optional)**
+**4. FastAPI Server**
 ```bash
 # Setup environment
 echo "OPENAI_API_KEY=your_key_here" > .env
 
-cd src/fastapi_server
-pip install -r requirements.txt
-python app.py
+cd src
+pip install -r fastapi_server/requirements.txt
+uvicorn fastapi_server.app:app --port=8000
 ```
+
+Instead of uvicorn:
+```
+python -m fastapi_server.app  # default port: 8000
+```
+can be possible.
 
 ## MCP Tools
 
