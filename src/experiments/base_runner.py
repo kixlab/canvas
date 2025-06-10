@@ -98,6 +98,7 @@ class BaseExperiment:
         self.api_base_url = self.channel_config["api_base_url"]
         self.figma_file_key = self.channel_config["figma_file_key"]
         self.figma_api_token = os.getenv("FIGMA_API_TOKEN")
+        self.figma_base_url = "https://api.figma.com/v1"
         self.headers = {"X-Figma-Token": self.figma_api_token}
         
         self.allowed_ids = self._load_batch_ids() if self.config.batch_name else None
@@ -169,15 +170,65 @@ class BaseExperiment:
         except:
             return {}
 
+    async def fetch_figma_hierarchy(self) -> dict:
+        url = f"{self.figma_base_url}/files/{self.figma_file_key}"
+        async with aiohttp.ClientSession(headers=self.headers) as session:
+            async with session.get(url) as resp:
+                data = await resp.json()
+                self.logger.info("[Figma] Retrieved hierarchy.")
+                return data
+
+    async def export_figma_images(self, node_ids: list[str], format: str = "png", scale: int = 1) -> dict:
+        url = f"{self.figma_base_url}/images/{self.figma_file_key}"
+        params = {"ids": ",".join(node_ids), "format": format, "scale": scale}
+        async with aiohttp.ClientSession(headers=self.headers) as session:
+            async with session.get(url, params=params) as resp:
+                data = await resp.json()
+                self.logger.info(f"[Figma] Exported images for {len(node_ids)} nodes.")
+                return data.get("images", {})
+
+    async def save_figma_export(self, hierarchy: dict, image_urls: dict, file_prefix: str = "figma_export") -> None:
+        result = {"hierarchy": hierarchy, "image_urls": image_urls}
+        out_path = self.results_dir / f"{file_prefix}.json"
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
+        self.logger.info(f"[Save] Figma export saved to {out_path}")
+
     async def run(self):
         # TODO: Implement run_*_experiment.py to inherit this
         raise NotImplementedError
 
     async def save_results(self, results: Dict[str, Any], result_name: str):
-        result_file = self.results_dir / f"{result_name}.json"
-        with open(result_file, "w", encoding="utf-8") as f:
+        result_dir = self.results_dir / result_name
+        result_dir.mkdir(parents=True, exist_ok=True)
+
+        json_response_file = result_dir / f"{result_name}-json-response.json"
+        with open(json_response_file, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
-        self.logger.info(f"Saved results to {result_file}")
+        self.logger.info(f"Saved results to {json_response_file}")
+
+        hierarchy = await self.fetch_figma_hierarchy()
+        hierarchy_file = result_dir / f"{result_name}-figma-hierarchy.json"
+        with open(hierarchy_file, "w", encoding="utf-8") as f:
+            json.dump(hierarchy, f, indent=2, ensure_ascii=False)
+        self.logger.info(f"Saved Figma hierarchy to {hierarchy_file}")
+
+        try:
+            top_level_nodes = [
+                node["id"]
+                for node in hierarchy.get("document", {}).get("children", [])
+                if node.get("type") == "FRAME"
+            ]
+        except Exception as e:
+            self.logger.warning(f"[Figma] Failed to extract frame node IDs: {e}")
+            top_level_nodes = []
+
+        if top_level_nodes:
+            image_urls = await self.export_figma_images(top_level_nodes)
+            image_url_file = result_dir / f"{result_name}-figma-images.json"
+            with open(image_url_file, "w", encoding="utf-8") as f:
+                json.dump(image_urls, f, indent=2, ensure_ascii=False)
+            self.logger.info(f"Saved Figma image URLs to {image_url_file}")
 
     async def handle_error(self, error: Exception, context: str):
         self.logger.error(f"Error in {context}: {str(error)}")
