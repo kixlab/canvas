@@ -36,9 +36,6 @@ import json
 from typing import Optional, List
 from contextlib import asynccontextmanager
 
-class ChatRequest(BaseModel):
-    message: str
-
 @asynccontextmanager
 async def lifespan_context(app: FastAPI):
     await startup(agent_type=AGENT_TYPE)
@@ -63,12 +60,12 @@ async def get_homepage(request: Request):
  
 @app.post("/generate/text")
 async def generate_with_text(
-    req: ChatRequest,
+    message: str = Form(...),
     metadata: str = Form(None)
 ):
     try:        
-        if req.message:
-            instruction = get_text_based_generation_prompt(req.message)
+        if message:
+            instruction = get_text_based_generation_prompt(message)
             agent_input = [{"type": "text", "text": instruction}]
             
             response = await run_agent(
