@@ -52,6 +52,8 @@ export function registerPrompts(server: McpServer) {
      * Use fillColor for backgrounds
      * Use strokeColor for borders
      * Set proper fontWeight for different text elements
+  - Use create_vector_from_svg() for icons or custom graphics
+  - Use create_rectangle() for simple shapes
 
 6. Mofifying existing elements:
   - use set_text_content() to modify text content.

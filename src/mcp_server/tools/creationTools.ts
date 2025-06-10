@@ -247,4 +247,41 @@ export function registerCreationTools(server: McpServer) {
       }
     }
   );
+
+  // create SVG tool
+  server.tool(
+    "create_vector_from_svg",
+    "Create a vector layer containing vector shapes extracted from an SVG string in Figma",
+    {
+      svg: z
+        .string()
+        .describe(
+          "The raw SVG code as a string. Must contain at least one <path> element with a 'd' attribute"
+        ),
+      x: z.number().describe("X position for the new vector layer"),
+      y: z.number().describe("Y position for the new vector layer"),
+      name: z.string().describe("A name for the new vector layer"),
+      parentId: z
+        .string()
+        .optional()
+        .describe("Optional parent node ID to append the vector layer to"),
+    },
+    async ({ svg, x, y, name, parentId }) => {
+      try {
+        const result = await sendCommandToFigma("create_vector_from_svg", {
+          svg,
+          x,
+          y,
+          name: name || "SVG Vector",
+          parentId,
+        });
+        const typedResult = result as { name: string; id: string };
+        return createSuccessResponse(
+          `Created vector "${typedResult.name}" with ID: ${typedResult.id}.`
+        );
+      } catch (error) {
+        return createErrorResponse(error, "creating vector from SVG");
+      }
+    }
+  );
 }

@@ -115,4 +115,5 @@ export type FigmaCommand =
   | "set_axis_align"
   | "set_layout_sizing"
   | "set_item_spacing"
-  | "check_connection_status";
+  | "check_connection_status"
+  | "create_vector_from_svg";
