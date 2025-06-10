@@ -27,18 +27,18 @@ export OPENAI_API_KEY="your_openai_key"
 
 ```bash
 python -m experiments.run_generation_experiment \
-  --config_name=single-generation \
+  --config-name=single-generation \
   --model=gpt-4o \
   --variants=image_only \
   --channel=channel_2 \
-  --batch_name=batch_1
+  --batch-name=batch_1
 ```
 
 ### UI Modification Experiments
 
 ```bash
 python -m experiments.run_modification_experiment \
-  --config_name=single-modification \
+  --config-name=single-modification \
   --model=gpt-4o \
   --variants=without_oracle \
   --channel=channel_2 \
@@ -49,11 +49,11 @@ python -m experiments.run_modification_experiment \
 
 ```bash
 python -m experiments.run_sample_extraction  \
-  --config_name=single-generation \
+  --config-name=single-generation \
   --model=gpt-4o \
   --variants=image_only \
   --channel=channel_2 \
-  --batch_name=batch_1
+  --batch-name=batch_1
 ```
 
 
