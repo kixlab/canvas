@@ -11,10 +11,9 @@ This module provides a framework for running UI modification and generation expe
 ## Prerequisites
 
 1. Environment setup:
-```bash
-conda env create -f environment.yml
-conda activate cxi-test
-```
+* (terminal 1) `bun socket` (Start the WebSocket server (Port 3055))
+* (terminal 2) `uvicorn fastapi_server.app:app --port=<YOUR_PORT_NUM>`
+* (Figma Client) Open the CanvasBench MCP Plugin in your Figma client, and ensure it connects to the correct WebSocket channel and server port.
 
 2. Required environment variables:
 ```bash
@@ -45,6 +44,18 @@ python -m experiments.run_modification_experiment \
   --channel=channel_2 \
   --task=task-1
 ```
+
+### Sample Extraction (CLI Mode)
+
+```bash
+python -m experiments.run_sample_extraction  \
+  --config_name=single-generation \
+  --model=gpt-4o \
+  --variants=image_only \
+  --channel=channel_2 \
+  --batch_name=batch_1
+```
+
 
 ## Command Line Arguments
 
