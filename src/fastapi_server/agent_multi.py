@@ -20,7 +20,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir  = str(Path(current_dir).parent)
 server_params = StdioServerParameters(
     command="node",
-    args=[f"{parent_dir}/talk_to_figma_mcp/dist/server.js"],
+    args=[f"{parent_dir}/mcp_server/dist/server.js"],
 )
 
 # ---------- 글로벌 상태 ----------
