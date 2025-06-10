@@ -271,3 +271,61 @@ export async function createText(params: {
     parentId: textNode.parent ? textNode.parent.id : undefined,
   };
 }
+
+export async function createVectorFromSVG(params: {
+  svg: string;
+  name?: string;
+  x?: number;
+  y?: number;
+  parentId?: string;
+}) {
+  const { svg, name, x = 0, y = 0, parentId } = params || {};
+
+  if (!svg) {
+    throw new Error('An SVG string must be provided.');
+  }
+
+  const node = figma.createNodeFromSvg(svg);
+
+  node.x = x;
+  node.y = y;
+
+  let returnNode: SceneNode = node;
+
+  if (node.children.length === 1) {
+    const child = node.children[0];
+    if (parentId) {
+      const parent = await figma.getNodeByIdAsync(parentId);
+      if (parent && 'appendChild' in parent) {
+        (parent as BaseNode & ChildrenMixin).appendChild(child);
+      }
+    } else {
+      figma.currentPage.appendChild(child);
+    }
+    child.x = x;
+    child.y = y;
+    node.remove();
+    returnNode = child;
+  } else {
+    if (parentId) {
+      const parent = await figma.getNodeByIdAsync(parentId);
+      if (parent && 'appendChild' in parent) {
+        (parent as BaseNode & ChildrenMixin).appendChild(node);
+      }
+    }
+  }
+
+  if (name) {
+    returnNode.name = name;
+  }
+
+  return {
+    id: returnNode.id,
+    name: returnNode.name,
+    x: returnNode.x,
+    y: returnNode.y,
+    width: returnNode.width,
+    height: returnNode.height,
+    parentId: returnNode.parent ? returnNode.parent.id : undefined,
+  };
+}
