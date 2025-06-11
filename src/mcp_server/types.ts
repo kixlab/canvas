@@ -116,4 +116,8 @@ export type FigmaCommand =
   | "set_layout_sizing"
   | "set_item_spacing"
   | "check_connection_status"
-  | "create_vector_from_svg";
+  | "create_vector_from_svg"
+  | "create_ellipse"
+  | "create_polygon"
+  | "create_star"
+  | "create_line";
