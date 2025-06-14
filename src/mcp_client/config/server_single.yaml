@@ -1,0 +1,15 @@
+models:
+  - name: "claude-3-5-sonnet-20241022"
+    provider: "anthropic"
+    temperature: 0.7
+    max_tokens: 4096
+  - name: "gpt-4.1-2025-04-14"
+    provider: "openai"
+    temperature: 0.7
+    max_tokens: 32768
+  - name: "gpt-4o-2024-08-06"
+    provider: "openai"
+    temperature: 0.7
+    max_tokens: 4096
+
+agent_type: "single"
