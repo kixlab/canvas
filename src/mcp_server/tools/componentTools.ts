@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { sendCommandToFigma } from "../common/websocket.js";
-import { createErrorResponse } from "../common/utils.js";
+import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
 
 export function registerComponentTools(server: McpServer) {
   // Get Local Components Tool
@@ -12,16 +12,15 @@ export function registerComponentTools(server: McpServer) {
     async () => {
       try {
         const result = await sendCommandToFigma("get_local_components");
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [JSON.stringify(result)],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "getting local components");
+        return createErrorResponse({
+          error,
+          context: "getting local components",
+        });
       }
     }
   );
@@ -43,16 +42,15 @@ export function registerComponentTools(server: McpServer) {
           y,
         });
         const typedResult = result as any;
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(typedResult),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [`Created component instance with ID: ${typedResult.id}`],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "creating component instance");
+        return createErrorResponse({
+          error,
+          context: "creating component instance",
+        });
       }
     }
   );

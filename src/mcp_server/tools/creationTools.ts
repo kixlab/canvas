@@ -29,16 +29,15 @@ export function registerCreationTools(server: McpServer) {
           name: name || "Rectangle",
           parentId,
         });
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Created rectangle "${JSON.stringify(result)}"`,
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [`Created rectangle "${JSON.stringify(result)}"`],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "creating rectangle");
+        return createErrorResponse({
+          error,
+          context: "create_rectangle",
+        });
       }
     }
   );
@@ -181,11 +180,17 @@ export function registerCreationTools(server: McpServer) {
           itemSpacing,
         });
         const typedResult = result as { name: string; id: string };
-        return createSuccessResponse(
-          `Created frame "${typedResult.name}" with ID: ${typedResult.id}.`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Created frame "${typedResult.name}" with ID: ${typedResult.id}`,
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "creating frame");
+        return createErrorResponse({
+          error,
+          context: "create_frame",
+        });
       }
     }
   );
@@ -239,11 +244,17 @@ export function registerCreationTools(server: McpServer) {
           parentId,
         });
         const typedResult = result as { name: string; id: string };
-        return createSuccessResponse(
-          `Created text "${typedResult.name}" with ID: ${typedResult.id}`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Created text "${typedResult.name}" with ID: ${typedResult.id}`,
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "creating text");
+        return createErrorResponse({
+          error,
+          context: "creating text",
+        });
       }
     }
   );

@@ -1,9 +1,45 @@
+import {
+  TextContent,
+  ImageContent,
+  AudioContent,
+  EmbeddedResource,
+} from "@modelcontextprotocol/sdk/types.js";
+
 // Type definitions and interfaces for the MCP server
 
 export interface FigmaResponse {
   id: string;
   result?: any;
   error?: string;
+}
+
+export type ResponseContent =
+  | TextContent
+  | ImageContent
+  | AudioContent
+  | EmbeddedResource;
+
+export enum MCPResponseFormat {
+  TEXT = "text",
+  IMAGE = "image",
+  AUDIO = "audio",
+  RESOURCE = "resource",
+}
+
+// export type MCPResponseContent = {
+//   [K in MCPResponseFormat]: { type: K } & Record<K, string>;
+// }[MCPResponseFormat];
+
+export type MCPResponseContent =
+  | { type: MCPResponseFormat.TEXT; text: string }
+  | { type: MCPResponseFormat.IMAGE; image: string }
+  | { type: MCPResponseFormat.AUDIO; audio: string }
+  | { type: MCPResponseFormat.RESOURCE; resource: string };
+
+export interface MCPToolResponse {
+  content: MCPResponseContent[];
+  structuredContent?: Object;
+  isError: boolean;
 }
 
 export interface CommandProgressUpdate {

@@ -22,13 +22,19 @@ export function registerStyleTools(server: McpServer) {
           color: { r, g, b, a: a || 1 },
         });
         const typedResult = result as { name: string };
-        return createSuccessResponse(
-          `Set fill color of node "${
-            typedResult.name
-          }" to RGBA(${r}, ${g}, ${b}, ${a || 1})`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Set fill color of node "${
+              typedResult.name
+            }" to RGBA(${r}, ${g}, ${b}, ${a || 1})`,
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting fill color");
+        return createErrorResponse({
+          error,
+          context: "setting_fill_color",
+        });
       }
     }
   );
@@ -53,13 +59,19 @@ export function registerStyleTools(server: McpServer) {
           weight: weight || 1,
         });
         const typedResult = result as { name: string };
-        return createSuccessResponse(
-          `Set stroke color of node "${
-            typedResult.name
-          }" to RGBA(${r}, ${g}, ${b}, ${a || 1}) with weight ${weight || 1}`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Set stroke color of node "${
+              typedResult.name
+            }" to RGBA(${r}, ${g}, ${b}, ${a || 1}) with weight ${weight || 1}`,
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting stroke color");
+        return createErrorResponse({
+          error,
+          context: "setting_stroke_color",
+        });
       }
     }
   );
@@ -87,11 +99,21 @@ export function registerStyleTools(server: McpServer) {
           corners: corners || [true, true, true, true],
         });
         const typedResult = result as { name: string };
-        return createSuccessResponse(
-          `Set corner radius of node "${typedResult.name}" to ${radius}px`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Set corner radius of node "${
+              typedResult.name
+            }" to ${radius}px with corners ${
+              corners ? corners.join(", ") : "all"
+            }`,
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting corner radius");
+        return createErrorResponse({
+          error,
+          context: "setting_corner_radius",
+        });
       }
     }
   );
@@ -104,16 +126,15 @@ export function registerStyleTools(server: McpServer) {
     async () => {
       try {
         const result = await sendCommandToFigma("get_styles");
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [JSON.stringify(result)],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "getting styles");
+        return createErrorResponse({
+          error,
+          context: "getting_styles",
+        });
       }
     }
   );

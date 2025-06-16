@@ -1,7 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { sendCommandToFigma } from "../common/websocket.js";
-import { createErrorResponse, filterFigmaNode } from "../common/utils.js";
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  filterFigmaNode,
+} from "../common/utils.js";
 
 export function registerInspectionTools(server: McpServer) {
   // Document Info Tool
@@ -13,16 +17,15 @@ export function registerInspectionTools(server: McpServer) {
       try {
         const result = await sendCommandToFigma("get_document_info");
 
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [JSON.stringify(result)],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "getting document info");
+        return createErrorResponse({
+          error,
+          context: "getting document info",
+        });
       }
     }
   );
@@ -35,16 +38,15 @@ export function registerInspectionTools(server: McpServer) {
     async () => {
       try {
         const result = await sendCommandToFigma("get_selection");
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [JSON.stringify(result)],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "getting selection");
+        return createErrorResponse({
+          error,
+          context: "getting selection",
+        });
       }
     }
   );
@@ -57,16 +59,15 @@ export function registerInspectionTools(server: McpServer) {
     async () => {
       try {
         const result = await sendCommandToFigma("read_my_design", {});
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [JSON.stringify(result)],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "getting node info");
+        return createErrorResponse({
+          error,
+          context: "read_my_design",
+        });
       }
     }
   );
@@ -83,16 +84,15 @@ export function registerInspectionTools(server: McpServer) {
     async ({ nodeId }) => {
       try {
         const result = await sendCommandToFigma("get_node_info", { nodeId });
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(filterFigmaNode(result)),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [JSON.stringify(filterFigmaNode(result))],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "getting node info");
+        return createErrorResponse({
+          error,
+          context: "get_node_info",
+        });
       }
     }
   );
@@ -116,18 +116,21 @@ export function registerInspectionTools(server: McpServer) {
             return { nodeId, info: result };
           })
         );
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                results.map((result) => filterFigmaNode(result.info))
-              ),
-            },
+        return createSuccessResponse({
+          messages: [
+            JSON.stringify(
+              results.map((result) => filterFigmaNode(result.info))
+            ),
           ],
-        };
+          dataItem: {
+            results: results.map((result) => filterFigmaNode(result.info)),
+          },
+        });
       } catch (error) {
-        return createErrorResponse(error, "getting nodes info");
+        return createErrorResponse({
+          error,
+          context: "get_nodes_info",
+        });
       }
     }
   );
@@ -150,16 +153,15 @@ export function registerInspectionTools(server: McpServer) {
           nodeId,
           types,
         });
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [JSON.stringify(result)],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "scanning nodes by types");
+        return createErrorResponse({
+          error,
+          context: "scan_nodes_by_types",
+        });
       }
     }
   );

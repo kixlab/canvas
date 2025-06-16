@@ -17,11 +17,18 @@ export function registerOperationTools(server: McpServer) {
       try {
         const result = await sendCommandToFigma("move_node", { nodeId, x, y });
         const typedResult = result as { name: string };
-        return createSuccessResponse(
-          `Moved node "${typedResult.name}" to position (${x}, ${y})`
-        );
+
+        return createSuccessResponse({
+          messages: [
+            `Moved node "${typedResult.name}" to position (${x}, ${y})`,
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "moving node");
+        return createErrorResponse({
+          error,
+          context: "moving_node",
+        });
       }
     }
   );
@@ -39,15 +46,22 @@ export function registerOperationTools(server: McpServer) {
       try {
         const result = await sendCommandToFigma("clone_node", { nodeId, x, y });
         const typedResult = result as { name: string; id: string };
-        return createSuccessResponse(
-          `Cloned node "${typedResult.name}" with new ID: ${typedResult.id}${
-            x !== undefined && y !== undefined
-              ? ` at position (${x}, ${y})`
-              : ""
-          }`
-        );
+
+        return createSuccessResponse({
+          messages: [
+            `Cloned node "${typedResult.name}" with new ID: ${typedResult.id}${
+              x !== undefined && y !== undefined
+                ? ` at position (${x}, ${y})`
+                : ""
+            }`,
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "cloning node");
+        return createErrorResponse({
+          error,
+          context: "cloning_node",
+        });
       }
     }
   );
@@ -69,11 +83,17 @@ export function registerOperationTools(server: McpServer) {
           height,
         });
         const typedResult = result as { name: string };
-        return createSuccessResponse(
-          `Resized node "${typedResult.name}" to width ${width} and height ${height}`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Resized node "${typedResult.name}" to width ${width} and height ${height}`,
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "resizing node");
+        return createErrorResponse({
+          error,
+          context: "resizing_node",
+        });
       }
     }
   );
@@ -88,9 +108,14 @@ export function registerOperationTools(server: McpServer) {
     async ({ nodeId }) => {
       try {
         const result = await sendCommandToFigma("delete_node", { nodeId });
-        return createSuccessResponse(`Deleted node with ID: ${nodeId}`);
+        return createSuccessResponse({
+          messages: [`Deleted node with ID: ${nodeId}`],
+        });
       } catch (error) {
-        return createErrorResponse(error, "deleting node");
+        return createErrorResponse({
+          error,
+          context: "deleting_node",
+        });
       }
     }
   );
@@ -107,16 +132,15 @@ export function registerOperationTools(server: McpServer) {
         const result = await sendCommandToFigma("delete_multiple_nodes", {
           nodeIds,
         });
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [`Deleted nodes with IDs: ${nodeIds.join(", ")}`],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "deleting multiple nodes");
+        return createErrorResponse({
+          error,
+          context: "deleting_multiple_nodes",
+        });
       }
     }
   );

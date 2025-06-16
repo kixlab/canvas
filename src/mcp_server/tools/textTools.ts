@@ -25,7 +25,10 @@ export function registerTextTools(server: McpServer) {
     async ({ nodeId, text }, extra) => {
       try {
         if (!text || text.length === 0) {
-          return createSuccessResponse("No text provided");
+          return createErrorResponse({
+            error: new Error("No text replacements provided"),
+            context: "setting_multiple_text_contents",
+          });
         }
 
         // Initial response to indicate we're starting the process
@@ -71,17 +74,15 @@ export function registerTextTools(server: McpServer) {
             .join("\n")}`;
         }
 
-        return {
-          content: [
-            initialStatus,
-            {
-              type: "text" as const,
-              text: progressText + detailedResponse,
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [progressText + detailedResponse],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting multiple text contents");
+        return createErrorResponse({
+          error,
+          context: "setting_multiple_text_contents",
+        });
       }
     }
   );
@@ -101,11 +102,17 @@ export function registerTextTools(server: McpServer) {
           text,
         });
         const typedResult = result as { name: string };
-        return createSuccessResponse(
-          `Updated text content of node "${typedResult.name}" to "${text}"`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Updated text content of node "${typedResult.name}" to "${text}"`,
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting text content");
+        return createErrorResponse({
+          error,
+          context: "setting_text_content",
+        });
       }
     }
   );
@@ -120,16 +127,15 @@ export function registerTextTools(server: McpServer) {
     async ({ nodeId }) => {
       try {
         const result = await sendCommandToFigma("scan_text_nodes", { nodeId });
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [JSON.stringify(result)],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "scanning text nodes");
+        return createErrorResponse({
+          error,
+          context: "scanning_text_nodes",
+        });
       }
     }
   );

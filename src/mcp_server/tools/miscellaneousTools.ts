@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { sendCommandToFigma } from "../common/websocket.js";
-import { createErrorResponse } from "../common/utils.js";
+import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
 
 export function registerMiscellaneousTools(server: McpServer) {
   // Export Node as Image Tool
@@ -25,17 +25,21 @@ export function registerMiscellaneousTools(server: McpServer) {
         });
         const typedResult = result as { imageData: string; mimeType: string };
 
-        return {
-          content: [
+        return createSuccessResponse({
+          messages: [`Exported node "${nodeId}" as image`],
+          images: [
             {
-              type: "image",
               data: typedResult.imageData,
               mimeType: typedResult.mimeType || "image/png",
             },
           ],
-        };
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "exporting node as image");
+        return createErrorResponse({
+          error,
+          context: "export_node_as_image",
+        });
       }
     }
   );
