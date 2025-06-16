@@ -5,18 +5,18 @@ export interface ChatRequest {
   message: string;
 }
 
-export interface AgentInput {
+export interface MessageItem {
   type: "text" | "image_url";
-  text?: string;
-  image_url?: {
-    url: string;
-    detail: string;
-  };
+  content: string;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant" | "system" | "tool";
+  items: MessageItem[];
 }
 
 export interface AgentResponse {
   response: string;
-  json_response?: any;
   step_count: number;
   messages?: any[];
 }
@@ -24,6 +24,8 @@ export interface AgentResponse {
 // [TODO] Refine the type for tool call results
 export interface ToolCallResult {
   status: "success" | "error";
+  id: string;
+  call_id?: string; // call_id for OpenAI
   content: [
     {
       type: string;
@@ -32,9 +34,16 @@ export interface ToolCallResult {
   ];
 }
 
+export interface ToolCall {
+  id: string;
+  name: string;
+  call_id?: string; // call_id for OpenAI
+  arguments?: Record<string, unknown>;
+}
+
 export interface ModelConfig {
   name: string;
-  provider: string;
+  provider: ModelProvider;
   temperature?: number;
   max_tokens?: number;
 }
@@ -54,4 +63,11 @@ export interface MulterRequest extends Request {
   files?:
     | Express.Multer.File[]
     | { [fieldname: string]: Express.Multer.File[] };
+}
+
+export enum ModelProvider {
+  OPENAI = "openai",
+  ANTHROPIC = "anthropic",
+  GOOGLE = "google",
+  OLLAMA = "ollama",
 }

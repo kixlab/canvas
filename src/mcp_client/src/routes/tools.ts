@@ -1,12 +1,19 @@
 import { Request, Response } from "express";
-import { callTool, getRootFrameInfo, setRootFrameInfo } from "../core/agent";
+import {
+  callTool,
+  createToolCall,
+  getRootFrameInfo,
+  setRootFrameInfo,
+} from "../core/agent";
+import { randomUUID } from "crypto";
 
 export const getSelection = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const result = await callTool("get_selection");
+    const toolCall = createToolCall("get_selection", randomUUID());
+    const result = await callTool(toolCall);
     res.json(result);
   } catch (error) {
     console.error("Error in getSelection:", error);
@@ -29,8 +36,7 @@ export const createRootFrame = async (
       res.status(400).json({ error: "Width and height are required" });
       return;
     }
-
-    const result = await callTool("create_frame", {
+    const toolCall = createToolCall("create_frame", randomUUID(), {
       x,
       y,
       width,
@@ -38,6 +44,8 @@ export const createRootFrame = async (
       name,
       fillColor: { r: 1, g: 1, b: 1, a: 1 },
     });
+
+    const result = await callTool(toolCall);
 
     const IdRegex = /ID:\s*(\d+:\d+)/;
 
@@ -90,14 +98,13 @@ export const createTextInRootFrame = async (
       });
       return;
     }
-
-    const result = await callTool("create_text", {
+    const toolCall = createToolCall("create_text", randomUUID(), {
       parentId: rootFrameInfo.id,
       x: 100,
       y: 100,
       text: "Hello in root!",
     });
-
+    const result = await callTool(toolCall);
     res.json(result);
   } catch (error) {
     console.error("Error in createTextInRootFrame:", error);
@@ -117,7 +124,10 @@ export const deleteNode = async (
       return;
     }
 
-    const result = await callTool("delete_node", { nodeId: node_id });
+    const toolCall = createToolCall("delete_node", randomUUID(), {
+      nodeId: node_id,
+    });
+    const result = await callTool(toolCall);
     res.json(result);
   } catch (error) {
     console.error("Error in deleteNode:", error);
@@ -136,10 +146,10 @@ export const deleteMultipleNodes = async (
       res.status(400).json({ error: "node_ids must be an array" });
       return;
     }
-
-    const result = await callTool("delete_multiple_nodes", {
+    const toolCall = createToolCall("delete_multiple_nodes", randomUUID(), {
       nodeIds: node_ids,
     });
+    const result = await callTool(toolCall);
     res.json(result);
   } catch (error) {
     console.error("Error in deleteMultipleNodes:", error);
@@ -152,7 +162,11 @@ export const deleteAllTopLevelNodes = async (
   res: Response
 ): Promise<void> => {
   try {
-    const response = await callTool("get_document_info");
+    const documentInfoToolCall = createToolCall(
+      "get_document_info",
+      randomUUID()
+    );
+    const response = await callTool(documentInfoToolCall);
 
     if (response.status !== "success") {
       res.status(500).json({ error: "Failed to get document info" });
@@ -185,10 +199,14 @@ export const deleteAllTopLevelNodes = async (
       res.json({ status: "success", message: "No nodes to delete." });
       return;
     }
-
-    const result = await callTool("delete_multiple_nodes", {
-      nodeIds: topNodeIds,
-    });
+    const deleteNodesToolCall = createToolCall(
+      "delete_multiple_nodes",
+      randomUUID(),
+      {
+        nodeIds: topNodeIds,
+      }
+    );
+    const result = await callTool(deleteNodesToolCall);
     res.json({
       status: "success",
       deleted_node_ids: topNodeIds,
@@ -205,7 +223,8 @@ export const getChannels = async (
   res: Response
 ): Promise<void> => {
   try {
-    const result = await callTool("get_channels");
+    const getChannelsToolCall = createToolCall("get_channels", randomUUID());
+    const result = await callTool(getChannelsToolCall);
 
     if (result.status === "success" && result.content) {
       try {
@@ -251,7 +270,10 @@ export const selectChannel = async (
       return;
     }
 
-    const result = await callTool("select_channel", { channel });
+    const toolCall = createToolCall("select_channel", randomUUID(), {
+      channel,
+    });
+    const result = await callTool(toolCall);
 
     if (result.status === "success" && result.content) {
       const message = result.content.find(

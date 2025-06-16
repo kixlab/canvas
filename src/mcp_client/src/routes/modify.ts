@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { runSingleAgent } from "../core/agent";
+import { runReactAgent } from "../core/agent";
 import {
   getModificationWithoutOraclePrompt,
   getModificationWithOracleHierarchyPrompt,
@@ -10,7 +10,7 @@ import {
   base64Encode,
   createImageUrl,
 } from "../utils/helpers";
-import { AgentInput } from "../types";
+import { ChatMessage } from "../types";
 
 // Modify UI without oracle
 export const modifyWithoutOracle = async (
@@ -34,18 +34,18 @@ export const modifyWithoutOracle = async (
     const base64Image = base64Encode(req.file.buffer);
     const instruction = getModificationWithoutOraclePrompt(message);
 
-    const agentInput: AgentInput[] = [
-      { type: "text", text: instruction },
-      {
-        type: "image_url",
-        image_url: {
-          url: createImageUrl(base64Image),
-          detail: "auto",
+    const userRequest: ChatMessage = {
+      role: "user",
+      items: [
+        { type: "text", content: instruction },
+        {
+          type: "image_url",
+          content: createImageUrl(base64Image),
         },
-      },
-    ];
+      ],
+    };
 
-    const response = await runSingleAgent(agentInput, {
+    const response = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 
@@ -85,18 +85,18 @@ export const modifyWithOracleHierarchy = async (
     const base64Image = base64Encode(req.file.buffer);
     const instruction = getModificationWithOracleHierarchyPrompt(message);
 
-    const agentInput: AgentInput[] = [
-      { type: "text", text: instruction },
-      {
-        type: "image_url",
-        image_url: {
-          url: createImageUrl(base64Image),
-          detail: "auto",
+    const userRequest: ChatMessage = {
+      role: "user",
+      items: [
+        { type: "text", content: instruction },
+        {
+          type: "image_url",
+          content: createImageUrl(base64Image),
         },
-      },
-    ];
+      ],
+    };
 
-    const response = await runSingleAgent(agentInput, {
+    const response = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 
@@ -136,18 +136,18 @@ export const modifyWithOraclePerfectCanvas = async (
     const base64Image = base64Encode(req.file.buffer);
     const instruction = getModificationWithOraclePerfectCanvasPrompt(message);
 
-    const agentInput: AgentInput[] = [
-      { type: "text", text: instruction },
-      {
-        type: "image_url",
-        image_url: {
-          url: createImageUrl(base64Image),
-          detail: "auto",
+    const userRequest: ChatMessage = {
+      role: "user",
+      items: [
+        { type: "text", content: instruction },
+        {
+          type: "image_url",
+          content: createImageUrl(base64Image),
         },
-      },
-    ];
+      ],
+    };
 
-    const response = await runSingleAgent(agentInput, {
+    const response = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 

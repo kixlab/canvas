@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "yaml";
-import { ServerConfig } from "../types";
+import { ModelProvider, ServerConfig } from "../types";
 
 // Utility functions for the MCP client
 
@@ -99,7 +99,8 @@ export function createImageUrl(
 export function loadServerConfig(agentType: string = "single"): ServerConfig {
   const configPath = path.join(
     __dirname,
-    ".",
+    "..",
+    "..",
     "config",
     `server_${agentType}.yaml`
   );
@@ -110,7 +111,6 @@ export function loadServerConfig(agentType: string = "single"): ServerConfig {
 
     return config;
   } catch (error) {
-    // Fallback to base config
     const baseConfigPath = path.join(
       __dirname,
       ".",
@@ -118,16 +118,18 @@ export function loadServerConfig(agentType: string = "single"): ServerConfig {
       "server_base.yaml"
     );
     try {
+      console.warn("Failed to loead config from: ", configPath);
       const configFile = fs.readFileSync(baseConfigPath, "utf8");
       const config = yaml.parse(configFile) as ServerConfig;
       return config;
     } catch (baseError) {
+      console.warn("Failed to load base config from: ", baseConfigPath);
       // Default configuration
       return {
         models: [
           {
             name: "claude-3-5-sonnet-20241022",
-            provider: "anthropic",
+            provider: ModelProvider.ANTHROPIC,
             temperature: 0.7,
             max_tokens: 4096,
           },

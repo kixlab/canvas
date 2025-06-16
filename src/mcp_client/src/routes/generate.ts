@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { runSingleAgent } from "../core/agent";
+import { runReactAgent } from "../core/agent";
 import {
   getTextBasedGenerationPrompt,
   getImageBasedGenerationPrompt,
@@ -10,7 +10,7 @@ import {
   base64Encode,
   createImageUrl,
 } from "../utils/helpers";
-import { ChatRequest, AgentInput } from "../types";
+import { ChatRequest, ChatMessage } from "../types";
 import { MulterRequest } from "../types";
 
 export const generateFromText = async (
@@ -27,9 +27,12 @@ export const generateFromText = async (
     }
 
     const instruction = getTextBasedGenerationPrompt(chatRequest.message);
-    const agentInput: AgentInput[] = [{ type: "text", text: instruction }];
+    const userRequest: ChatMessage = {
+      role: "user",
+      items: [{ type: "text", content: instruction }],
+    };
 
-    const response = await runSingleAgent(agentInput, {
+    const response = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 
@@ -62,18 +65,18 @@ export const generateFromImage = async (
     const base64Image = base64Encode(req.file.buffer);
     const instruction = getImageBasedGenerationPrompt();
 
-    const agentInput: AgentInput[] = [
-      { type: "text", text: instruction },
-      {
-        type: "image_url",
-        image_url: {
-          url: createImageUrl(base64Image),
-          detail: "auto",
+    const userRequest: ChatMessage = {
+      role: "user",
+      items: [
+        { type: "text", content: instruction },
+        {
+          type: "image_url",
+          content: createImageUrl(base64Image),
         },
-      },
-    ];
+      ],
+    };
 
-    const response = await runSingleAgent(agentInput, {
+    const response = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 
@@ -113,18 +116,18 @@ export const generateFromTextAndImage = async (
     const base64Image = base64Encode(req.file.buffer);
     const instruction = getTextImageBasedGenerationPrompt(message);
 
-    const agentInput: AgentInput[] = [
-      { type: "text", text: instruction },
-      {
-        type: "image_url",
-        image_url: {
-          url: createImageUrl(base64Image),
-          detail: "auto",
+    const userRequest: ChatMessage = {
+      role: "user",
+      items: [
+        { type: "text", content: instruction },
+        {
+          type: "image_url",
+          content: createImageUrl(base64Image),
         },
-      },
-    ];
+      ],
+    };
 
-    const response = await runSingleAgent(agentInput, {
+    const response = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 

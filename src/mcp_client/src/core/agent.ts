@@ -4,12 +4,14 @@ import path from "path";
 import { loadServerConfig } from "../utils/helpers";
 import { getModel, ModelInstance } from "../models/factory";
 import {
-  AgentInput,
   AgentResponse,
   AgentMetadata,
   ToolCallResult,
+  ModelProvider,
+  ChatMessage,
+  ToolCall,
 } from "../types";
-import { string } from "yaml/dist/schema/common/string";
+import * as OpenAIResponseType from "openai/resources/responses/responses";
 
 interface AgentState {
   model: ModelInstance | null;
@@ -19,7 +21,6 @@ interface AgentState {
   initialized: boolean;
 }
 
-// Global agent state
 let agentState: AgentState = {
   model: null,
   client: null,
@@ -28,7 +29,6 @@ let agentState: AgentState = {
   initialized: false,
 };
 
-// Global variables for tracking state
 let currentChannel: string | null = null;
 let rootFrameId: string | null = null;
 let rootFrameWidth: number = 0;
@@ -76,13 +76,28 @@ export async function startAgent(agentType: string = "single"): Promise<void> {
     await agentState.client.connect(agentState.transport);
     const toolsResult = await agentState.client.listTools();
 
-    agentState.tools.clear();
-    if (toolsResult.tools) {
-      for (const tool of toolsResult.tools) {
-        agentState.tools.set(tool.name, tool);
-      }
+    const toolsExists =
+      toolsResult.tools &&
+      toolsResult.tools.length > 0 &&
+      toolsResult.tools.every((tool) => tool.name && tool.inputSchema);
+
+    if (!toolsExists) {
+      throw new Error("No valid tools found in MCP server");
     }
 
+    // Register tools by model type if available
+    agentState.tools.clear();
+
+    if (agentState.model.provider === ModelProvider.OPENAI) {
+      const openAITools: OpenAIResponseType.Tool[] =
+        agentState.model.formatToolList(toolsResult.tools);
+      for (const tool of openAITools) {
+        const toolName = tool.type === "function" ? tool.name : "unknown";
+        agentState.tools.set(toolName, tool);
+      }
+    } else if (agentState.model.provider === ModelProvider.ANTHROPIC) {
+      throw new Error("Anthropic model provider is not fully implemented yet");
+    }
     agentState.initialized = true;
     console.log(`Agent initialized with ${agentState.tools.size} tools`);
   } catch (error) {
@@ -113,61 +128,12 @@ export async function shutdownAgent(): Promise<void> {
   }
 }
 
-export async function runSingleAgent(
-  userInput: AgentInput[],
-  metadata: AgentMetadata = { input_id: "unknown" }
-): Promise<AgentResponse> {
-  if (!agentState.initialized || !agentState.model) {
-    throw new Error("Agent not initialized. Call startup() first.");
-  }
-
-  try {
-    const messages = userInput.map((input) => {
-      if (input.type === "text") {
-        return {
-          role: "user",
-          content: input.text || "",
-        };
-      } else if (input.type === "image_url" && input.image_url) {
-        return {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: input.image_url,
-            },
-          ],
-        };
-      }
-      return { role: "user", content: "" };
-    });
-
-    const response = await agentState.model.generateResponse(messages, {
-      tools: Array.from(agentState.tools.values()),
-      metadata: metadata,
-    });
-
-    const agentResponse: AgentResponse = {
-      response: JSON.stringify(response),
-      json_response: response,
-      step_count: 1,
-      messages: messages,
-    };
-
-    return agentResponse;
-  } catch (error) {
-    console.error("Error in runSingleAgent:", error);
-    throw error;
-  }
-}
-
-export async function callTool(
-  toolName: string,
-  args: any = {}
-): Promise<ToolCallResult> {
+export async function callTool(toolCall: ToolCall): Promise<ToolCallResult> {
   if (!agentState.initialized || !agentState.client) {
     return {
       status: "error",
+      id: toolCall.id,
+      call_id: toolCall.call_id,
       content: [
         {
           type: "text",
@@ -178,21 +144,23 @@ export async function callTool(
   }
 
   try {
-    if (!agentState.tools.has(toolName)) {
+    if (!agentState.tools.has(toolCall.name)) {
       return {
         status: "error",
+        id: toolCall.id,
+        call_id: toolCall.call_id,
         content: [
           {
             type: "text",
-            text: `Tool '${toolName}' not found`,
+            text: `Tool '${toolCall.name}' not found`,
           },
         ],
       };
     }
 
     const result = (await agentState.client.callTool({
-      name: toolName,
-      arguments: args,
+      name: toolCall.name,
+      arguments: toolCall.arguments,
     })) as {
       content: [
         {
@@ -204,11 +172,15 @@ export async function callTool(
 
     return {
       status: "success",
+      id: toolCall.id,
+      call_id: toolCall.call_id,
       content: result.content,
     };
   } catch (error) {
     return {
       status: "error",
+      id: toolCall.id,
+      call_id: toolCall.call_id,
       content: [
         {
           type: "text",
@@ -217,6 +189,87 @@ export async function callTool(
       ],
     };
   }
+}
+
+export function createToolCall(
+  toolName: string,
+  id: string,
+  args?: Record<string, unknown>,
+  callId?: string
+): ToolCall {
+  if (!agentState.initialized || !agentState.model) {
+    throw new Error("Agent not initialized. Call startAgent() first.");
+  }
+  if (!agentState.tools.has(toolName)) {
+    throw new Error(`Tool '${toolName}' not found`);
+  }
+  return {
+    id: id,
+    call_id: callId,
+    name: toolName,
+    arguments: args,
+  };
+}
+
+export async function runReactAgent(
+  userMessage: ChatMessage,
+  metadata: AgentMetadata = { input_id: "unknown" },
+  maxTurns = 20
+): Promise<AgentResponse> {
+  if (!agentState.initialized || !agentState.model) {
+    throw new Error("Agent not initialized. Call startAgent() first.");
+  }
+
+  const userRequest = agentState.model.formatRequest(userMessage);
+  const toolsArray = Array.from(agentState.tools.values());
+  const messageArray = agentState.model.createLocalMessageArray();
+  messageArray.push(userRequest);
+
+  let turn = 0;
+  let lastAssistantContent: string | null = null;
+
+  // ReAct Loop
+  while (turn < maxTurns) {
+    // Reason
+    const modelResponse = await agentState.model.generateToolResponse(
+      messageArray,
+      toolsArray
+    );
+
+    const assistantOutput = modelResponse.output;
+    lastAssistantContent = modelResponse.output_text;
+    messageArray.push(...assistantOutput);
+
+    // Exit loop if no tool calls are detected
+    const toolCalls = agentState.model.formatToolCall(assistantOutput);
+    if (!toolCalls || toolCalls.length === 0) {
+      console.log("No tool calls detected. Exiting ReAct loop.");
+      break;
+    }
+
+    // Act
+    for (const toolCall of toolCalls) {
+      const toolResult = await callTool(toolCall);
+      const toolResponse = agentState.model.formatToolResponse(toolResult);
+      messageArray.push(toolResponse);
+    }
+    console.log("============================");
+    console.log("TURN", turn);
+    console.log("----------------------------");
+    console.log("Assistant Output: ", assistantOutput);
+    console.log("Assistant Message: ", lastAssistantContent);
+    console.log("Tool Responses: ", messageArray.slice(-toolCalls.length));
+    console.log("----------------------------");
+
+    turn += 1;
+  }
+
+  const agentResponse: AgentResponse = {
+    response: lastAssistantContent ?? "",
+    messages: messageArray,
+    step_count: turn + 1,
+  };
+  return agentResponse;
 }
 
 ///////////////////////////////////////////////////////
