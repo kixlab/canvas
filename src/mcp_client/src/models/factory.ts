@@ -1,4 +1,9 @@
 import { OpenAI } from "openai";
+import * as OpenAIResponseType from "openai/resources/responses/responses";
+import AnthropicBedrock from "@anthropic-ai/bedrock-sdk";
+import * as AnthropicMessageType from "@anthropic-ai/sdk/resources/messages";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import {
   ModelConfig,
   ModelProvider,
@@ -6,30 +11,27 @@ import {
   GenericMessage,
   ContentType,
 } from "../types";
-import * as OpenAIResponseType from "openai/resources/responses/responses";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 
 export interface ModelInstance {
   name: string;
   provider: ModelProvider;
+
   generateResponse(messages: any[], options?: any): Promise<any>;
-  generateToolResponse(
-    messages: OpenAIResponseType.ResponseInput,
-    tools: OpenAIResponseType.Tool[],
-    options?: Partial<
-      Omit<OpenAIResponseType.ResponseCreateParams, "input" | "model" | "tools">
-    >
-  ): Promise<OpenAIResponseType.Response>;
+
+  generateToolRequest(
+    messages: any[],
+    tools: any[],
+    options?: Record<string, unknown>
+  ): Promise<any>;
+
+  /** unchanged helpers … */
   formatCallToolRequest(msg: any): CallToolRequestParams[];
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
-  ): OpenAIResponseType.Tool[];
-  formatRequest(
-    messages: GenericMessage[]
-  ): OpenAIResponseType.EasyInputMessage[];
-  formatToolResponse(res: CallToolResult): OpenAIResponseType.ResponseInputItem;
-  createMessageContext(): OpenAIResponseType.ResponseInput;
+  ): any[];
+  formatRequest(messages: GenericMessage[]): any[];
+  formatToolResponse(res: CallToolResult): any;
+  createMessageContext(): any[];
 }
 
 export class OpenAIModel implements ModelInstance {
@@ -67,13 +69,13 @@ export class OpenAIModel implements ModelInstance {
     return response;
   }
 
-  async generateToolResponse(
+  async generateToolRequest(
     input: OpenAIResponseType.ResponseInput,
     tools: OpenAIResponseType.Tool[],
     options?: Partial<
       Omit<OpenAIResponseType.ResponseCreateParams, "input" | "model" | "tools">
     >
-  ): Promise<OpenAIResponseType.Response> {
+  ): Promise<OpenAIResponseType.ResponseOutputItem[]> {
     const params: OpenAIResponseType.ResponseCreateParams = {
       model: this.name,
       input: input,
@@ -84,8 +86,8 @@ export class OpenAIModel implements ModelInstance {
       stream: false,
     };
 
-    const response = this.client.responses.create(params);
-    return response;
+    const response = await this.client.responses.create(params);
+    return response.output;
   }
 
   formatRequest(
@@ -127,10 +129,10 @@ export class OpenAIModel implements ModelInstance {
   }
 
   formatCallToolRequest(
-    msg: OpenAIResponseType.ResponseOutputItem[]
+    messages: OpenAIResponseType.ResponseOutputItem[]
   ): CallToolRequestParams[] {
-    if (!msg || !Array.isArray(msg)) return [];
-    return msg
+    if (!messages || !Array.isArray(messages)) return [];
+    return messages
       .filter((item: any) => item.type === "function_call")
       .map((item: any) => ({
         id: item.id,
@@ -149,20 +151,20 @@ export class OpenAIModel implements ModelInstance {
   }
 
   formatToolResponse(
-    res: CallToolResult
+    result: CallToolResult
   ): OpenAIResponseType.ResponseInputItem {
-    if (!(res.call_id as string)) {
+    if (!(result.call_id as string)) {
       throw new Error("Missing call_id in tool response");
     }
 
     const toolResponse = {
-      content: res.content,
-      structuredContent: res.structuredContent || {},
+      content: result.content,
+      structuredContent: result.structuredContent || {},
     };
 
     return {
       type: "function_call_output",
-      call_id: (res.call_id as string)!, // Mandatory field only for OpenAI
+      call_id: (result.call_id as string)!, // Mandatory field only for OpenAI
       output: JSON.stringify(toolResponse),
     };
   }
@@ -198,94 +200,144 @@ export class OpenAIModel implements ModelInstance {
 }
 
 export class AnthropicModel implements ModelInstance {
+  private client: AnthropicBedrock;
   public name: string;
   public provider: ModelProvider;
 
   constructor(config: ModelConfig) {
+    this.client = new AnthropicBedrock({
+      awsAccessKey: process.env.BEDROCK_ACESSS_KEY,
+      awsSecretKey: process.env.BEDROCK_SECRET_KEY,
+      awsRegion: "us-west-2",
+    });
     this.name = config.name;
     this.provider = config.provider;
   }
-  formatMessageArray(
-    messages: OpenAIResponseType.ResponseInput[]
-  ): GenericMessage[] {
-    throw new Error("Method not implemented.");
-  }
-  formatToolResponse(
-    res: CallToolResult
-  ): OpenAIResponseType.ResponseFunctionToolCallOutputItem {
-    throw new Error("Method not implemented.");
-  }
-  createMessageContext(): OpenAIResponseType.ResponseInput {
-    throw new Error("Method not implemented.");
-  }
-  formatToolList(
-    tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
-  ): OpenAIResponseType.Tool[] {
-    throw new Error("Method not implemented.");
-  }
-  generateToolResponse(
-    input: OpenAIResponseType.ResponseInput,
-    tools: OpenAIResponseType.Tool[],
-    options?: Partial<
-      Omit<
-        OpenAIResponseType.ResponseCreateParams,
-        "messages" | "model" | "tools"
-      >
-    >
-  ): Promise<OpenAIResponseType.Response> {
-    throw new Error("Method not implemented.");
-  }
-  formatCallToolRequest(msg: any): CallToolRequestParams[] {
-    throw new Error("Method not implemented.");
+
+  async generateResponse(
+    messages: AnthropicMessageType.MessageParam[],
+    options: Partial<AnthropicMessageType.MessageCreateParams> = {}
+  ): Promise<AnthropicMessageType.Messages.Message> {
+    const params: AnthropicMessageType.MessageCreateParams = {
+      model: this.name,
+      messages: messages,
+      max_tokens: options.max_tokens || 4096,
+      temperature: options.temperature || 0.7,
+      ...options,
+      stream: false,
+    };
+
+    const response = await this.client.messages.create(params);
+    return response;
   }
 
-  async generateResponse(messages: any[], options: any = {}): Promise<any> {
-    console.warn(
-      "Anthropic model not fully implemented, using OpenAI fallback"
-    );
-    const openaiModel = new OpenAIModel({
-      name: "gpt-4",
-      provider: ModelProvider.OPENAI,
-    });
-    return openaiModel.generateResponse(messages, options);
+  async generateToolRequest(
+    messages: AnthropicMessageType.MessageParam[],
+    tools: AnthropicMessageType.Tool[],
+    options: Partial<AnthropicMessageType.MessageCreateParams> = {}
+  ): Promise<AnthropicMessageType.MessageParam[]> {
+    const params: AnthropicMessageType.MessageCreateParams = {
+      model: this.name,
+      messages: messages,
+      tools: tools,
+      max_tokens: options.max_tokens || 4096,
+      temperature: options.temperature || 0.7,
+      ...options,
+      stream: false,
+    };
+
+    const response = await this.client.messages.create(params);
+    // Remove keys execpt for role, content
+    const filteredResponse = {
+      role: response.role,
+      content: response.content,
+    };
+    return [filteredResponse];
   }
+
   formatRequest(
     messages: GenericMessage[]
-  ): OpenAIResponseType.EasyInputMessage[] {
-    console.warn("Anthropic model does not support formatRequest");
-    if (!messages || messages.length === 0) {
-      throw new Error("No messages provided for formatting");
-    }
+  ): AnthropicMessageType.MessageParam[] {
+    if (!messages?.length) throw new Error("No messages provided");
 
-    return messages.map((message) => {
-      if (message.role !== "user" && message.role !== "system") {
-        throw new Error(`Unsupported message role: ${message.role}`);
-      }
-
-      const content = message.content.map((item) => {
-        if (item.type === ContentType.TEXT) {
-          if (item.text.length === 0) {
-            throw new Error("Text content is empty");
-          }
-          return {
-            type: "input_text" as const,
-            text: item.text || "",
-          };
-        } else if (item.type === ContentType.IMAGE) {
-          if (item.data.length === 0) {
-            throw new Error("Image URL content is empty");
-          }
-          return {
-            type: "input_image" as const,
-            image_url: item.data,
-            detail: "auto" as const,
-          };
+    return messages.map((msg) => {
+      const role =
+        msg.role === "system" ? "user" : (msg.role as "user" | "assistant"); // Claude doesn't support system role directly
+      const content = msg.content.map((item) => {
+        switch (item.type) {
+          case ContentType.TEXT:
+            return { type: "text" as const, text: item.text };
+          case ContentType.IMAGE:
+            if (
+              !["image/jpeg", "image/png", "image/gif", "image/webp"].includes(
+                item.mimeType
+              )
+            ) {
+              throw new Error(`Unsupported image type: ${item.mimeType}`);
+            }
+            return {
+              type: "image" as const,
+              source: {
+                type: "base64" as const,
+                media_type: item.mimeType as
+                  | "image/jpeg"
+                  | "image/png"
+                  | "image/gif"
+                  | "image/webp",
+                data: item.data,
+              },
+            };
+          default:
+            throw new Error(`Unsupported content type: ${item.type}`);
         }
-        throw new Error(`Unsupported message item type: ${item.type}`);
       });
-
-      return { role: message.role, content: content };
+      return { role, content };
     });
+  }
+
+  createMessageContext(): AnthropicMessageType.MessageParam[] {
+    return [];
+  }
+
+  formatToolList(
+    tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
+  ): AnthropicMessageType.Tool[] {
+    return tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description ?? "",
+      input_schema: tool.inputSchema ?? {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    }));
+  }
+
+  formatCallToolRequest(
+    messages: AnthropicMessageType.Message[]
+  ): CallToolRequestParams[] {
+    const [message] = messages;
+    const messageContent = message["content"];
+    if (!Array.isArray(messageContent)) return [];
+
+    return messageContent
+      .filter((c: any) => c.type === "tool_use")
+      .map((c: any) => ({
+        id: c.id,
+        call_id: "", // OpenAI-only – keep placeholder
+        name: c.name,
+        arguments: c.input ?? {},
+      }));
+  }
+
+  formatToolResponse(res: CallToolResult): AnthropicMessageType.MessageParam {
+    const payload = {
+      type: "tool_result" as const,
+      tool_use_id: res.id,
+      content: JSON.stringify(res.structuredContent ?? res.content ?? {}),
+    } as AnthropicMessageType.ToolResultBlockParam;
+
+    return { role: "user", content: [payload] };
   }
 }
 

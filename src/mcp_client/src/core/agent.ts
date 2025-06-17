@@ -9,7 +9,6 @@ import {
   CallToolRequestParams,
   ToolResponseFormat,
   UserRequestMessage,
-  AgentCompletionMessage,
   GenericMessage,
   AgentRequestMessage,
   RoleType,
@@ -17,7 +16,6 @@ import {
   MessageType,
   ToolResponseMessage,
 } from "../types";
-import * as OpenAIResponseType from "openai/resources/responses/responses";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { randomUUID } from "crypto";
 
@@ -96,15 +94,17 @@ export async function startAgent(agentType: string = "single"): Promise<void> {
     // Register tools by model type if available
     agentState.tools.clear();
 
-    if (agentState.model.provider === ModelProvider.OPENAI) {
-      const openAITools: OpenAIResponseType.Tool[] =
-        agentState.model.formatToolList(toolsResult.tools);
-      for (const tool of openAITools) {
-        const toolName = tool.type === "function" ? tool.name : "unknown";
-        agentState.tools.set(toolName, tool);
-      }
-    } else if (agentState.model.provider === ModelProvider.ANTHROPIC) {
-      throw new Error("Anthropic model provider is not fully implemented yet");
+    if (
+      agentState.model.provider === ModelProvider.GOOGLE ||
+      agentState.model.provider === ModelProvider.OLLAMA
+    ) {
+      // Google Bard does not support tools yet
+      throw new Error("Google and Ollama model are not supported yet.");
+    }
+
+    const toolList = agentState.model.formatToolList(toolsResult.tools);
+    for (const tool of toolList) {
+      agentState.tools.set(tool.name, tool);
     }
     agentState.initialized = true;
     console.log(`Agent initialized with ${agentState.tools.size} tools`);
@@ -238,23 +238,20 @@ export async function runReactAgent(
   messageHistory.push(userMessage);
 
   let turn = 0;
-  let lastAssistantContent: string | null = null;
 
   // ReAct Loop
   while (turn < maxTurns) {
     // Reason
-    const modelResponse = await agentState.model.generateToolResponse(
+    const modelResponse = await agentState.model.generateToolRequest(
       localMessageContext,
       toolsArray
     );
 
-    const assistantOutput = modelResponse.output;
-    lastAssistantContent = modelResponse.output_text;
-    localMessageContext.push(...assistantOutput);
+    localMessageContext.push(...modelResponse);
 
     // Exit loop if no tool calls are detected
     const callToolRequests =
-      agentState.model.formatCallToolRequest(assistantOutput);
+      agentState.model.formatCallToolRequest(modelResponse);
     if (!callToolRequests || callToolRequests.length === 0) {
       console.log("No tool calls detected. Exiting ReAct loop.");
       break;
@@ -292,8 +289,7 @@ export async function runReactAgent(
     console.log("============================");
     console.log("TURN", turn);
     console.log("----------------------------");
-    console.log("Assistant Output: ", assistantOutput);
-    console.log("Assistant Message: ", lastAssistantContent);
+    console.log("Assistant Output: ", modelResponse);
     console.log(
       "Tool Responses: ",
       localMessageContext.slice(-callToolRequests.length)
