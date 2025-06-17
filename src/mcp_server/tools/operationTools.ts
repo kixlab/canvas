@@ -108,8 +108,16 @@ export function registerOperationTools(server: McpServer) {
     async ({ nodeId }) => {
       try {
         const result = await sendCommandToFigma("delete_node", { nodeId });
+
+        const typescriptResult = result as {
+          id: string;
+          name: string;
+          type: string;
+        };
+
         return createSuccessResponse({
           messages: [`Deleted node with ID: ${nodeId}`],
+          dataItem: typescriptResult,
         });
       } catch (error) {
         return createErrorResponse({

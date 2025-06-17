@@ -40,7 +40,7 @@ export function registerInspectionTools(server: McpServer) {
         const result = await sendCommandToFigma("get_selection");
         return createSuccessResponse({
           messages: [JSON.stringify(result)],
-          dataItem: result,
+          dataItem: { selection: result },
         });
       } catch (error) {
         return createErrorResponse({

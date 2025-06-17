@@ -4,14 +4,22 @@ import path from "path";
 import { loadServerConfig } from "../utils/helpers";
 import { getModel, ModelInstance } from "../models/factory";
 import {
-  AgentResponse,
   AgentMetadata,
-  ToolCallResult,
   ModelProvider,
-  ChatMessage,
-  ToolCall,
+  CallToolRequestParams,
+  ToolResponseFormat,
+  UserRequestMessage,
+  AgentCompletionMessage,
+  GenericMessage,
+  AgentRequestMessage,
+  RoleType,
+  ContentType,
+  MessageType,
+  ToolResponseMessage,
 } from "../types";
 import * as OpenAIResponseType from "openai/resources/responses/responses";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { randomUUID } from "crypto";
 
 interface AgentState {
   model: ModelInstance | null;
@@ -128,65 +136,66 @@ export async function shutdownAgent(): Promise<void> {
   }
 }
 
-export async function callTool(toolCall: ToolCall): Promise<ToolCallResult> {
+export async function callTool(
+  toolCall: CallToolRequestParams
+): Promise<CallToolResult> {
   if (!agentState.initialized || !agentState.client) {
     return {
-      status: "error",
       id: toolCall.id,
       call_id: toolCall.call_id,
       content: [
         {
-          type: "text",
+          type: ToolResponseFormat.TEXT,
           text: "Agent not initialized. Call startup() first.",
         },
       ],
+      isError: true,
     };
   }
 
   try {
     if (!agentState.tools.has(toolCall.name)) {
       return {
-        status: "error",
         id: toolCall.id,
         call_id: toolCall.call_id,
         content: [
           {
-            type: "text",
+            type: ToolResponseFormat.TEXT,
             text: `Tool '${toolCall.name}' not found`,
           },
         ],
+        isError: true,
       };
     }
 
     const result = (await agentState.client.callTool({
       name: toolCall.name,
       arguments: toolCall.arguments,
-    })) as {
-      content: [
-        {
-          type: string;
-          [key: string]: string;
-        }
-      ];
-    };
+    })) as CallToolResult;
 
-    return {
-      status: "success",
+    const formattedResult = {
       id: toolCall.id,
       call_id: toolCall.call_id,
       content: result.content,
-    };
+      isError: result.isError || false,
+    } as CallToolResult;
+
+    if (result.structuredContent) {
+      formattedResult.structuredContent = result.structuredContent;
+    }
+
+    return formattedResult;
   } catch (error) {
     return {
-      status: "error",
       id: toolCall.id,
       call_id: toolCall.call_id,
       content: [
         {
-          type: "text",
+          type: ToolResponseFormat.TEXT,
           text: String(error),
         },
       ],
+      isError: true,
     };
   }
 }
@@ -196,7 +205,7 @@ export function createToolCall(
   id: string,
   args?: Record<string, unknown>,
   callId?: string
-): ToolCall {
+): CallToolRequestParams {
   if (!agentState.initialized || !agentState.model) {
     throw new Error("Agent not initialized. Call startAgent() first.");
   }
@@ -205,25 +214,28 @@ export function createToolCall(
   }
   return {
     id: id,
-    call_id: callId,
+    call_id: callId ?? "",
     name: toolName,
-    arguments: args,
+    arguments: args ?? {},
   };
 }
 
 export async function runReactAgent(
-  userMessage: ChatMessage,
+  userMessage: UserRequestMessage,
   metadata: AgentMetadata = { input_id: "unknown" },
   maxTurns = 20
-): Promise<AgentResponse> {
+): Promise<GenericMessage[]> {
   if (!agentState.initialized || !agentState.model) {
     throw new Error("Agent not initialized. Call startAgent() first.");
   }
 
-  const userRequest = agentState.model.formatRequest(userMessage);
+  const initialRequest = agentState.model.formatRequest([userMessage]); // [TODO] Add system prompt
   const toolsArray = Array.from(agentState.tools.values());
-  const messageArray = agentState.model.createLocalMessageArray();
-  messageArray.push(userRequest);
+  const localMessageContext = agentState.model.createMessageContext();
+  const messageHistory = new Array<GenericMessage>();
+
+  localMessageContext.push(...initialRequest);
+  messageHistory.push(userMessage);
 
   let turn = 0;
   let lastAssistantContent: string | null = null;
@@ -232,44 +244,65 @@ export async function runReactAgent(
   while (turn < maxTurns) {
     // Reason
     const modelResponse = await agentState.model.generateToolResponse(
-      messageArray,
+      localMessageContext,
       toolsArray
     );
 
     const assistantOutput = modelResponse.output;
     lastAssistantContent = modelResponse.output_text;
-    messageArray.push(...assistantOutput);
+    localMessageContext.push(...assistantOutput);
 
     // Exit loop if no tool calls are detected
-    const toolCalls = agentState.model.formatToolCall(assistantOutput);
-    if (!toolCalls || toolCalls.length === 0) {
+    const callToolRequests =
+      agentState.model.formatCallToolRequest(assistantOutput);
+    if (!callToolRequests || callToolRequests.length === 0) {
       console.log("No tool calls detected. Exiting ReAct loop.");
       break;
     }
 
+    messageHistory.push({
+      id: modelResponse.id,
+      timestamp: modelResponse.created_at,
+      role: RoleType.ASSISTANT,
+      content: [{ type: ContentType.TEXT, text: modelResponse.output_text }],
+      calls: callToolRequests,
+    } as AgentRequestMessage);
+
     // Act
-    for (const toolCall of toolCalls) {
-      const toolResult = await callTool(toolCall);
+    const toolResults = [];
+    for (const toolRequest of callToolRequests) {
+      const toolResult = await callTool(toolRequest);
       const toolResponse = agentState.model.formatToolResponse(toolResult);
-      messageArray.push(toolResponse);
+      localMessageContext.push(toolResponse);
+      toolResults.push(toolResult);
     }
+
+    messageHistory.push({
+      id: randomUUID(),
+      timestamp: Date.now(),
+      role: RoleType.TOOL,
+      type: MessageType.TOOL_RESPONSE,
+      content: toolResults.map((result) => ({
+        type: ContentType.TEXT,
+        text: result.content.map((c) => c.text).join("\n"),
+      })),
+      results: toolResults,
+    } as ToolResponseMessage);
+
     console.log("============================");
     console.log("TURN", turn);
     console.log("----------------------------");
     console.log("Assistant Output: ", assistantOutput);
     console.log("Assistant Message: ", lastAssistantContent);
-    console.log("Tool Responses: ", messageArray.slice(-toolCalls.length));
+    console.log(
+      "Tool Responses: ",
+      localMessageContext.slice(-callToolRequests.length)
+    );
     console.log("----------------------------");
 
     turn += 1;
   }
-
-  const agentResponse: AgentResponse = {
-    response: lastAssistantContent ?? "",
-    messages: messageArray,
-    step_count: turn + 1,
-  };
-  return agentResponse;
+  return messageHistory;
 }
 
 ///////////////////////////////////////////////////////

@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "yaml";
-import { ModelProvider, ServerConfig } from "../types";
+import { GenericMessage, ModelProvider, ServerConfig } from "../types";
 
 // Utility functions for the MCP client
 
@@ -9,51 +9,6 @@ export interface Message {
   role: string;
   content: any;
   id?: string;
-}
-
-export interface JsonifiedResponse {
-  main_content: string;
-  messages: Message[];
-  images: string[];
-  error?: string;
-}
-
-export function jsonifyAgentResponse(response: any): JsonifiedResponse {
-  const result: JsonifiedResponse = {
-    main_content: "",
-    messages: [],
-    images: [],
-  };
-
-  if (response?.messages && Array.isArray(response.messages)) {
-    for (const msg of response.messages) {
-      const messageData: Message = {
-        role: messageTypeToRole(msg),
-        content: "",
-        id: msg.id || "",
-      };
-
-      if (msg.content) {
-        messageData.content = msg.content;
-      }
-      result.messages.push(messageData);
-    }
-  }
-
-  if (typeof response === "string") {
-    result.main_content = response;
-  } else {
-    try {
-      result.main_content = String(response);
-      if (response?.content) {
-        result.main_content = response.content;
-      }
-    } catch (error) {
-      result.error = `Could not parse response: ${error}`;
-    }
-  }
-
-  return result;
 }
 
 export function messageTypeToRole(message: any): string {

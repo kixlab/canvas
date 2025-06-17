@@ -19,29 +19,6 @@ export type ResponseContent =
   | AudioContent
   | EmbeddedResource;
 
-export enum MCPResponseFormat {
-  TEXT = "text",
-  IMAGE = "image",
-  AUDIO = "audio",
-  RESOURCE = "resource",
-}
-
-// export type MCPResponseContent = {
-//   [K in MCPResponseFormat]: { type: K } & Record<K, string>;
-// }[MCPResponseFormat];
-
-export type MCPResponseContent =
-  | { type: MCPResponseFormat.TEXT; text: string }
-  | { type: MCPResponseFormat.IMAGE; image: string }
-  | { type: MCPResponseFormat.AUDIO; audio: string }
-  | { type: MCPResponseFormat.RESOURCE; resource: string };
-
-export interface MCPToolResponse {
-  content: MCPResponseContent[];
-  structuredContent?: Object;
-  isError: boolean;
-}
-
 export interface CommandProgressUpdate {
   type: "command_progress";
   commandId: string;

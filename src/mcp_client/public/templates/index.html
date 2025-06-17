@@ -475,6 +475,9 @@
                     <div class="task-type-option active" data-task-type="text">Text Only</div>
                     <div class="task-type-option" data-task-type="image">Image Only</div>
                     <div class="task-type-option" data-task-type="text-image">Text + Image</div>
+                    <div class="task-type-option" data-task-type="modify-without-oracle">Modify Without Oracle</div>
+                    <div class="task-type-option" data-task-type="modify-hierarchy">Modify with Hierarchy</div>
+                    <div class="task-type-option" data-task-type="modify-canvas">Modify with Canvas</div>
                 </div>
                 
                 <!-- Text-only Task Form -->
@@ -517,6 +520,60 @@
                     <div class="form-group">
                         <input type="text" id="text-image-input" class="task-input" placeholder="Type your instruction..." required>
                         <button type="submit" id="text-image-submit" class="button primary">Generate</button>
+                    </div>
+                </form>
+
+                <!-- Modify Without Oracle Form -->
+                <form id="modify-without-oracle-task-form" class="task-form" style="display:none;">
+                    <div class="file-input-container">
+                        <label class="file-label">
+                            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+                                <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+                            </svg>
+                            Select Image
+                            <input type="file" id="modify-without-oracle-upload" class="file-input" accept="image/*" required>
+                        </label>
+                        <span id="modify-without-oracle-file-name" class="file-name"></span>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="modify-without-oracle-input" class="task-input" placeholder="Type your modification instruction..." required>
+                        <button type="submit" id="modify-without-oracle-submit" class="button primary">Modify</button>
+                    </div>
+                </form>
+
+                <!-- Modify with Hierarchy Form -->
+                <form id="modify-hierarchy-task-form" class="task-form" style="display:none;">
+                    <div class="file-input-container">
+                        <label class="file-label">
+                            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+                                <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+                            </svg>
+                            Select Image
+                            <input type="file" id="modify-hierarchy-upload" class="file-input" accept="image/*" required>
+                        </label>
+                        <span id="modify-hierarchy-file-name" class="file-name"></span>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="modify-hierarchy-input" class="task-input" placeholder="Type your modification instruction..." required>
+                        <button type="submit" id="modify-hierarchy-submit" class="button primary">Modify with Hierarchy</button>
+                    </div>
+                </form>
+
+                <!-- Modify with Canvas Form -->
+                <form id="modify-canvas-task-form" class="task-form" style="display:none;">
+                    <div class="file-input-container">
+                        <label class="file-label">
+                            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+                                <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+                            </svg>
+                            Select Image
+                            <input type="file" id="modify-canvas-upload" class="file-input" accept="image/*" required>
+                        </label>
+                        <span id="modify-canvas-file-name" class="file-name"></span>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="modify-canvas-input" class="task-input" placeholder="Type your modification instruction..." required>
+                        <button type="submit" id="modify-canvas-submit" class="button primary">Modify with Canvas</button>
                     </div>
                 </form>
                 
@@ -623,9 +680,25 @@
             log("Extracting content from:", response);
             
             try {
-                // Handle different response formats
+                // Handle new standardized format: { status: "success", payload: { history: messageHistory } }
+                if (response && response.status === "success" && response.payload) {
+                    if (response.payload.history && Array.isArray(response.payload.history)) {
+                        return processMessages({ messages: response.payload.history });
+                    }
+                    
+                    // Handle other payload formats
+                    if (response.payload.messages && Array.isArray(response.payload.messages)) {
+                        return processMessages(response.payload);
+                    }
+                }
+                
+                // Handle legacy simple format: { messages: messageHistory }
+                if (response && response.messages && Array.isArray(response.messages)) {
+                    return processMessages(response);
+                }
+                
+                // Handle legacy json_response format
                 if (response && response.json_response) {
-                    // Newer format
                     const json = response.json_response;
                     
                     if (json.main_content) {
@@ -642,29 +715,14 @@
                     }
                 }
                 
-                // Handle direct response object
-                if (response && response.response) {
-                    const content = response.response;
-                    
-                    if (typeof content === 'string') {
-                        try {
-                            const parsed = JSON.parse(content);
-                            if (parsed && parsed.messages) return processMessages(parsed);
-                        } catch (e) {
-                            // Not JSON, use as plain string
-                            return {
-                                content: content,
-                                fullResponse: response,
-                                images: [],
-                                messages: []
-                            };
-                        }
-                    }
-                }
-                
-                // Handle messages directly
-                if (response && response.messages && Array.isArray(response.messages)) {
-                    return processMessages(response);
+                // Handle error responses
+                if (response && response.error) {
+                    return {
+                        content: `Error: ${response.error}`,
+                        fullResponse: response,
+                        images: [],
+                        messages: []
+                    };
                 }
                 
                 // Fallback
@@ -689,31 +747,42 @@
             function processMessages(container) {
                 const messages = container.messages || [];
                 
-                // Find last assistant message with content
+                // Find the last assistant message with content
                 for (let i = messages.length - 1; i >= 0; i--) {
                     const msg = messages[i];
                     
-                    if (msg.role === 'assistant' && msg.content?.data?.content) {
-                        return {
-                            content: msg.content.data.content,
-                            fullResponse: container,
-                            images: container.images || [],
-                            messages: messages
-                        };
-                    }
-                    
-                    if ((msg.type === 'ai' || msg.id?.startsWith('run-')) && msg.content) {
-                        return {
-                            content: msg.content,
-                            fullResponse: container,
-                            images: container.images || [],
-                            messages: messages
-                        };
+                    // Handle different message formats
+                    if (msg.role === 'assistant') {
+                        // Check for content in various formats
+                        let content = '';
+                        
+                        if (msg.content && Array.isArray(msg.content)) {
+                            // Handle content array format
+                            const textContent = msg.content.find(c => c.type === 'text');
+                            if (textContent) {
+                                content = textContent.text;
+                            }
+                        } else if (msg.content && typeof msg.content === 'string') {
+                            // Handle string content
+                            content = msg.content;
+                        } else if (msg.content && msg.content.data && msg.content.data.content) {
+                            // Handle nested content format
+                            content = msg.content.data.content;
+                        }
+                        
+                        if (content) {
+                            return {
+                                content: content,
+                                fullResponse: container,
+                                images: container.images || [],
+                                messages: messages
+                            };
+                        }
                     }
                 }
                 
                 return {
-                    content: "",
+                    content: "No assistant response found",
                     fullResponse: container,
                     images: container.images || [],
                     messages: messages
@@ -725,7 +794,103 @@
             if (!response) return '<div class="error-message">Empty response received</div>';
             
             try {
-                // Process json_response format
+                // Handle new simple format: { messages: messageHistory }
+                if (response && response.messages && Array.isArray(response.messages)) {
+                    const messages = response.messages;
+                    let finalMessage = "";
+                    let toolCalls = [];
+                    let toolResponses = [];
+                    
+                    // Extract tool calls and final message from the message history
+                    messages.forEach(msg => {
+                        if (msg.role === 'assistant') {
+                            // Get content from various formats
+                            if (msg.content && Array.isArray(msg.content)) {
+                                // Handle content array format
+                                const textContent = msg.content.find(c => c.type === 'text');
+                                if (textContent && textContent.text && textContent.text.trim() !== '') {
+                                    finalMessage = textContent.text;
+                                }
+                            } else if (msg.content && typeof msg.content === 'string') {
+                                // Handle string content
+                                if (msg.content.trim() !== '') finalMessage = msg.content;
+                            }
+                            
+                            // Extract tool calls if they exist
+                            if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+                                msg.tool_calls.forEach(tool => {
+                                    toolCalls.push({
+                                        id: tool.id,
+                                        name: tool.function?.name || tool.name,
+                                        args: tool.function?.arguments || tool.args || {}
+                                    });
+                                });
+                            }
+                        }
+                        
+                        if (msg.role === 'tool') {
+                            const toolContent = msg.content || '';
+                            const toolName = msg.name || '';
+                            const toolCallId = msg.tool_call_id || '';
+                            
+                            if (toolContent && toolName) {
+                                toolResponses.push({
+                                    id: toolCallId,
+                                    name: toolName,
+                                    content: toolContent
+                                });
+                            }
+                        }
+                    });
+                    
+                    // Build workflow visualization
+                    let conversationFlow = "";
+                    if (toolCalls.length > 0) {
+                        conversationFlow = '<div class="conversation-workflow"><h3>Actions Performed</h3>';
+                        
+                        toolCalls.forEach(tool => {
+                            conversationFlow += `
+                                <div class="tool-workflow-item">
+                                    <div class="tool-call">
+                                        <div class="tool-call-label">
+                                            <span class="tool-icon">⚙️</span>
+                                            <strong>${tool.name}</strong>
+                                        </div>
+                                        <div class="tool-call-content">
+                                            <pre>${JSON.stringify(tool.args, null, 2)}</pre>
+                                        </div>
+                                    </div>`;
+                            
+                            // Find matching response
+                            const response = toolResponses.find(r => r.id === tool.id);
+                            if (response) {
+                                conversationFlow += `
+                                    <div class="tool-response">
+                                        <div class="tool-response-label">
+                                            <span class="tool-icon">✓</span>
+                                            <strong>${response.name} Result:</strong>
+                                        </div>
+                                        <div class="tool-response-content">${response.content}</div>
+                                    </div>`;
+                            }
+                            
+                            conversationFlow += '</div>';
+                        });
+                        
+                        conversationFlow += '</div>';
+                    }
+                    
+                    // Return formatted message
+                    return `
+                        ${finalMessage ? `<div class="message-content">${finalMessage}</div>` : ''}
+                        ${conversationFlow}
+                        <details>
+                            <summary>Show details</summary>
+                            <div class="message-metadata">${JSON.stringify(response, null, 2)}</div>
+                        </details>`;
+                }
+                
+                // Process legacy json_response format
                 if (response.json_response) {
                     const messages = response.json_response.messages || [];
                     let finalMessage = "";
@@ -876,7 +1041,26 @@
             resultContainer.appendChild(messageElement);
             resultContainer.scrollTop = 0;
             
-            // Process images in AI responses
+            // Process images from the new message format
+            if (response && response.messages && Array.isArray(response.messages)) {
+                response.messages.forEach(msg => {
+                    if (msg.content && Array.isArray(msg.content)) {
+                        msg.content.forEach(contentItem => {
+                            if (contentItem.type === 'image' && contentItem.data) {
+                                // Handle base64 image data
+                                let imageData = contentItem.data;
+                                if (imageData.startsWith('data:image/')) {
+                                    // Extract base64 part from data URL
+                                    imageData = imageData.split(',')[1];
+                                }
+                                addImageToGallery(imageData);
+                            }
+                        });
+                    }
+                });
+            }
+            
+            // Fallback: Process images in legacy format
             const { images } = extractAIContent(response);
             if (images && images.length > 0) {
                 images.forEach(img => {
@@ -912,7 +1096,26 @@
                 channelSelect.appendChild(placeholderOption);
                 
                 // Add channel options
-                if (data.status === 'success' && data.available_channels) {
+                if (data.status === 'success' && data.payload && data.payload.available_channels) {
+                    data.payload.available_channels.forEach(channel => {
+                        const option = document.createElement('option');
+                        option.value = channel;
+                        option.textContent = channel;
+                        channelSelect.appendChild(option);
+                    });
+                    
+                    // Update current channel display
+                    if (data.payload.current_channel && data.payload.current_channel !== 'None') {
+                        document.getElementById('current-channel-display').textContent = data.payload.current_channel;
+                        // Select the current channel in dropdown
+                        Array.from(channelSelect.options).forEach(option => {
+                            if (option.value === data.payload.current_channel) {
+                                option.selected = true;
+                            }
+                        });
+                    }
+                } else if (data.status === 'success' && data.available_channels) {
+                    // Fallback for old format
                     data.available_channels.forEach(channel => {
                         const option = document.createElement('option');
                         option.value = channel;
@@ -962,8 +1165,10 @@
                 log("Join channel response:", data);
                 
                 if (data.status === 'success') {
-                    document.getElementById('current-channel-display').textContent = data.channel || channelName;
-                    document.getElementById('tool-results').textContent = `Successfully joined channel: ${data.channel || channelName}`;
+                    // Handle new response format with payload
+                    const channelName = data.payload ? data.payload.channel || data.channel : data.channel;
+                    document.getElementById('current-channel-display').textContent = channelName || channelName;
+                    document.getElementById('tool-results').textContent = `Successfully joined channel: ${channelName || channelName}`;
                 } else {
                     document.getElementById('current-channel-display').textContent = 'Connection failed';
                     document.getElementById('tool-results').textContent = `Error joining channel: ${data.message || 'Unknown error'}`;
@@ -1021,6 +1226,21 @@
             document.getElementById('text-image-file-name').textContent = fileName;
         });
         
+        document.getElementById('modify-without-oracle-upload').addEventListener('change', function(e) {
+            const fileName = e.target.files.length > 0 ? e.target.files[0].name : '';
+            document.getElementById('modify-without-oracle-file-name').textContent = fileName;
+        });
+        
+        document.getElementById('modify-hierarchy-upload').addEventListener('change', function(e) {
+            const fileName = e.target.files.length > 0 ? e.target.files[0].name : '';
+            document.getElementById('modify-hierarchy-file-name').textContent = fileName;
+        });
+        
+        document.getElementById('modify-canvas-upload').addEventListener('change', function(e) {
+            const fileName = e.target.files.length > 0 ? e.target.files[0].name : '';
+            document.getElementById('modify-canvas-file-name').textContent = fileName;
+        });
+        
         // Task form handlers
         document.getElementById('text-task-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1049,7 +1269,7 @@
                 displayTaskResult(data);
             } catch (error) {
                 console.error("Request error:", error);
-                displayTaskResult({ response: `Error: ${error.message}` });
+                displayTaskResult({ error: error.message });
             } finally {
                 resetButton(submitButton);
             }
@@ -1084,7 +1304,7 @@
                 displayTaskResult(data);
             } catch (error) {
                 console.error("Request error:", error);
-                displayTaskResult({ response: `Error: ${error.message}` });
+                displayTaskResult({ error: error.message });
             } finally {
                 resetButton(submitButton);
             }
@@ -1121,7 +1341,116 @@
                 displayTaskResult(data);
             } catch (error) {
                 console.error("Request error:", error);
-                displayTaskResult({ response: `Error: ${error.message}` });
+                displayTaskResult({ error: error.message });
+            } finally {
+                resetButton(submitButton);
+            }
+        });
+        
+        // Modification task form handlers
+        document.getElementById('modify-without-oracle-task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('modify-without-oracle-input').value;
+            const imageFile = document.getElementById('modify-without-oracle-upload').files[0];
+            
+            if (!message || !imageFile) return;
+            
+            const submitButton = document.getElementById('modify-without-oracle-submit');
+            showLoading(submitButton);
+            
+            try {
+                log("Submitting modify without oracle task", { message, image: imageFile.name });
+                const formData = new FormData();
+                formData.append('message', message);
+                formData.append('image', imageFile);
+                
+                const response = await fetch('/modify/without-oracle', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Server response:", data);
+                displayTaskResult(data);
+            } catch (error) {
+                console.error("Request error:", error);
+                displayTaskResult({ error: error.message });
+            } finally {
+                resetButton(submitButton);
+            }
+        });
+        
+        document.getElementById('modify-hierarchy-task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('modify-hierarchy-input').value;
+            const imageFile = document.getElementById('modify-hierarchy-upload').files[0];
+            
+            if (!message || !imageFile) return;
+            
+            const submitButton = document.getElementById('modify-hierarchy-submit');
+            showLoading(submitButton);
+            
+            try {
+                log("Submitting modify with hierarchy task", { message, image: imageFile.name });
+                const formData = new FormData();
+                formData.append('message', message);
+                formData.append('image', imageFile);
+                
+                const response = await fetch('/modify/with-oracle/perfect-hierachy', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Server response:", data);
+                displayTaskResult(data);
+            } catch (error) {
+                console.error("Request error:", error);
+                displayTaskResult({ error: error.message });
+            } finally {
+                resetButton(submitButton);
+            }
+        });
+        
+        document.getElementById('modify-canvas-task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('modify-canvas-input').value;
+            const imageFile = document.getElementById('modify-canvas-upload').files[0];
+            
+            if (!message || !imageFile) return;
+            
+            const submitButton = document.getElementById('modify-canvas-submit');
+            showLoading(submitButton);
+            
+            try {
+                log("Submitting modify with canvas task", { message, image: imageFile.name });
+                const formData = new FormData();
+                formData.append('message', message);
+                formData.append('image', imageFile);
+                
+                const response = await fetch('/modify/with-oracle/perfect-canvas', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Server response:", data);
+                displayTaskResult(data);
+            } catch (error) {
+                console.error("Request error:", error);
+                displayTaskResult({ error: error.message });
             } finally {
                 resetButton(submitButton);
             }
@@ -1140,7 +1469,13 @@
                 }
                 
                 const data = await response.json();
-                document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
             } catch (error) {
                 document.getElementById('tool-results').textContent = `Error: ${error.message}`;
             } finally {
@@ -1175,7 +1510,13 @@
                 }
                 
                 const data = await response.json();
-                document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
             } catch (error) {
                 document.getElementById('tool-results').textContent = `Error: ${error.message}`;
             } finally {
@@ -1195,7 +1536,13 @@
                 }
                 
                 const data = await response.json();
-                document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
             } catch (error) {
                 document.getElementById('tool-results').textContent = `Error: ${error.message}`;
             } finally {

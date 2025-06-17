@@ -2,12 +2,13 @@ import { OpenAI } from "openai";
 import {
   ModelConfig,
   ModelProvider,
-  ToolCall,
-  ChatMessage,
-  ToolCallResult,
+  CallToolRequestParams,
+  GenericMessage,
+  ContentType,
 } from "../types";
 import * as OpenAIResponseType from "openai/resources/responses/responses";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 
 export interface ModelInstance {
   name: string;
@@ -20,13 +21,15 @@ export interface ModelInstance {
       Omit<OpenAIResponseType.ResponseCreateParams, "input" | "model" | "tools">
     >
   ): Promise<OpenAIResponseType.Response>;
-  formatToolCall(msg: any): ToolCall[];
+  formatCallToolRequest(msg: any): CallToolRequestParams[];
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): OpenAIResponseType.Tool[];
-  formatRequest(message: ChatMessage): OpenAIResponseType.EasyInputMessage;
-  formatToolResponse(res: ToolCallResult): OpenAIResponseType.ResponseInputItem;
-  createLocalMessageArray(): OpenAIResponseType.ResponseInput;
+  formatRequest(
+    messages: GenericMessage[]
+  ): OpenAIResponseType.EasyInputMessage[];
+  formatToolResponse(res: CallToolResult): OpenAIResponseType.ResponseInputItem;
+  createMessageContext(): OpenAIResponseType.ResponseInput;
 }
 
 export class OpenAIModel implements ModelInstance {
@@ -85,47 +88,53 @@ export class OpenAIModel implements ModelInstance {
     return response;
   }
 
-  formatRequest(message: ChatMessage): OpenAIResponseType.EasyInputMessage {
-    if (!message || !message.items || message.items.length === 0) {
-      throw new Error("Invalid input message format");
+  formatRequest(
+    messages: GenericMessage[]
+  ): OpenAIResponseType.EasyInputMessage[] {
+    if (!messages || messages.length === 0) {
+      throw new Error("No messages provided for formatting");
     }
 
-    if (message.role !== "user" && message.role !== "system") {
-      throw new Error(`Unsupported message role: ${message.role}`);
-    }
-
-    const content = message.items.map((item) => {
-      if (item.type === "text") {
-        if (item.content.length === 0) {
-          throw new Error("Text content is empty");
-        }
-        return {
-          type: "input_text" as const,
-          text: item.content || "",
-        };
-      } else if (item.type === "image_url") {
-        if (item.content.length === 0) {
-          throw new Error("Image URL content is empty");
-        }
-        return {
-          type: "input_image" as const,
-          image_url: item.content,
-          detail: "auto" as const,
-        };
+    return messages.map((message) => {
+      if (message.role !== "user" && message.role !== "system") {
+        throw new Error(`Unsupported message role: ${message.role}`);
       }
-      throw new Error(`Unsupported message item type: ${item.type}`);
-    });
 
-    return { role: message.role, content: content };
+      const content = message.content.map((item) => {
+        if (item.type === ContentType.TEXT) {
+          if (item.text.length === 0) {
+            throw new Error("Text content is empty");
+          }
+          return {
+            type: "input_text" as const,
+            text: item.text || "",
+          };
+        } else if (item.type === ContentType.IMAGE) {
+          if (item.data.length === 0) {
+            throw new Error("Image URL content is empty");
+          }
+          return {
+            type: "input_image" as const,
+            image_url: item.data,
+            detail: "auto" as const,
+          };
+        }
+        throw new Error(`Unsupported message item type: ${item.type}`);
+      });
+
+      return { role: message.role, content: content };
+    });
   }
 
-  formatToolCall(msg: OpenAIResponseType.ResponseOutputItem[]): ToolCall[] {
+  formatCallToolRequest(
+    msg: OpenAIResponseType.ResponseOutputItem[]
+  ): CallToolRequestParams[] {
     if (!msg || !Array.isArray(msg)) return [];
     return msg
       .filter((item: any) => item.type === "function_call")
       .map((item: any) => ({
         id: item.id,
-        call_id: item.call_id, // Mandatory field for OpenAI
+        call_id: item.call_id, // Mandatory field only for OpenAI
         name: item.name,
         arguments: (() => {
           try {
@@ -140,15 +149,21 @@ export class OpenAIModel implements ModelInstance {
   }
 
   formatToolResponse(
-    res: ToolCallResult
+    res: CallToolResult
   ): OpenAIResponseType.ResponseInputItem {
-    if (!res.call_id) {
+    if (!(res.call_id as string)) {
       throw new Error("Missing call_id in tool response");
     }
+
+    const toolResponse = {
+      content: res.content,
+      structuredContent: res.structuredContent || {},
+    };
+
     return {
       type: "function_call_output",
-      call_id: res.call_id!, // Mandaotory field for OpenAI
-      output: JSON.stringify(res.content),
+      call_id: (res.call_id as string)!, // Mandatory field only for OpenAI
+      output: JSON.stringify(toolResponse),
     };
   }
 
@@ -177,7 +192,7 @@ export class OpenAIModel implements ModelInstance {
     });
   }
 
-  createLocalMessageArray(): OpenAIResponseType.ResponseInput {
+  createMessageContext(): OpenAIResponseType.ResponseInput {
     return [];
   }
 }
@@ -190,12 +205,17 @@ export class AnthropicModel implements ModelInstance {
     this.name = config.name;
     this.provider = config.provider;
   }
+  formatMessageArray(
+    messages: OpenAIResponseType.ResponseInput[]
+  ): GenericMessage[] {
+    throw new Error("Method not implemented.");
+  }
   formatToolResponse(
-    res: ToolCallResult
+    res: CallToolResult
   ): OpenAIResponseType.ResponseFunctionToolCallOutputItem {
     throw new Error("Method not implemented.");
   }
-  createLocalMessageArray(): OpenAIResponseType.ResponseInput {
+  createMessageContext(): OpenAIResponseType.ResponseInput {
     throw new Error("Method not implemented.");
   }
   formatToolList(
@@ -215,7 +235,7 @@ export class AnthropicModel implements ModelInstance {
   ): Promise<OpenAIResponseType.Response> {
     throw new Error("Method not implemented.");
   }
-  formatToolCall(msg: any): ToolCall[] {
+  formatCallToolRequest(msg: any): CallToolRequestParams[] {
     throw new Error("Method not implemented.");
   }
 
@@ -229,9 +249,43 @@ export class AnthropicModel implements ModelInstance {
     });
     return openaiModel.generateResponse(messages, options);
   }
-  formatRequest(message: ChatMessage): OpenAIResponseType.EasyInputMessage {
+  formatRequest(
+    messages: GenericMessage[]
+  ): OpenAIResponseType.EasyInputMessage[] {
     console.warn("Anthropic model does not support formatRequest");
-    return { role: "user", content: [] };
+    if (!messages || messages.length === 0) {
+      throw new Error("No messages provided for formatting");
+    }
+
+    return messages.map((message) => {
+      if (message.role !== "user" && message.role !== "system") {
+        throw new Error(`Unsupported message role: ${message.role}`);
+      }
+
+      const content = message.content.map((item) => {
+        if (item.type === ContentType.TEXT) {
+          if (item.text.length === 0) {
+            throw new Error("Text content is empty");
+          }
+          return {
+            type: "input_text" as const,
+            text: item.text || "",
+          };
+        } else if (item.type === ContentType.IMAGE) {
+          if (item.data.length === 0) {
+            throw new Error("Image URL content is empty");
+          }
+          return {
+            type: "input_image" as const,
+            image_url: item.data,
+            detail: "auto" as const,
+          };
+        }
+        throw new Error(`Unsupported message item type: ${item.type}`);
+      });
+
+      return { role: message.role, content: content };
+    });
   }
 }
 

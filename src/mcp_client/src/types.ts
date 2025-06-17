@@ -1,45 +1,95 @@
 import { Request } from "express";
+import {
+  TextContent,
+  ImageContent,
+  AudioContent,
+  EmbeddedResource,
+  CallToolRequest,
+  CallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
+import { Message } from "./utils/helpers";
 
-// Core types for the MCP client
-export interface ChatRequest {
-  message: string;
+export enum MessageType {
+  SYSTEM = "system",
+  USER_REQUEST = "user_request",
+  AGENT_COMPLETION = "agent_completion",
+  AGENT_REQUEST = "agent_request",
+  TOOL_RESPONSE = "tool_response",
 }
 
-export interface MessageItem {
-  type: "text" | "image_url";
-  content: string;
+export enum RoleType {
+  USER = "user",
+  ASSISTANT = "assistant",
+  SYSTEM = "system",
+  TOOL = "tool",
 }
 
-export interface ChatMessage {
-  role: "user" | "assistant" | "system" | "tool";
-  items: MessageItem[];
+export enum ContentType {
+  TEXT = "text",
+  IMAGE = "image",
+  AUDIO = "audio",
+  RESOURCE = "resource",
 }
 
-export interface AgentResponse {
-  response: string;
+export interface BaseMessage {
+  id: string;
+  timestamp: number;
+  role: RoleType;
+  type: MessageType;
+  content: (TextContent | ImageContent | AudioContent | EmbeddedResource)[];
+}
+
+export interface SystemMessage extends BaseMessage {
+  role: RoleType.SYSTEM;
+  type: MessageType.SYSTEM;
+}
+
+export interface UserRequestMessage extends BaseMessage {
+  role: RoleType.USER;
+  type: MessageType.USER_REQUEST;
+}
+
+export interface AgentCompletionMessage extends BaseMessage {
+  role: RoleType.ASSISTANT;
+  type: MessageType.AGENT_COMPLETION;
   step_count: number;
-  messages?: any[];
 }
 
-// [TODO] Refine the type for tool call results
-export interface ToolCallResult {
-  status: "success" | "error";
-  id: string;
-  call_id?: string; // call_id for OpenAI
-  content: [
-    {
-      type: string;
-      [key: string]: string;
-    }
-  ];
+export interface AgentRequestMessage extends BaseMessage {
+  role: RoleType.ASSISTANT;
+  type: MessageType.AGENT_REQUEST;
+  calls: CallToolRequestParams[];
 }
 
-export interface ToolCall {
-  id: string;
-  name: string;
-  call_id?: string; // call_id for OpenAI
-  arguments?: Record<string, unknown>;
+export interface ToolResponseMessage extends BaseMessage {
+  role: RoleType.TOOL;
+  type: MessageType.TOOL_RESPONSE;
+  results: CallToolResult[];
 }
+
+export type GenericMessage =
+  | SystemMessage
+  | UserRequestMessage
+  | AgentCompletionMessage
+  | AgentRequestMessage
+  | ToolResponseMessage;
+
+export enum ToolResponseFormat {
+  TEXT = "text",
+  IMAGE = "image",
+  AUDIO = "audio",
+  RESOURCE = "resource",
+}
+
+export type ToolResponseContent =
+  | TextContent
+  | ImageContent
+  | AudioContent
+  | EmbeddedResource;
+
+export type CallToolRequestParams = CallToolRequest["params"];
+// id: string;
+// arguments: Record<string, any>
 
 export interface ModelConfig {
   name: string;
@@ -70,4 +120,16 @@ export enum ModelProvider {
   ANTHROPIC = "anthropic",
   GOOGLE = "google",
   OLLAMA = "ollama",
+}
+
+export enum ResponseStatus {
+  SUCCESS = "success",
+  ERROR = "error",
+}
+
+export interface ResponseData {
+  status: ResponseStatus;
+  message?: string;
+  error?: string;
+  payload?: Object;
 }
