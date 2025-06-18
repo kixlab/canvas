@@ -42,14 +42,17 @@ export const generateFromText = async (
       content: [{ type: ContentType.TEXT, text: instruction }],
     };
 
-    const messageHistory = await runReactAgent(userRequest, {
+    const { history, responses, cost } = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 
     res.json({
       status: ResponseStatus.SUCCESS,
+      message: "Generation successful",
       payload: {
-        history: messageHistory,
+        history,
+        responses,
+        cost, // Cost in USD
       },
     });
   } catch (error) {
@@ -93,14 +96,17 @@ export const generateFromImage = async (
       ],
     };
 
-    const messageHistory = await runReactAgent(userRequest, {
+    const { history, responses, cost } = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 
     res.json({
       status: ResponseStatus.SUCCESS,
+      message: "Generation successful",
       payload: {
-        history: messageHistory,
+        history,
+        responses,
+        cost, // Cost in USD
       },
     });
   } catch (error) {
@@ -154,14 +160,17 @@ export const generateFromTextAndImage = async (
       ],
     };
 
-    const messageHistory = await runReactAgent(userRequest, {
+    const { history, responses, cost } = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 
     res.json({
       status: ResponseStatus.SUCCESS,
+      message: "Generation successful",
       payload: {
-        history: messageHistory,
+        history,
+        responses,
+        cost, // Cost in USD
       },
     });
   } catch (error) {

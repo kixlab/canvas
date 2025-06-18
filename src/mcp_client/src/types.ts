@@ -7,7 +7,6 @@ import {
   CallToolRequest,
   CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { Message } from "./utils/helpers";
 
 export enum MessageType {
   SYSTEM = "system",
@@ -94,6 +93,8 @@ export type CallToolRequestParams = CallToolRequest["params"];
 export interface ModelConfig {
   name: string;
   provider: ModelProvider;
+  input_cost: number;
+  output_cost: number;
   temperature?: number;
   max_tokens?: number;
 }

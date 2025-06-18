@@ -10,15 +10,19 @@ import {
   CallToolRequestParams,
   GenericMessage,
   ContentType,
+  AgentRequestMessage,
+  RoleType,
+  MessageType,
 } from "../types";
 
 export interface ModelInstance {
   name: string;
   provider: ModelProvider;
+  inputCost: number;
+  outputCost: number;
 
   generateResponse(messages: any[], options?: any): Promise<any>;
-
-  generateToolRequest(
+  generateResponseWithTool(
     messages: any[],
     tools: any[],
     options?: Record<string, unknown>
@@ -30,14 +34,19 @@ export interface ModelInstance {
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): any[];
   formatRequest(messages: GenericMessage[]): any[];
-  formatToolResponse(res: CallToolResult): any;
+  formatToolResponse(response: CallToolResult): any;
   createMessageContext(): any[];
+  addToApiMessageContext(response: any, context: any[]): void;
+  addToFormattedMessageContext(response: any, context: any[]): void; // For OpenAI, this is the same as addToApiMessageContext
+  getCostFromResponse(response: any): number;
 }
 
 export class OpenAIModel implements ModelInstance {
   private client: OpenAI;
   public name: string;
   public provider: ModelProvider;
+  public inputCost: number;
+  public outputCost: number;
 
   constructor(config: ModelConfig) {
     this.client = new OpenAI({
@@ -45,6 +54,8 @@ export class OpenAIModel implements ModelInstance {
     });
     this.name = config.name;
     this.provider = config.provider;
+    this.inputCost = config.input_cost;
+    this.outputCost = config.output_cost;
   }
 
   async generateResponse(
@@ -69,13 +80,13 @@ export class OpenAIModel implements ModelInstance {
     return response;
   }
 
-  async generateToolRequest(
+  async generateResponseWithTool(
     input: OpenAIResponseType.ResponseInput,
     tools: OpenAIResponseType.Tool[],
     options?: Partial<
       Omit<OpenAIResponseType.ResponseCreateParams, "input" | "model" | "tools">
     >
-  ): Promise<OpenAIResponseType.ResponseOutputItem[]> {
+  ): Promise<OpenAIResponseType.Responses.Response> {
     const params: OpenAIResponseType.ResponseCreateParams = {
       model: this.name,
       input: input,
@@ -87,7 +98,7 @@ export class OpenAIModel implements ModelInstance {
     };
 
     const response = await this.client.responses.create(params);
-    return response.output;
+    return response;
   }
 
   formatRequest(
@@ -129,10 +140,11 @@ export class OpenAIModel implements ModelInstance {
   }
 
   formatCallToolRequest(
-    messages: OpenAIResponseType.ResponseOutputItem[]
+    messages: OpenAIResponseType.Responses.Response
   ): CallToolRequestParams[] {
-    if (!messages || !Array.isArray(messages)) return [];
-    return messages
+    const requests = messages.output;
+    if (!requests || !Array.isArray(requests)) return [];
+    return requests
       .filter((item: any) => item.type === "function_call")
       .map((item: any) => ({
         id: item.id,
@@ -197,12 +209,46 @@ export class OpenAIModel implements ModelInstance {
   createMessageContext(): OpenAIResponseType.ResponseInput {
     return [];
   }
+
+  addToApiMessageContext(
+    response: OpenAIResponseType.Responses.Response,
+    context: OpenAIResponseType.ResponseOutputItem[]
+  ): void {
+    context.push(...response.output);
+  }
+
+  getCostFromResponse(response: OpenAIResponseType.Responses.Response): number {
+    if (!response.usage) {
+      throw new Error("Response does not contain usage information");
+    }
+    const inputTokens = response.usage.input_tokens;
+    const outputTokens = response.usage.output_tokens;
+    return inputTokens * this.inputCost + outputTokens * this.outputCost;
+  }
+
+  addToFormattedMessageContext(
+    response: OpenAIResponseType.Responses.Response,
+    context: GenericMessage[]
+  ): void {
+    const toolRequests = this.formatCallToolRequest(response);
+
+    context.push({
+      id: response.id,
+      timestamp: response.created_at,
+      type: MessageType.AGENT_REQUEST,
+      role: RoleType.ASSISTANT,
+      content: [{ type: ContentType.TEXT, text: response.output_text }],
+      calls: toolRequests,
+    } as AgentRequestMessage);
+  }
 }
 
 export class AnthropicModel implements ModelInstance {
   private client: AnthropicBedrock;
   public name: string;
   public provider: ModelProvider;
+  public inputCost: number;
+  public outputCost: number;
 
   constructor(config: ModelConfig) {
     this.client = new AnthropicBedrock({
@@ -212,6 +258,25 @@ export class AnthropicModel implements ModelInstance {
     });
     this.name = config.name;
     this.provider = config.provider;
+    this.inputCost = config.input_cost;
+    this.outputCost = config.output_cost;
+  }
+  addToFormattedMessageContext(
+    response: AnthropicMessageType.Messages.Message,
+    context: GenericMessage[]
+  ): void {
+    const text_content = response.content
+      .filter((c) => c.type === "text")
+      .map((c) => c.text)
+      .join("\n");
+    context.push({
+      id: response.id,
+      timestamp: Date.now(),
+      type: MessageType.AGENT_REQUEST,
+      role: RoleType.ASSISTANT,
+      content: [{ type: ContentType.TEXT, text: text_content }],
+      calls: this.formatCallToolRequest(response),
+    } as AgentRequestMessage);
   }
 
   async generateResponse(
@@ -231,11 +296,11 @@ export class AnthropicModel implements ModelInstance {
     return response;
   }
 
-  async generateToolRequest(
+  async generateResponseWithTool(
     messages: AnthropicMessageType.MessageParam[],
     tools: AnthropicMessageType.Tool[],
     options: Partial<AnthropicMessageType.MessageCreateParams> = {}
-  ): Promise<AnthropicMessageType.MessageParam[]> {
+  ): Promise<AnthropicMessageType.Messages.Message> {
     const params: AnthropicMessageType.MessageCreateParams = {
       model: this.name,
       messages: messages,
@@ -247,12 +312,7 @@ export class AnthropicModel implements ModelInstance {
     };
 
     const response = await this.client.messages.create(params);
-    // Remove keys execpt for role, content
-    const filteredResponse = {
-      role: response.role,
-      content: response.content,
-    };
-    return [filteredResponse];
+    return response;
   }
 
   formatRequest(
@@ -299,6 +359,16 @@ export class AnthropicModel implements ModelInstance {
     return [];
   }
 
+  addToApiMessageContext(
+    response: AnthropicMessageType.Messages.Message,
+    context: AnthropicMessageType.MessageParam[]
+  ): void {
+    context.push({
+      role: response.role,
+      content: response.content,
+    });
+  }
+
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): AnthropicMessageType.Tool[] {
@@ -314,9 +384,8 @@ export class AnthropicModel implements ModelInstance {
   }
 
   formatCallToolRequest(
-    messages: AnthropicMessageType.Message[]
+    message: AnthropicMessageType.Messages.Message
   ): CallToolRequestParams[] {
-    const [message] = messages;
     const messageContent = message["content"];
     if (!Array.isArray(messageContent)) return [];
 
@@ -338,6 +407,12 @@ export class AnthropicModel implements ModelInstance {
     } as AnthropicMessageType.ToolResultBlockParam;
 
     return { role: "user", content: [payload] };
+  }
+
+  getCostFromResponse(response: AnthropicMessageType.Messages.Message): number {
+    const inputTokens = response.usage.input_tokens;
+    const outputTokens = response.usage.output_tokens;
+    return inputTokens * this.inputCost + outputTokens * this.outputCost;
   }
 }
 

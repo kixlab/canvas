@@ -224,30 +224,38 @@ export async function runReactAgent(
   userMessage: UserRequestMessage,
   metadata: AgentMetadata = { input_id: "unknown" },
   maxTurns = 20
-): Promise<GenericMessage[]> {
+): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
   if (!agentState.initialized || !agentState.model) {
     throw new Error("Agent not initialized. Call startAgent() first.");
   }
 
   const initialRequest = agentState.model.formatRequest([userMessage]); // [TODO] Add system prompt
   const toolsArray = Array.from(agentState.tools.values());
-  const localMessageContext = agentState.model.createMessageContext();
-  const messageHistory = new Array<GenericMessage>();
+  const apiMessageContext = agentState.model.createMessageContext();
+  const formattedMessageContext = new Array<GenericMessage>();
+  const rawResponses = new Array();
 
-  localMessageContext.push(...initialRequest);
-  messageHistory.push(userMessage);
+  apiMessageContext.push(...initialRequest);
+  formattedMessageContext.push(userMessage);
 
   let turn = 0;
+  let cost = 0;
 
   // ReAct Loop
   while (turn < maxTurns) {
     // Reason
-    const modelResponse = await agentState.model.generateToolRequest(
-      localMessageContext,
+    const modelResponse = await agentState.model.generateResponseWithTool(
+      apiMessageContext,
       toolsArray
     );
+    rawResponses.push(modelResponse);
 
-    localMessageContext.push(...modelResponse);
+    cost += agentState.model.getCostFromResponse(modelResponse);
+    agentState.model.addToApiMessageContext(modelResponse, apiMessageContext);
+    agentState.model.addToFormattedMessageContext(
+      modelResponse,
+      formattedMessageContext
+    );
 
     // Exit loop if no tool calls are detected
     const callToolRequests =
@@ -257,24 +265,16 @@ export async function runReactAgent(
       break;
     }
 
-    messageHistory.push({
-      id: modelResponse.id,
-      timestamp: modelResponse.created_at,
-      role: RoleType.ASSISTANT,
-      content: [{ type: ContentType.TEXT, text: modelResponse.output_text }],
-      calls: callToolRequests,
-    } as AgentRequestMessage);
-
     // Act
     const toolResults = [];
     for (const toolRequest of callToolRequests) {
       const toolResult = await callTool(toolRequest);
       const toolResponse = agentState.model.formatToolResponse(toolResult);
-      localMessageContext.push(toolResponse);
+      apiMessageContext.push(toolResponse);
       toolResults.push(toolResult);
     }
 
-    messageHistory.push({
+    formattedMessageContext.push({
       id: randomUUID(),
       timestamp: Date.now(),
       role: RoleType.TOOL,
@@ -285,20 +285,13 @@ export async function runReactAgent(
       })),
       results: toolResults,
     } as ToolResponseMessage);
-
-    console.log("============================");
-    console.log("TURN", turn);
-    console.log("----------------------------");
-    console.log("Assistant Output: ", modelResponse);
-    console.log(
-      "Tool Responses: ",
-      localMessageContext.slice(-callToolRequests.length)
-    );
-    console.log("----------------------------");
-
     turn += 1;
   }
-  return messageHistory;
+  return {
+    history: formattedMessageContext,
+    responses: rawResponses,
+    cost: cost / 1000, // Convert to USD
+  };
 }
 
 ///////////////////////////////////////////////////////

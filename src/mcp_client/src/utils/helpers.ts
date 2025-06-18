@@ -83,10 +83,12 @@ export function loadServerConfig(agentType: string = "single"): ServerConfig {
       return {
         models: [
           {
-            name: "claude-3-5-sonnet-20241022",
-            provider: ModelProvider.ANTHROPIC,
-            temperature: 0.7,
-            max_tokens: 4096,
+            name: "gpt-4.1-2025-04-14",
+            provider: ModelProvider.OPENAI,
+            temperature: 1.0,
+            max_tokens: 32768,
+            input_cost: 0.002,
+            output_cost: 0.008,
           },
         ],
         agent_type: agentType,

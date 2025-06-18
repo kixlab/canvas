@@ -58,14 +58,17 @@ export const modifyWithoutOracle = async (
       ],
     };
 
-    const messageHistory = await runReactAgent(userRequest, {
+    const { history, responses, cost } = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 
     res.json({
       status: ResponseStatus.SUCCESS,
+      message: "Modification successful",
       payload: {
-        history: messageHistory,
+        history,
+        responses,
+        cost,
       },
     });
   } catch (error) {
@@ -118,14 +121,17 @@ export const modifyWithOracleHierarchy = async (
       ],
     };
 
-    const messageHistory = await runReactAgent(userRequest, {
+    const { history, responses, cost } = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 
     res.json({
       status: ResponseStatus.SUCCESS,
+      message: "Modification successful",
       payload: {
-        history: messageHistory,
+        history,
+        responses,
+        cost,
       },
     });
   } catch (error) {
@@ -178,14 +184,21 @@ export const modifyWithOraclePerfectCanvas = async (
       ],
     };
 
-    const messageHistory = await runReactAgent(userRequest, {
+    const {
+      history,
+      responses,
+      cost, // Cost in USD
+    } = await runReactAgent(userRequest, {
       input_id: metadata,
     });
 
     res.json({
       status: ResponseStatus.SUCCESS,
+      message: "Modification successful",
       payload: {
-        history: messageHistory,
+        history,
+        responses,
+        cost,
       },
     });
   } catch (error) {
