@@ -407,6 +407,12 @@
             margin-bottom: 16px;
         }
         
+        .tool-buttons button {
+            flex: 1;
+            min-width: 120px;
+            font-size: 12px;
+        }
+        
         .tool-result {
             font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
             background-color: var(--color-canvas-default);
@@ -616,6 +622,26 @@
                     <button id="create-text" class="button">Create Text in Root Frame</button>
                 </div>
                 
+                <div class="tool-buttons" style="margin-top: 8px;">
+                    <button id="delete-all-nodes" class="button">Delete All Top Level Nodes</button>
+                </div>
+                
+                <div style="margin-top: 12px;">
+                    <h4>Delete Specific Node</h4>
+                    <div class="form-group" style="flex-direction: column; gap: 4px;">
+                        <input type="text" id="delete-node-id" class="task-input" placeholder="Enter node ID..." style="font-size: 12px;">
+                        <button id="delete-single-node" class="button">Delete Node</button>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 12px;">
+                    <h4>Delete Multiple Nodes</h4>
+                    <div class="form-group" style="flex-direction: column; gap: 4px;">
+                        <textarea id="delete-multiple-ids" class="task-input" placeholder="Enter node IDs (comma-separated)..." rows="3" style="font-size: 12px; resize: vertical;"></textarea>
+                        <button id="delete-multiple-nodes" class="button">Delete Multiple Nodes</button>
+                    </div>
+                </div>
+                
                 <div id="frame-params" style="display: none;">
                     <h4>Create Frame Parameters</h4>
                     <form id="frame-params-form" class="frame-params-form">
@@ -667,12 +693,15 @@
         
         function showLoading(button) {
             button.disabled = true;
-            button.innerHTML = '<span class="loading"></span>Generating...';
+            const originalText = button.textContent;
+            button.dataset.originalText = originalText;
+            button.innerHTML = '<span class="loading"></span>Loading...';
         }
         
-        function resetButton(button, text = 'Generate') {
+        function resetButton(button, text = null) {
             button.disabled = false;
-            button.textContent = text;
+            const originalText = text || button.dataset.originalText || 'Button';
+            button.textContent = originalText;
         }
         
         // Message handling functions
@@ -684,6 +713,11 @@
                 if (response && response.status === "success" && response.payload) {
                     if (response.payload.history && Array.isArray(response.payload.history)) {
                         return processMessages({ messages: response.payload.history });
+                    }
+                    
+                    // Handle responses payload format from generate/modify routes
+                    if (response.payload.responses && Array.isArray(response.payload.responses)) {
+                        return processMessages({ messages: response.payload.responses });
                     }
                     
                     // Handle other payload formats
@@ -1114,25 +1148,6 @@
                             }
                         });
                     }
-                } else if (data.status === 'success' && data.available_channels) {
-                    // Fallback for old format
-                    data.available_channels.forEach(channel => {
-                        const option = document.createElement('option');
-                        option.value = channel;
-                        option.textContent = channel;
-                        channelSelect.appendChild(option);
-                    });
-                    
-                    // Update current channel display
-                    if (data.current_channel && data.current_channel !== 'None') {
-                        document.getElementById('current-channel-display').textContent = data.current_channel;
-                        // Select the current channel in dropdown
-                        Array.from(channelSelect.options).forEach(option => {
-                            if (option.value === data.current_channel) {
-                                option.selected = true;
-                            }
-                        });
-                    }
                 } else {
                     document.getElementById('tool-results').textContent = `Error fetching channels: ${data.message || 'Unknown error'}`;
                 }
@@ -1166,9 +1181,9 @@
                 
                 if (data.status === 'success') {
                     // Handle new response format with payload
-                    const channelName = data.payload ? data.payload.channel || data.channel : data.channel;
-                    document.getElementById('current-channel-display').textContent = channelName || channelName;
-                    document.getElementById('tool-results').textContent = `Successfully joined channel: ${channelName || channelName}`;
+                    const channelName = data.message ? data.message.split(': ')[1] : selectedChannel;
+                    document.getElementById('current-channel-display').textContent = channelName || selectedChannel;
+                    document.getElementById('tool-results').textContent = `Successfully joined channel: ${channelName || selectedChannel}`;
                 } else {
                     document.getElementById('current-channel-display').textContent = 'Connection failed';
                     document.getElementById('tool-results').textContent = `Error joining channel: ${data.message || 'Unknown error'}`;
@@ -1244,9 +1259,12 @@
         // Task form handlers
         document.getElementById('text-task-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const message = document.getElementById('text-input').value;
+            const message = document.getElementById('text-input').value.trim();
             
-            if (!message) return;
+            if (!message) {
+                document.getElementById('tool-results').textContent = 'Please enter a text instruction';
+                return;
+            }
             
             const submitButton = document.getElementById('text-submit');
             showLoading(submitButton);
@@ -1266,7 +1284,15 @@
                 
                 const data = await response.json();
                 log("Server response:", data);
-                displayTaskResult(data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
             } catch (error) {
                 console.error("Request error:", error);
                 displayTaskResult({ error: error.message });
@@ -1279,7 +1305,10 @@
             e.preventDefault();
             const imageFile = document.getElementById('image-only-upload').files[0];
             
-            if (!imageFile) return;
+            if (!imageFile) {
+                document.getElementById('tool-results').textContent = 'Please select an image file';
+                return;
+            }
             
             const submitButton = document.getElementById('image-submit');
             showLoading(submitButton);
@@ -1301,7 +1330,15 @@
                 
                 const data = await response.json();
                 log("Server response:", data);
-                displayTaskResult(data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
             } catch (error) {
                 console.error("Request error:", error);
                 displayTaskResult({ error: error.message });
@@ -1312,10 +1349,18 @@
         
         document.getElementById('text-image-task-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const message = document.getElementById('text-image-input').value;
+            const message = document.getElementById('text-image-input').value.trim();
             const imageFile = document.getElementById('text-image-upload').files[0];
             
-            if (!message || !imageFile) return;
+            if (!message) {
+                document.getElementById('tool-results').textContent = 'Please enter a text instruction';
+                return;
+            }
+            
+            if (!imageFile) {
+                document.getElementById('tool-results').textContent = 'Please select an image file';
+                return;
+            }
             
             const submitButton = document.getElementById('text-image-submit');
             showLoading(submitButton);
@@ -1338,7 +1383,15 @@
                 
                 const data = await response.json();
                 log("Server response:", data);
-                displayTaskResult(data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
             } catch (error) {
                 console.error("Request error:", error);
                 displayTaskResult({ error: error.message });
@@ -1350,10 +1403,18 @@
         // Modification task form handlers
         document.getElementById('modify-without-oracle-task-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const message = document.getElementById('modify-without-oracle-input').value;
+            const message = document.getElementById('modify-without-oracle-input').value.trim();
             const imageFile = document.getElementById('modify-without-oracle-upload').files[0];
             
-            if (!message || !imageFile) return;
+            if (!message) {
+                document.getElementById('tool-results').textContent = 'Please enter a modification instruction';
+                return;
+            }
+            
+            if (!imageFile) {
+                document.getElementById('tool-results').textContent = 'Please select an image file';
+                return;
+            }
             
             const submitButton = document.getElementById('modify-without-oracle-submit');
             showLoading(submitButton);
@@ -1375,7 +1436,15 @@
                 
                 const data = await response.json();
                 log("Server response:", data);
-                displayTaskResult(data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
             } catch (error) {
                 console.error("Request error:", error);
                 displayTaskResult({ error: error.message });
@@ -1386,10 +1455,18 @@
         
         document.getElementById('modify-hierarchy-task-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const message = document.getElementById('modify-hierarchy-input').value;
+            const message = document.getElementById('modify-hierarchy-input').value.trim();
             const imageFile = document.getElementById('modify-hierarchy-upload').files[0];
             
-            if (!message || !imageFile) return;
+            if (!message) {
+                document.getElementById('tool-results').textContent = 'Please enter a modification instruction';
+                return;
+            }
+            
+            if (!imageFile) {
+                document.getElementById('tool-results').textContent = 'Please select an image file';
+                return;
+            }
             
             const submitButton = document.getElementById('modify-hierarchy-submit');
             showLoading(submitButton);
@@ -1411,7 +1488,15 @@
                 
                 const data = await response.json();
                 log("Server response:", data);
-                displayTaskResult(data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
             } catch (error) {
                 console.error("Request error:", error);
                 displayTaskResult({ error: error.message });
@@ -1422,10 +1507,18 @@
         
         document.getElementById('modify-canvas-task-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const message = document.getElementById('modify-canvas-input').value;
+            const message = document.getElementById('modify-canvas-input').value.trim();
             const imageFile = document.getElementById('modify-canvas-upload').files[0];
             
-            if (!message || !imageFile) return;
+            if (!message) {
+                document.getElementById('tool-results').textContent = 'Please enter a modification instruction';
+                return;
+            }
+            
+            if (!imageFile) {
+                document.getElementById('tool-results').textContent = 'Please select an image file';
+                return;
+            }
             
             const submitButton = document.getElementById('modify-canvas-submit');
             showLoading(submitButton);
@@ -1447,7 +1540,15 @@
                 
                 const data = await response.json();
                 log("Server response:", data);
-                displayTaskResult(data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
             } catch (error) {
                 console.error("Request error:", error);
                 displayTaskResult({ error: error.message });
@@ -1547,6 +1648,121 @@
                 document.getElementById('tool-results').textContent = `Error: ${error.message}`;
             } finally {
                 resetButton(button, 'Create Text in Root Frame');
+            }
+        });
+        
+        // Delete all top level nodes handler
+        document.getElementById('delete-all-nodes').addEventListener('click', async (e) => {
+            const button = e.target;
+            showLoading(button);
+            
+            try {
+                const response = await fetch('/tool/delete_all_top_level_nodes', { method: 'POST' });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Delete All Top Level Nodes');
+            }
+        });
+        
+        // Delete single node handler
+        document.getElementById('delete-single-node').addEventListener('click', async (e) => {
+            const button = e.target;
+            const nodeId = document.getElementById('delete-node-id').value.trim();
+            
+            if (!nodeId) {
+                document.getElementById('tool-results').textContent = 'Please enter a node ID';
+                return;
+            }
+            
+            showLoading(button);
+            
+            try {
+                const response = await fetch('/tool/delete_node', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node_id: nodeId }),
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                    // Clear the input on success
+                    document.getElementById('delete-node-id').value = '';
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Delete Node');
+            }
+        });
+        
+        // Delete multiple nodes handler
+        document.getElementById('delete-multiple-nodes').addEventListener('click', async (e) => {
+            const button = e.target;
+            const nodeIdsText = document.getElementById('delete-multiple-ids').value.trim();
+            
+            if (!nodeIdsText) {
+                document.getElementById('tool-results').textContent = 'Please enter node IDs';
+                return;
+            }
+            
+            // Parse comma-separated node IDs
+            const nodeIds = nodeIdsText.split(',').map(id => id.trim()).filter(id => id.length > 0);
+            
+            if (nodeIds.length === 0) {
+                document.getElementById('tool-results').textContent = 'Please enter valid node IDs';
+                return;
+            }
+            
+            showLoading(button);
+            
+            try {
+                const response = await fetch('/tool/delete_multiple_nodes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node_ids: nodeIds }),
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                    // Clear the input on success
+                    document.getElementById('delete-multiple-ids').value = '';
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Delete Multiple Nodes');
             }
         });
         

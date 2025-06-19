@@ -74,7 +74,7 @@ export const generateFromText = async (
     console.error("Error in generateFromText:", error);
     res
       .status(500)
-      .json({ status: ResponseStatus.ERROR, error: String(error) });
+      .json({ status: ResponseStatus.ERROR, message: String(error) });
   }
 };
 

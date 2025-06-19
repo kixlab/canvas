@@ -12,3 +12,9 @@ OPENAI_API_KEY=
 BEDROCK_ACESSS_KEY=
 BEDROCK_SECRET_KEY=
 ```
+
+## Loading a server
+```bash
+npm install
+npm run dev ## for hot reloading
+```
