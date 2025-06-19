@@ -3,7 +3,8 @@ import express, { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
 import { createRoutes } from "./routes";
-import { startAgent, shutdownAgent } from "./core/agent";
+import { globalSession } from "./core/session";
+import { AgentType } from "./types";
 
 dotenv.config();
 const PORT = process.env.PORT || 3000;
@@ -11,10 +12,10 @@ const PORT = process.env.PORT || 3000;
 // Parse CLI arguments
 const args = process.argv.slice(2);
 const agentTypeArg = args.find((arg) => arg.startsWith("--agent_type="));
-const AGENT_TYPE = agentTypeArg ? agentTypeArg.split("=")[1] : "single";
+const AGENT_TYPE = agentTypeArg ? agentTypeArg.split("=")[1] : AgentType.REACT;
 
 // Validate agent type
-if (!["single", "multi"].includes(AGENT_TYPE)) {
+if (!Object.values(AgentType).includes(AGENT_TYPE as any)) {
   console.error('Invalid agent_type. Use "single" or "multi"');
   process.exit(1);
 }
@@ -24,7 +25,7 @@ let isShuttingDown = false;
 
 const initializeServer = async () => {
   try {
-    await startAgent(AGENT_TYPE);
+    await globalSession.initialize(AGENT_TYPE as AgentType);
     console.log(`MCP Client initialized with agent type: ${AGENT_TYPE}`);
   } catch (error) {
     console.error("Failed to initialize MCP client:", error);
@@ -38,7 +39,7 @@ const shutdownServer = async () => {
 
   console.log("Shutting down gracefully...");
   try {
-    await shutdownAgent();
+    await globalSession.shutdown();
     console.log("MCP Client shutdown complete");
     process.exit(0);
   } catch (error) {

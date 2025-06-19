@@ -7,6 +7,7 @@ import {
   CallToolRequest,
   CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
 export enum MessageType {
   SYSTEM = "system",
@@ -99,9 +100,13 @@ export interface ModelConfig {
   max_tokens?: number;
 }
 
+export enum AgentType {
+  REACT = "react",
+}
+
 export interface ServerConfig {
   models: ModelConfig[];
-  agent_type: string;
+  agent_type: AgentType;
 }
 
 export interface AgentMetadata {
@@ -134,3 +139,6 @@ export interface ResponseData {
   error?: string;
   payload?: Object;
 }
+export type ToolList = Awaited<ReturnType<Client["listTools"]>>;
+
+export type ToolItem = ToolList["tools"][number];

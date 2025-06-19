@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "yaml";
 import { GenericMessage, ModelProvider, ServerConfig } from "../types";
+import { AgentType } from "../types";
 
 // Utility functions for the MCP client
 
@@ -51,7 +52,9 @@ export function createImageUrl(
   return `data:${mimeType};base64,${base64Data}`;
 }
 
-export function loadServerConfig(agentType: string = "single"): ServerConfig {
+export function loadServerConfig(
+  agentType: AgentType = AgentType.REACT
+): ServerConfig {
   const configPath = path.join(
     __dirname,
     "..",

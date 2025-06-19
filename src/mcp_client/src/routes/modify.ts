@@ -1,5 +1,4 @@
 import { Response } from "express";
-import { runReactAgent } from "../core/agent";
 import {
   getModificationWithoutOraclePrompt,
   getModificationWithOracleHierarchyPrompt,
@@ -15,6 +14,8 @@ import {
   UserRequestMessage,
 } from "../types";
 import { randomUUID } from "crypto";
+import { createAgent } from "../agents";
+import { globalSession } from "../core/session";
 
 // Modify UI without oracle
 export const modifyWithoutOracle = async (
@@ -24,6 +25,7 @@ export const modifyWithoutOracle = async (
   try {
     const message = req.body.message;
     const metadata = req.body.metadata || "unknown";
+    const sessionState = globalSession.state;
 
     if (!req.file) {
       res
@@ -36,6 +38,14 @@ export const modifyWithoutOracle = async (
       res.status(400).json({
         status: ResponseStatus.ERROR,
         message: "No instruction provided.",
+      });
+      return;
+    }
+
+    if (!sessionState.agentType || !sessionState.tools || !sessionState.model) {
+      res.status(500).json({
+        status: ResponseStatus.ERROR,
+        message: "The session is not properly initialized.",
       });
       return;
     }
@@ -58,8 +68,12 @@ export const modifyWithoutOracle = async (
       ],
     };
 
-    const { history, responses, cost } = await runReactAgent(userRequest, {
-      input_id: metadata,
+    const agent = createAgent(sessionState.agentType);
+    const { history, responses, cost } = await agent.run({
+      requestMessage: userRequest,
+      tools: sessionState.tools,
+      model: sessionState.model,
+      metadata: { input_id: metadata },
     });
 
     res.json({
@@ -87,6 +101,7 @@ export const modifyWithOracleHierarchy = async (
   try {
     const message = req.body.message;
     const metadata = req.body.metadata || "unknown";
+    const sessionState = globalSession.state;
 
     if (!req.file) {
       res
@@ -99,6 +114,14 @@ export const modifyWithOracleHierarchy = async (
       res.status(400).json({
         status: ResponseStatus.ERROR,
         message: "No instruction provided.",
+      });
+      return;
+    }
+
+    if (!sessionState.agentType || !sessionState.tools || !sessionState.model) {
+      res.status(500).json({
+        status: ResponseStatus.ERROR,
+        message: "The session is not properly initialized.",
       });
       return;
     }
@@ -121,8 +144,12 @@ export const modifyWithOracleHierarchy = async (
       ],
     };
 
-    const { history, responses, cost } = await runReactAgent(userRequest, {
-      input_id: metadata,
+    const agent = createAgent(sessionState.agentType);
+    const { history, responses, cost } = await agent.run({
+      requestMessage: userRequest,
+      tools: sessionState.tools,
+      model: sessionState.model,
+      metadata: { input_id: metadata },
     });
 
     res.json({
@@ -150,6 +177,7 @@ export const modifyWithOraclePerfectCanvas = async (
   try {
     const message = req.body.message;
     const metadata = req.body.metadata || "unknown";
+    const sessionState = globalSession.state;
 
     if (!req.file) {
       res
@@ -162,6 +190,14 @@ export const modifyWithOraclePerfectCanvas = async (
       res.status(400).json({
         status: ResponseStatus.ERROR,
         message: "No instruction provided.",
+      });
+      return;
+    }
+
+    if (!sessionState.agentType || !sessionState.tools || !sessionState.model) {
+      res.status(500).json({
+        status: ResponseStatus.ERROR,
+        message: "The session is not properly initialized.",
       });
       return;
     }
@@ -184,12 +220,12 @@ export const modifyWithOraclePerfectCanvas = async (
       ],
     };
 
-    const {
-      history,
-      responses,
-      cost, // Cost in USD
-    } = await runReactAgent(userRequest, {
-      input_id: metadata,
+    const agent = createAgent(sessionState.agentType);
+    const { history, responses, cost } = await agent.run({
+      requestMessage: userRequest,
+      tools: sessionState.tools,
+      model: sessionState.model,
+      metadata: { input_id: metadata },
     });
 
     res.json({

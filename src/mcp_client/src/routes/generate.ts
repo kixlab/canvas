@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { runReactAgent } from "../core/agent";
 import {
   getTextBasedGenerationPrompt,
   getImageBasedGenerationPrompt,
@@ -16,6 +15,8 @@ import {
   UserRequestMessage,
 } from "../types";
 import { randomUUID } from "crypto";
+import { createAgent } from "../agents";
+import { globalSession } from "../core/session";
 
 export const generateFromText = async (
   req: Request,
@@ -24,11 +25,20 @@ export const generateFromText = async (
   try {
     const message = req.body.message;
     const metadata = req.body.metadata || "unknown";
+    const sessionState = globalSession.state;
 
     if (!message) {
       res.status(400).json({
         status: ResponseStatus.ERROR,
         message: "No instruction provided.",
+      });
+      return;
+    }
+
+    if (!sessionState.agentType || !sessionState.tools || !sessionState.model) {
+      res.status(500).json({
+        status: ResponseStatus.ERROR,
+        message: "The session is not properly initialized.",
       });
       return;
     }
@@ -42,8 +52,13 @@ export const generateFromText = async (
       content: [{ type: ContentType.TEXT, text: instruction }],
     };
 
-    const { history, responses, cost } = await runReactAgent(userRequest, {
-      input_id: metadata,
+    const agent = createAgent(sessionState.agentType);
+
+    const { history, responses, cost } = await agent.run({
+      requestMessage: userRequest,
+      tools: sessionState.tools,
+      model: sessionState.model,
+      metadata: { input_id: metadata },
     });
 
     res.json({
@@ -69,11 +84,20 @@ export const generateFromImage = async (
 ): Promise<void> => {
   try {
     const metadata = req.body.metadata || "unknown";
+    const sessionState = globalSession.state;
 
     if (!req.file) {
       res
         .status(400)
         .json({ status: ResponseStatus.ERROR, message: "No image provided." });
+      return;
+    }
+
+    if (!sessionState.agentType || !sessionState.tools || !sessionState.model) {
+      res.status(500).json({
+        status: ResponseStatus.ERROR,
+        message: "The session is not properly initialized.",
+      });
       return;
     }
 
@@ -96,8 +120,13 @@ export const generateFromImage = async (
       ],
     };
 
-    const { history, responses, cost } = await runReactAgent(userRequest, {
-      input_id: metadata,
+    const agent = createAgent(sessionState.agentType);
+
+    const { history, responses, cost } = await agent.run({
+      requestMessage: userRequest,
+      tools: sessionState.tools,
+      model: sessionState.model,
+      metadata: { input_id: metadata },
     });
 
     res.json({
@@ -125,6 +154,7 @@ export const generateFromTextAndImage = async (
   try {
     const message = req.body.message;
     const metadata = req.body.metadata || "unknown";
+    const sessionState = globalSession.state;
 
     if (!req.file) {
       res
@@ -137,6 +167,14 @@ export const generateFromTextAndImage = async (
       res.status(400).json({
         status: ResponseStatus.ERROR,
         message: "No instruction provided.",
+      });
+      return;
+    }
+
+    if (!sessionState.agentType || !sessionState.tools || !sessionState.model) {
+      res.status(500).json({
+        status: ResponseStatus.ERROR,
+        message: "The session is not properly initialized.",
       });
       return;
     }
@@ -160,8 +198,13 @@ export const generateFromTextAndImage = async (
       ],
     };
 
-    const { history, responses, cost } = await runReactAgent(userRequest, {
-      input_id: metadata,
+    const agent = createAgent(sessionState.agentType);
+
+    const { history, responses, cost } = await agent.run({
+      requestMessage: userRequest,
+      tools: sessionState.tools,
+      model: sessionState.model,
+      metadata: { input_id: metadata },
     });
 
     res.json({

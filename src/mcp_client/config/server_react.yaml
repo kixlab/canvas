@@ -1,16 +1,16 @@
 models:
-  - name: "gpt-4.1-2025-04-14"
-    provider: "openai"
-    temperature: 1.0
-    max_tokens: 32768
-    input_cost: 0.002 ## Cost per 1k input tokens
-    output_cost: 0.008 ## Cost per 1k output tokens
   - name: "anthropic.claude-3-5-sonnet-20241022-v2:0"
     provider: "anthropic"
     temperature: 1.0
     max_tokens: 4096
     input_cost: 0.003
     output_cost: 0.015
+  - name: "gpt-4.1-2025-04-14"
+    provider: "openai"
+    temperature: 1.0
+    max_tokens: 32768
+    input_cost: 0.002 ## Cost per 1k input tokens
+    output_cost: 0.008 ## Cost per 1k output tokens
   - name: "gpt-4o-2024-08-06"
     provider: "openai"
     temperature: 1.0
@@ -18,4 +18,4 @@ models:
     input_cost: 0.0025
     output_cost: 0.0125
 
-agent_type: "single"
+agent_type: "react"
