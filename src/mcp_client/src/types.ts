@@ -81,12 +81,6 @@ export enum ToolResponseFormat {
   RESOURCE = "resource",
 }
 
-export type ToolResponseContent =
-  | TextContent
-  | ImageContent
-  | AudioContent
-  | EmbeddedResource;
-
 export type CallToolRequestParams = CallToolRequest["params"];
 // id: string;
 // arguments: Record<string, any>
@@ -102,6 +96,7 @@ export interface ModelConfig {
 
 export enum AgentType {
   REACT = "react",
+  VISUAL = "visual",
 }
 
 export interface ServerConfig {

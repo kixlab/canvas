@@ -30,6 +30,7 @@ export interface ModelInstance {
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): any[];
   formatToolResponse(response: CallToolResult): any;
+  formatImageData(imageData: string, mimeType?: string): string;
 
   // Context management
   createMessageContext(): any[];

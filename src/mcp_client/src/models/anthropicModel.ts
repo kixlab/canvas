@@ -197,4 +197,8 @@ export class AnthropicModel implements ModelInstance {
       response.usage.output_tokens * this.outputCost
     );
   }
+
+  formatImageData(imageData: string, mimeType: string = "image/png"): string {
+    return `${imageData}`;
+  }
 }

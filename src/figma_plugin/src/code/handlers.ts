@@ -23,6 +23,8 @@ export async function handleCommand(command: string, params: any) {
       return await InspectionCommands.readMyDesign();
     case 'scan_nodes_by_types':
       return await InspectionCommands.scanNodesByTypes(params);
+    case 'get_result_image':
+      return await InspectionCommands.getResultImage(params);
 
     case 'clone_node':
       return await OperationCommands.cloneNode(params);
@@ -53,8 +55,6 @@ export async function handleCommand(command: string, params: any) {
 
     case 'get_local_components':
       return await ComponentCommands.getLocalComponents();
-    // case "get_team_components":
-    //   return await ComponentCommands.getTeamComponents();
     case 'create_component_instance':
       return await ComponentCommands.createComponentInstance(params);
 

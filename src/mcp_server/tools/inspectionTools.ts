@@ -165,4 +165,44 @@ export function registerInspectionTools(server: McpServer) {
       }
     }
   );
+
+  // Get Page Image Tool
+  server.tool(
+    "get_result_image",
+    "Get the result image of the tool calling in the current Figma page",
+    {
+      pageId: z
+        .string()
+        .optional()
+        .describe("Figma page ID (defaults to current page)"),
+      scale: z
+        .number()
+        .positive()
+        .optional()
+        .describe("Export scale (default 1)"),
+    },
+    async ({ pageId, scale }) => {
+      try {
+        const result = await sendCommandToFigma("get_result_image", {
+          pageId,
+          scale: scale || 1,
+        });
+
+        const typed = result as { imageData: string; mimeType: string };
+
+        return createSuccessResponse({
+          messages: [`Exported page ${pageId || "current"} as image.`],
+          images: [
+            { data: typed.imageData, mimeType: typed.mimeType ?? "image/png" },
+          ],
+          dataItem: typed,
+        });
+      } catch (error) {
+        return createErrorResponse({
+          error,
+          context: "get_result_image",
+        });
+      }
+    }
+  );
 }

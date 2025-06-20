@@ -1,11 +1,6 @@
 import { Request, Response } from "express";
 import { randomUUID } from "crypto";
-import {
-  ResponseData,
-  ToolResponseFormat,
-  ResponseStatus,
-  ToolResponseContent,
-} from "../types";
+import { ResponseData, ToolResponseFormat, ResponseStatus } from "../types";
 import { globalSession } from "../core/session";
 import { TextContent } from "@modelcontextprotocol/sdk/types";
 

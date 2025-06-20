@@ -1,33 +1,5 @@
-import {
-  makeSolidPaint,
-  getErrorMessage,
-  sendProgressUpdate,
-  setCharacters,
-  generateCommandId,
-  findTextNodes,
-  processTextNode,
-  collectNodesToProcess,
-  delay,
-  findNodesByTypes,
-  uint8ArrayToBase64,
-  safeParseFloat,
-  customBase64Encode,
-  filterFigmaNode,
-} from '../utils';
-import { hasAppendChild, hasClone, hasExportAsync } from '../figma-api';
-import {
-  LayoutMode,
-  LayoutWrap,
-  PrimaryAxisAlign,
-  CounterAxisAlign,
-  LayoutSizing,
-  ProgressStatus,
-  NodeInfo,
-  MinimalTextNode,
-  CategoryInfo,
-  MinimalNodeMatch,
-  ImageFormat,
-} from '../types';
+import { customBase64Encode } from '../utils';
+import { ImageFormat } from '../types';
 
 interface ExportNodeAsImageResult {
   nodeId: string;

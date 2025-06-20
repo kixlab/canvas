@@ -208,4 +208,8 @@ export class OpenAIModel implements ModelInstance {
       response.usage.output_tokens * this.outputCost
     );
   }
+
+  formatImageData(imageData: string, mimeType: string = "image/png"): string {
+    return `data:${mimeType};base64,${imageData}`;
+  }
 }
