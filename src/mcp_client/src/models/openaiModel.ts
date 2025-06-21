@@ -93,7 +93,7 @@ export class OpenAIModel implements ModelInstance {
         } else if (item.type === ContentType.IMAGE) {
           return {
             type: "input_image" as const,
-            image_url: (item as any).data,
+            image_url: this.formatImageData(item.data),
             detail: "auto" as const,
           };
         }
@@ -210,6 +210,10 @@ export class OpenAIModel implements ModelInstance {
   }
 
   formatImageData(imageData: string, mimeType: string = "image/png"): string {
+    // OpenAI expects image data in base64 format prefixed with the MIME type
+    if (/^data:image\/[^;]+;base64,/.test(imageData)) {
+      return imageData; // Already formatted as a data URL
+    }
     return `data:${mimeType};base64,${imageData}`;
   }
 }

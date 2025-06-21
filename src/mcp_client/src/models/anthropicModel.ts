@@ -99,7 +99,7 @@ export class AnthropicModel implements ModelInstance {
                   | "image/png"
                   | "image/gif"
                   | "image/webp",
-                data: imageData.data,
+                data: this.formatImageData(imageData.data),
               },
             };
           default:
@@ -199,6 +199,8 @@ export class AnthropicModel implements ModelInstance {
   }
 
   formatImageData(imageData: string, mimeType: string = "image/png"): string {
+    // Anthropic expects base64 encoded image data without the prefix
+    imageData = imageData.replace(/^data:image\/[^;]+;base64,/, "");
     return `${imageData}`;
   }
 }
