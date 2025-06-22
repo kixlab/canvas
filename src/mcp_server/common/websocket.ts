@@ -51,16 +51,16 @@ export function connectToFigma(
 ) {
   // If already connected, do nothing
   if (ws && ws.readyState === WebSocket.OPEN) {
-    logger.info("Already connected to Figma");
+    logger.info({ header: "Already connected to Figma" });
     return;
   }
 
   const wsUrl = serverUrl === "localhost" ? `${WS_URL}:${port}` : WS_URL;
-  logger.info(`Connecting to Figma socket server at ${wsUrl}...`);
+  logger.info({ header: `Connecting to Figma socket server at ${wsUrl}...` });
   ws = new WebSocket(wsUrl);
 
   ws.on("open", () => {
-    logger.info("Connected to Figma socket server");
+    logger.info({ header: "Connected to Figma socket server" });
 
     // Send initial message to get available channels
     const id = uuidv4();
@@ -80,11 +80,11 @@ export function connectToFigma(
   });
 
   ws.on("error", (error: Error) => {
-    logger.error(`Socket error: ${error}`);
+    logger.error({ header: `Socket error: ${error}` });
   });
 
   ws.on("close", () => {
-    logger.info("Disconnected from Figma socket server");
+    logger.info({ header: "Disconnected from Figma socket server" });
     ws = null;
     currentChannel = null; // Reset current channel on disconnection
 
@@ -96,11 +96,11 @@ export function connectToFigma(
     }
 
     // Attempt to reconnect
-    logger.info(
-      `Attempting to reconnect in ${
+    logger.info({
+      header: `Attempting to reconnect in ${
         SERVER_CONFIG.reconnectDelay / 1000
-      } seconds...`
-    );
+      } seconds...`,
+    });
     setTimeout(() => connectToFigma(port), SERVER_CONFIG.reconnectDelay);
   });
 }
@@ -108,11 +108,14 @@ export function connectToFigma(
 function handleWebSocketMessage(data: any) {
   try {
     const message = JSON.parse(data) as Message;
-    logger.debug(`Received message: ${JSON.stringify(message)}`);
+    logger.debug({
+      header: `Received message`,
+      body: `${JSON.stringify(message)}`,
+    });
 
     switch (message.type) {
       case MessageType.CONNECTION:
-        logger.info("Connection confirmed by socket server");
+        logger.info({ header: "Connection confirmed by socket server" });
         break;
 
       case MessageType.GET_CHANNELS:
@@ -124,7 +127,10 @@ function handleWebSocketMessage(data: any) {
         break;
 
       case MessageType.ERROR:
-        logger.error(`Socket server error: ${message.payload?.message}`);
+        logger.error({
+          header: `Socket server error`,
+          body: `${message.payload?.message}`,
+        });
         break;
 
       case MessageType.NOTIFY:
@@ -135,7 +141,7 @@ function handleWebSocketMessage(data: any) {
         ) {
           return;
         }
-        logger.info(`Notification: ${message.payload?.message}`);
+        logger.info({ header: `Notification: ${message.payload?.message}` });
         break;
 
       case MessageType.TRANSMIT:
@@ -150,29 +156,31 @@ function handleWebSocketMessage(data: any) {
         break;
 
       default:
-        logger.warn(`Unknown message type: ${message.type}`);
+        logger.warn({ header: `Unknown message type: ${message.type}` });
     }
   } catch (error) {
-    logger.error(
-      `Error parsing message: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
+    logger.error({
+      header: `Error parsing message`,
+      body: `${error instanceof Error ? error.message : String(error)}`,
+    });
   }
 }
 
 function handleChannelList(channels: string[]): void {
   if (!Array.isArray(channels) || channels.length === 0) {
-    logger.warn("No channels available from server");
+    logger.warn({ header: "No channels available from server" });
     return;
   }
 
-  logger.info(`Available channels: ${channels.join(", ")}`);
+  logger.info({
+    header: `Available channels`,
+    body: `${channels.join(", ")}`,
+  });
 
   // Auto-join the first channel if we're not already in a channel
   if (!currentChannel && channels.length > 0) {
     const channelToJoin = channels[0];
-    logger.info(`Auto-joining channel: ${channelToJoin}`);
+    logger.info({ header: `Auto-joining channel: ${channelToJoin}` });
 
     const joinMessage: Message = {
       source: MessageSource.MCP_SERVER,
@@ -190,11 +198,11 @@ function handleChannelList(channels: string[]): void {
 function handleJoinResult(payload: any): void {
   if (payload?.success) {
     currentChannel = payload.channel || null;
-    logger.info(`Successfully joined channel: ${currentChannel}`);
+    logger.info({ header: `Successfully joined channel: ${currentChannel}` });
   } else {
-    logger.error(
-      `Failed to join channel: ${payload?.error || "Unknown error"}`
-    );
+    logger.error({
+      header: `Failed to join channel: ${payload?.error || "Unknown error"}`,
+    });
   }
 }
 
@@ -202,7 +210,7 @@ function handleTransmittedMessage(payload: any): void {
   const messageData = payload.message;
 
   if (!messageData) {
-    logger.warn("Received transmit message without message data");
+    logger.warn({ header: "Received transmit message without message data" });
     return;
   }
 
@@ -222,7 +230,7 @@ function handleTransmittedMessage(payload: any): void {
     clearTimeout(request.timeout);
 
     if (messageData.error) {
-      logger.error(`Error from Figma: ${messageData.error}`);
+      logger.error({ header: `Error from Figma: ${messageData.error}` });
       request.reject(new Error(messageData.error));
     } else {
       const result = messageData.result || {};
@@ -232,7 +240,10 @@ function handleTransmittedMessage(payload: any): void {
     pendingRequests.delete(messageData.id);
   } else {
     // Handle broadcast messages or events
-    logger.info(`Received broadcast message: ${JSON.stringify(messageData)}`);
+    logger.info({
+      header: `Received broadcast message`,
+      body: `${JSON.stringify(messageData)}`,
+    });
   }
 }
 
@@ -252,25 +263,26 @@ function handleProgressUpdate(messageData: any) {
     // Create a new timeout
     request.timeout = setTimeout(() => {
       if (pendingRequests.has(requestId)) {
-        logger.error(
-          `Request ${requestId} timed out after extended period of inactivity`
-        );
+        logger.error({
+          header: `Request ${requestId} timed out after extended period of inactivity`,
+        });
         pendingRequests.delete(requestId);
         request.reject(new Error("Request to Figma timed out"));
       }
     }, SERVER_CONFIG.extendedTimeout);
 
     // Log progress
-    logger.info(
-      `Progress update for ${progressData.commandType}: ${progressData.progress}% - ${progressData.message}`
-    );
+    logger.info({
+      header: `Progress update for ${progressData.commandType}`,
+      body: `${progressData.progress}% - ${progressData.message}`,
+    });
 
     // For completed updates, we could resolve the request early if desired
     if (progressData.status === "completed" && progressData.progress === 100) {
       // Instead, just log the completion, wait for final result from Figma
-      logger.info(
-        `Operation ${progressData.commandType} completed, waiting for final result`
-      );
+      logger.info({
+        header: `Operation ${progressData.commandType} completed, waiting for final result`,
+      });
     }
   }
 }
@@ -320,9 +332,11 @@ export function sendCommandToFigma(
     const timeout = setTimeout(() => {
       if (pendingRequests.has(id)) {
         pendingRequests.delete(id);
-        logger.error(
-          `Request ${id} to Figma timed out after ${timeoutMs / 1000} seconds`
-        );
+        logger.error({
+          header: `Request ${id} to Figma timed out after ${
+            timeoutMs / 1000
+          } seconds`,
+        });
         reject(new Error("Request to Figma timed out"));
       }
     }, timeoutMs);
@@ -336,10 +350,13 @@ export function sendCommandToFigma(
     });
 
     // Send the request
-    logger.info(
-      `Sending command to Figma: ${command} in channel: ${currentChannel}`
-    );
-    logger.debug(`Request details: ${JSON.stringify(message)}`);
+    logger.info({
+      header: `Sending command to Figma: ${command} in channel (${currentChannel})`,
+    });
+    logger.debug({
+      header: ``,
+      body: `${JSON.stringify(message)}`,
+    });
     ws.send(JSON.stringify(message));
   });
 }

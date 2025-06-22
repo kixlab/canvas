@@ -1,6 +1,47 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
 
+// Custom logging functions that write to stderr instead of stdout to avoid being captured
+// ANSI color codes for styling
+const COLORS = {
+  GRAY: "\x1b[90m", // Bright black (gray)
+  RESET: "\x1b[0m", // Reset to default
+};
+
+export const logger = {
+  info: ({ header, body }: { header: string; body?: string }) => {
+    process.stderr.write(
+      `[INFO][socket-server] ${header} ${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    );
+  },
+  debug: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `[DEBUG][socket-server] ${header} ${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+  warn: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `[WARN][socket-server] ${header} ${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+  error: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `[ERROR][socket-server] ${header} ${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+  log: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `[LOG][socket-server] ${header} ${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+};
+
 // Type definitions
 interface ClientInfo {
   ws: WebSocket;
@@ -54,11 +95,10 @@ const availableChannels = [
 // Message handlers
 function handleGetChannels(ws: WebSocket, message: Message): void {
   const clientInfo = clients.get(ws);
-  console.log(
-    `WebSocket client requested channel list (type: ${
-      clientInfo?.clientType || MessageSource.UNKNOWN
-    })`
-  );
+  logger.info({
+    header: `WebSocket client requested channel list`,
+    body: `Client type: ${clientInfo?.clientType || MessageSource.UNKNOWN}`,
+  });
 
   ws.send(
     JSON.stringify({
@@ -97,9 +137,10 @@ function handleJoinChannel(ws: WebSocket, message: Message): void {
   clientInfo.channel = channel;
   clientInfo.clientType = clientType;
 
-  console.log(
-    `WebSocket client joined channel: ${channel} (type: ${clientType})`
-  );
+  logger.info({
+    header: `WebSocket client joined channel`,
+    body: `Channel: ${channel}, Client type: ${clientType}`,
+  });
 
   // Notify old channel if leaving
   if (oldChannel && oldChannel !== channel) {
@@ -161,11 +202,10 @@ function handleMessage(ws: WebSocket, message: Message): void {
     return;
   }
 
-  console.log(
-    `Broadcasting message to channel: ${channel} (from: ${
-      clientInfo?.clientType || "unknown"
-    })`
-  );
+  logger.info({
+    header: `Broadcasting message to channel`,
+    body: `Channel: ${channel}, Sender: ${clientInfo?.clientType || "unknown"}`,
+  });
 
   // Add channel to the message if not already present
   const messageData = message.payload?.message;
@@ -186,11 +226,10 @@ function handleMessage(ws: WebSocket, message: Message): void {
 
 function handleClientDisconnect(ws: WebSocket): void {
   const clientInfo = clients.get(ws);
-  console.log(
-    `WebSocket client disconnected (type: ${
-      clientInfo?.clientType || MessageSource.UNKNOWN
-    })`
-  );
+  logger.info({
+    header: `WebSocket client disconnected`,
+    body: `Client type: ${clientInfo?.clientType || MessageSource.UNKNOWN}`,
+  });
 
   const channel = clientInfo?.channel;
   clients.delete(ws);
@@ -253,10 +292,10 @@ function handleConnection(ws: WebSocket) {
 
   ws.on("message", (messageBuffer: Buffer) => {
     try {
-      console.log(
-        "Received message from websocket client:",
-        messageBuffer.toString()
-      );
+      logger.debug({
+        header: `Received message from websocket client`,
+        body: messageBuffer.toString(),
+      });
       const message: Message = JSON.parse(messageBuffer.toString());
 
       switch (message.type) {
@@ -281,7 +320,10 @@ function handleConnection(ws: WebSocket) {
           );
       }
     } catch (err) {
-      console.error("Error handling message:", err);
+      logger.error({
+        header: `Error handling message`,
+        body: err.message,
+      });
       ws.send(
         JSON.stringify({
           source: MessageSource.SOCKET_SERVER,
@@ -326,6 +368,8 @@ wss.on("connection", handleConnection);
 
 const PORT = 3055;
 server.listen(PORT, () => {
-  console.log(`WebSocket server running on port ${PORT}`);
-  console.log(`Available channels: ${availableChannels.join(", ")}`);
+  logger.info({
+    header: `WebSocket server running`,
+    body: `Port: ${PORT}, Available channels: ${availableChannels.join(", ")}`,
+  });
 });
