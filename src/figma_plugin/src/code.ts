@@ -5,7 +5,7 @@ const internalState = {
   serverPort: 3055 as number,
 };
 
-figma.showUI(__html__, { width: 350, height: 500 });
+figma.showUI(__html__, { width: 350, height: 700 });
 
 figma.ui.onmessage = async (msg) => {
   switch (msg.type) {

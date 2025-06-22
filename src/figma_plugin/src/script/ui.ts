@@ -47,6 +47,9 @@ export const progressPercentage = document.getElementById(
   'progress-percentage'
 ) as HTMLElement;
 
+const LOGGING_DEPTH = 5;
+const LOGGING_STRING_LENGTH = 30;
+
 /* ---------- Application State ---------- */
 export const UIstate: UIState = {
   connected: false,
@@ -129,10 +132,21 @@ export function addLogEntry(entry: LogEntry): void {
 
 function formatLogData(data: unknown): string {
   if (data === undefined || data === null) return 'null';
+  if (typeof data === 'string') {
+    try {
+      const parsed = JSON.parse(data);
+      const simplified = simplifyObject(parsed, LOGGING_DEPTH);
+      return JSON.stringify(simplified, null, 2)
+        .replace(/\n/g, '<br>')
+        .replace(/ /g, '&nbsp;');
+    } catch {
+      return data;
+    }
+  }
 
   if (typeof data === 'object') {
     try {
-      const simplified = simplifyObject(data, 2);
+      const simplified = simplifyObject(data, LOGGING_DEPTH);
       return JSON.stringify(simplified, null, 2)
         .replace(/\n/g, '<br>')
         .replace(/ /g, '&nbsp;');
@@ -140,6 +154,7 @@ function formatLogData(data: unknown): string {
       return String(data);
     }
   }
+
   return String(data);
 }
 
@@ -148,7 +163,10 @@ function simplifyObject(obj: unknown, maxDepth = 2, currentDepth = 0): unknown {
     if (Array.isArray(obj)) return `[Array(${obj.length})]`;
     if (typeof obj === 'object')
       return `{Object with ${Object.keys(obj ?? {}).length} properties}`;
-    return obj;
+  }
+
+  if (typeof obj === 'string' && obj.length > LOGGING_STRING_LENGTH) {
+    return obj.substring(0, LOGGING_STRING_LENGTH) + '...';
   }
 
   if (Array.isArray(obj)) {
