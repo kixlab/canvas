@@ -20,7 +20,7 @@ export type ResponseContent =
   | EmbeddedResource;
 
 export interface CommandProgressUpdate {
-  type: "command_progress";
+  type: "command-progress";
   commandId: string;
   commandType: string;
   status: "started" | "in_progress" | "completed" | "error";

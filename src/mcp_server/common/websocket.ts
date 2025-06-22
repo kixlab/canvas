@@ -8,6 +8,31 @@ import {
 } from "../types.js";
 import { logger, serverUrl, WS_URL, SERVER_CONFIG } from "../config.js";
 
+// Type definitions to match socket server
+enum MessageSource {
+  SOCKET_SERVER = "socket_server",
+  MCP_SERVER = "mcp_server",
+  FIGMA_CLIENT = "figma_client",
+  UNKNOWN = "unknown",
+}
+
+enum MessageType {
+  GET_CHANNELS = "get_channels",
+  JOIN = "join",
+  MESSAGE = "message",
+  NOTIFY = "notify",
+  TRANSMIT = "transmit",
+  JOIN_RESULT = "join_result",
+  ERROR = "error",
+  CONNECTION = "connection",
+}
+
+interface Message {
+  source: MessageSource;
+  type: MessageType;
+  payload?: any;
+}
+
 // WebSocket connection and request tracking
 let ws: WebSocket | null = null;
 let currentChannel: string | null = null;
@@ -37,15 +62,17 @@ export function connectToFigma(
   ws.on("open", () => {
     logger.info("Connected to Figma socket server");
 
-    // Send initial message to identify the client
-    // We don't send a channel join yet since we need to fetch available channels first
+    // Send initial message to get available channels
     const id = uuidv4();
-    ws!.send(
-      JSON.stringify({
+    const message: Message = {
+      source: MessageSource.MCP_SERVER,
+      type: MessageType.GET_CHANNELS,
+      payload: {
         id,
-        type: "get_channels",
-      })
-    );
+      },
+    };
+
+    ws!.send(JSON.stringify(message));
   });
 
   ws.on("message", (data: any) => {
@@ -80,71 +107,50 @@ export function connectToFigma(
 
 function handleWebSocketMessage(data: any) {
   try {
-    const json = JSON.parse(data) as ProgressMessage;
+    const message = JSON.parse(data) as Message;
+    logger.debug(`Received message: ${JSON.stringify(message)}`);
 
-    // Handle channels response
-    if (json.type === "channels" && json.channels) {
-      logger.info(`Available channels: ${json.channels.join(", ")}`);
+    switch (message.type) {
+      case MessageType.CONNECTION:
+        logger.info("Connection confirmed by socket server");
+        break;
 
-      // Auto-join the first channel if we're not already in a channel
-      if (!currentChannel && json.channels.length > 0) {
-        const channelToJoin = json.channels[0];
-        logger.info(`Auto-joining channel: ${channelToJoin}`);
+      case MessageType.GET_CHANNELS:
+        handleChannelList(message.payload?.channels);
+        break;
 
-        ws!.send(
-          JSON.stringify({
-            type: "join",
-            channel: channelToJoin,
-            clientType: "mcp_client", // Set client type to mcp_client
-          })
-        );
-      }
-      return;
-    }
+      case MessageType.JOIN_RESULT:
+        handleJoinResult(message.payload);
+        break;
 
-    // Handle join channel result
-    if (json.type === "join_result") {
-      if (json.success) {
-        currentChannel = json.channel || null;
-        logger.info(`Successfully joined channel: ${currentChannel}`);
-      } else {
-        logger.error(
-          `Failed to join channel: ${json.error || "Unknown error"}`
-        );
-      }
-      return;
-    }
+      case MessageType.ERROR:
+        logger.error(`Socket server error: ${message.payload?.message}`);
+        break;
 
-    // Handle progress updates
-    if (json.type === "progress_update") {
-      handleProgressUpdate(json);
-      return;
-    }
+      case MessageType.NOTIFY:
+        if (
+          currentChannel &&
+          message.payload?.channel &&
+          message.payload.channel !== currentChannel
+        ) {
+          return;
+        }
+        logger.info(`Notification: ${message.payload?.message}`);
+        break;
 
-    // Handle regular responses
-    const myResponse = json.message || json;
+      case MessageType.TRANSMIT:
+        if (
+          currentChannel &&
+          message.payload?.channel &&
+          message.payload.channel !== currentChannel
+        ) {
+          return;
+        }
+        handleTransmittedMessage(message.payload);
+        break;
 
-    // Handle response to a request
-    if (
-      myResponse.id &&
-      pendingRequests.has(myResponse.id) &&
-      (myResponse.result !== undefined || myResponse.error !== undefined)
-    ) {
-      const request = pendingRequests.get(myResponse.id)!;
-      clearTimeout(request.timeout);
-
-      if (myResponse.error) {
-        logger.error(`Error from Figma: ${myResponse.error}`);
-        request.reject(new Error(myResponse.error));
-      } else {
-        const result = myResponse.result || {};
-        request.resolve(result);
-      }
-
-      pendingRequests.delete(myResponse.id);
-    } else {
-      // Handle broadcast messages or events
-      logger.info(`Received broadcast message: ${JSON.stringify(myResponse)}`);
+      default:
+        logger.warn(`Unknown message type: ${message.type}`);
     }
   } catch (error) {
     logger.error(
@@ -155,9 +161,84 @@ function handleWebSocketMessage(data: any) {
   }
 }
 
-function handleProgressUpdate(json: ProgressMessage) {
-  const progressData = json.message?.data as CommandProgressUpdate;
-  const requestId = json.id || "";
+function handleChannelList(channels: string[]): void {
+  if (!Array.isArray(channels) || channels.length === 0) {
+    logger.warn("No channels available from server");
+    return;
+  }
+
+  logger.info(`Available channels: ${channels.join(", ")}`);
+
+  // Auto-join the first channel if we're not already in a channel
+  if (!currentChannel && channels.length > 0) {
+    const channelToJoin = channels[0];
+    logger.info(`Auto-joining channel: ${channelToJoin}`);
+
+    const joinMessage: Message = {
+      source: MessageSource.MCP_SERVER,
+      type: MessageType.JOIN,
+      payload: {
+        channel: channelToJoin,
+        clientType: MessageSource.MCP_SERVER,
+      },
+    };
+
+    ws!.send(JSON.stringify(joinMessage));
+  }
+}
+
+function handleJoinResult(payload: any): void {
+  if (payload?.success) {
+    currentChannel = payload.channel || null;
+    logger.info(`Successfully joined channel: ${currentChannel}`);
+  } else {
+    logger.error(
+      `Failed to join channel: ${payload?.error || "Unknown error"}`
+    );
+  }
+}
+
+function handleTransmittedMessage(payload: any): void {
+  const messageData = payload.message;
+
+  if (!messageData) {
+    logger.warn("Received transmit message without message data");
+    return;
+  }
+
+  // Handle progress updates
+  if (messageData.type === "progress_update") {
+    handleProgressUpdate(messageData);
+    return;
+  }
+
+  // Handle response to a request
+  if (
+    messageData.id &&
+    pendingRequests.has(messageData.id) &&
+    (messageData.result !== undefined || messageData.error !== undefined)
+  ) {
+    const request = pendingRequests.get(messageData.id)!;
+    clearTimeout(request.timeout);
+
+    if (messageData.error) {
+      logger.error(`Error from Figma: ${messageData.error}`);
+      request.reject(new Error(messageData.error));
+    } else {
+      const result = messageData.result || {};
+      request.resolve(result);
+    }
+
+    pendingRequests.delete(messageData.id);
+  } else {
+    // Handle broadcast messages or events
+    logger.info(`Received broadcast message: ${JSON.stringify(messageData)}`);
+  }
+}
+
+function handleProgressUpdate(messageData: any) {
+  const progressData = messageData.data as CommandProgressUpdate;
+  const requestId = messageData.id || "";
 
   if (requestId && pendingRequests.has(requestId)) {
     const request = pendingRequests.get(requestId)!;
@@ -194,7 +275,7 @@ function handleProgressUpdate(json: ProgressMessage) {
   }
 }
 
-// Simplified sendCommandToFigma function without channel requirements
+// Updated sendCommandToFigma function to use new message structure
 export function sendCommandToFigma(
   command: FigmaCommand,
   params: unknown = {},
@@ -219,16 +300,18 @@ export function sendCommandToFigma(
     }
 
     const id = uuidv4();
-    const request = {
-      id,
-      type: "message",
-      channel: currentChannel, // Include the current channel
-      message: {
-        id,
-        command,
-        params: {
-          ...(params as any),
-          commandId: id, // Include the command ID in params
+    const message: Message = {
+      source: MessageSource.MCP_SERVER,
+      type: MessageType.MESSAGE,
+      payload: {
+        channel: currentChannel,
+        message: {
+          id,
+          command,
+          params: {
+            ...(params as any),
+            commandId: id, // Include the command ID in params
+          },
         },
       },
     };
@@ -256,7 +339,7 @@ export function sendCommandToFigma(
     logger.info(
       `Sending command to Figma: ${command} in channel: ${currentChannel}`
     );
-    logger.debug(`Request details: ${JSON.stringify(request)}`);
-    ws.send(JSON.stringify(request));
+    logger.debug(`Request details: ${JSON.stringify(message)}`);
+    ws.send(JSON.stringify(message));
   });
 }

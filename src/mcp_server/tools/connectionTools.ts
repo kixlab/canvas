@@ -8,7 +8,6 @@ import {
   connectToFigma,
 } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
-import { create } from "domain";
 
 const CONNECTION_TIMEOUT = 5000;
 
@@ -40,9 +39,8 @@ export function registerConnectionTools(server: McpServer) {
           const messageHandler = (data: any) => {
             try {
               const json = JSON.parse(data.toString());
-
-              if (json.type === "channels" && json.channels) {
-                const availableChannels = json.channels;
+              if (json.type === "get_channels" && json.payload.channels) {
+                const availableChannels = json.payload.channels;
                 ws!.removeListener("message", messageHandler);
 
                 resolve(
@@ -60,6 +58,7 @@ export function registerConnectionTools(server: McpServer) {
             } catch (error) {
               // If parsing fails, it might not be the channels response
               console.error("Error parsing channels response:", error);
+
               createErrorResponse({
                 error,
                 context: "get_channels",
@@ -108,9 +107,12 @@ export function registerConnectionTools(server: McpServer) {
         return new Promise((resolve) => {
           ws!.send(
             JSON.stringify({
+              source: "mcp_server",
               type: "join",
-              channel: channel,
-              clientType: "mcp_client",
+              payload: {
+                channel: channel,
+                clientType: "mcp_server",
+              },
             })
           );
 
@@ -121,11 +123,11 @@ export function registerConnectionTools(server: McpServer) {
 
               if (
                 joinJson.type === "join_result" &&
-                joinJson.channel === channel
+                joinJson.payload.channel === channel
               ) {
                 ws!.removeListener("message", joinHandler);
 
-                if (joinJson.success) {
+                if (joinJson.payload.success) {
                   resolve(
                     createSuccessResponse({
                       messages: [`Successfully joined channel: ${channel}`],
@@ -187,15 +189,9 @@ export function registerConnectionTools(server: McpServer) {
 
         // If we're connected but don't have a channel
         if (!currentChannel) {
-          return createSuccessResponse({
-            messages: [
-              "Connected to Figma socket server but not joined to any channel. Waiting for channel connection...",
-            ],
-            dataItem: {
-              currentChannel: null,
-              availableChannels: [],
-            },
-          });
+          throw new Error(
+            "Connected to Figma socket server but not joined to any channel."
+          );
         }
         return createSuccessResponse({
           messages: [`Connected to Figma on channel: ${currentChannel}`],
@@ -206,7 +202,7 @@ export function registerConnectionTools(server: McpServer) {
       } catch (error) {
         return createErrorResponse({
           error,
-          context: "connecting to Figma",
+          context: "check_connection_status",
         });
       }
     }

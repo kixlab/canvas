@@ -62,7 +62,7 @@ export function sendProgressUpdate(
   payload: ProgressPayload = null
 ) {
   const update: ProgressUpdate = {
-    type: 'command_progress',
+    type: 'command-progress',
     commandId,
     commandType,
     status,
