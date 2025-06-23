@@ -5,7 +5,8 @@ import aiohttp
 import argparse
 from pathlib import Path
 from dotenv import load_dotenv
-from src.experiments.base_runner import BaseExperiment, ExperimentConfig
+from .base_runner import BaseExperiment, ExperimentConfig, parse_common_args
+from .enums import ExperimentVariant
 
 load_dotenv()
 
@@ -15,8 +16,8 @@ class SampleExtractionExperiment(BaseExperiment):
         self.figma_timeout = 30
 
     async def run(self):
-        self.logger.info(f"Starting sample extraction with model: {self.config.model}")
-        self.logger.info(f"Variants: {self.config.variants}")
+        self.logger.info(f"Starting sample extraction with model: {self.config.model.value}")
+        self.logger.info(f"Variants: {[v.value for v in self.config.variants]}")
         if self.config.batch_name:
             self.logger.info(f"Batch: {self.config.batch_name}")
         
@@ -42,7 +43,7 @@ class SampleExtractionExperiment(BaseExperiment):
                     with open(meta_file, "r", encoding="utf-8") as f:
                         meta_json = json.load(f)
 
-                    result_name = f"{base_id}-{self.config.model}-{variant}"
+                    result_name = f"{base_id}-{self.config.model.value}-{variant.value}"
                     self.logger.info(f"[START] Generating result for: {result_name}")
                     result_dir = self.results_dir / result_name
                     if result_dir.exists():
@@ -79,18 +80,8 @@ class SampleExtractionExperiment(BaseExperiment):
                         else:
                             print("Invalid input. Please enter y / n / q.")
 
-    async def run_variant(self, session, image_path, meta_json, result_name, variant):
-        if variant == "image_only":
-            endpoint = "generate/image"
-            message_text = None
-        elif variant == "text_level_1":
-            endpoint = "generate/text-image"
-            message_text = meta_json.get("description_one", "")
-        elif variant == "text_level_2":
-            endpoint = "generate/text-image"
-            message_text = meta_json.get("description_two", "")
-        else:
-            raise ValueError(f"Unknown variant: {variant}")
+    async def run_variant(self, session, image_path, meta_json, result_name, variant: ExperimentVariant):
+        endpoint = "generate/image"
 
         def build_form_data():
             form = aiohttp.FormData()
@@ -117,18 +108,9 @@ class SampleExtractionExperiment(BaseExperiment):
                 await asyncio.sleep(2)
         raise RuntimeError("Failed to get response after retries")
 
-
 def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True)
-    parser.add_argument("--variants", type=str, required=True)
-    parser.add_argument("--channel", type=str, required=True)
-    parser.add_argument("--config_name", type=str, default="base")
-    parser.add_argument("--batch_name", type=str)
-    parser.add_argument("--batches_config_path", type=str)
-    parser.add_argument("--multi_agent", action="store_true")
-    parser.add_argument("--guidance", type=str)
-    parser.add_argument("--use_langsmith", action="store_true")
+    parser = argparse.ArgumentParser(description="Run sample extraction experiments")
+    parser = parse_common_args(parser)
     return parser.parse_args()
 
 async def main():

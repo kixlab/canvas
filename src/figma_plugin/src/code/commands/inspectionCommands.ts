@@ -7,7 +7,7 @@ import {
   customBase64Encode,
 } from '../utils';
 import { hasExportAsync } from '../figma-api';
-import { MinimalNodeMatch, ImageFormat } from '../types';
+import { MinimalNodeMatch } from '../types';
 
 export async function getDocumentInfo() {
   await figma.currentPage.loadAsync();

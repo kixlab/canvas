@@ -4,77 +4,89 @@ import yaml
 import asyncio
 import aiohttp
 import requests
+import argparse
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 import logging
 from config import load_experiment_config
+from .enums import ModelType, Channel, ExperimentVariant, TaskType, GuidanceType
+from .logger import ExperimentLogger
+
+def parse_common_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """Add common arguments to the parser."""
+    parser.add_argument("--model", type=str, required=True, choices=[m.value for m in ModelType],
+                      help="Model to use (e.g. gpt-4, qwen)")
+    parser.add_argument("--variants", type=str, required=True,
+                      help="Comma-separated list of variants")
+    parser.add_argument("--channel", type=str, required=True, choices=[c.value for c in Channel],
+                      help="Channel name from config.yaml")
+    parser.add_argument("--config-name", type=str, required=True,
+                      help="Name of the experiment configuration")
+    parser.add_argument("--batch-name", type=str,
+                      help="Optional: batch name to run (e.g., batch_1)")
+    parser.add_argument("--batches-config-path", type=str,
+                      help="Optional: path to batches.yaml")
+    parser.add_argument("--multi-agent", action="store_true",
+                      help="Use multi-agent (supervisor-worker) mode")
+    parser.add_argument("--guidance", type=str, choices=[g.value for g in GuidanceType],
+                      help="Guidance type to use")
+    parser.add_argument("--use-langsmith", action="store_true",
+                      help="Enable LangSmith logging")
+    return parser
 
 @dataclass
 class ExperimentConfig:
-    model: str
-    variants: List[str]
-    channel: str
+    model: ModelType
+    variants: List[ExperimentVariant]
+    channel: Channel
     config_name: str
     batch_name: Optional[str] = None
-    task: Optional[str] = None
+    task: Optional[TaskType] = None
     batches_config_path: Optional[str] = None
     multi_agent: bool = False
-    guidance: Optional[str] = None
+    guidance: Optional[GuidanceType] = None
     use_langsmith: bool = False
 
     @classmethod
     def from_args(cls, args):
         return cls(
-            model=args.model,
-            variants=args.variants.split(","),
-            channel=args.channel,
+            model=ModelType(args.model),
+            variants=[ExperimentVariant(v) for v in args.variants.split(",")],
+            channel=Channel(args.channel),
             config_name=args.config_name,
             batch_name=getattr(args, 'batch_name', None),
-            task=getattr(args, 'task', None),
+            task=TaskType(getattr(args, 'task', None)) if getattr(args, 'task', None) else None,
             batches_config_path=getattr(args, 'batches_config_path', None),
             multi_agent=getattr(args, 'multi_agent', False),
-            guidance=getattr(args, 'guidance', None),
+            guidance=GuidanceType(getattr(args, 'guidance', None)) if getattr(args, 'guidance', None) else None,
             use_langsmith=getattr(args, 'use_langsmith', False)
         )
 
-class ExperimentLogger:
-    def __init__(self, log_dir: Path):
-        self.logger = logging.getLogger("experiment")
-        self.setup_logger(log_dir)
-    
-    def setup_logger(self, log_dir: Path):
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_file = log_dir / f"experiment_log_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.txt"
-        
-        formatter = logging.Formatter('[%(asctime)s] %(message)s')
-        
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
-        file_handler.setFormatter(formatter)
-        
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        
-        self.logger.addHandler(file_handler)
-        self.logger.addHandler(console_handler)
-        self.logger.setLevel(logging.INFO)
-        self.logger.info(f"Log file created at: {log_file}")
-    
-    def info(self, message: str):
-        self.logger.info(message)
-    
-    def error(self, message: str):
-        self.logger.error(message)
-    
-    def warning(self, message: str):
-        self.logger.warning(message)
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "model": self.model.value,
+            "variants": [v.value for v in self.variants],
+            "channel": self.channel.value,
+            "config_name": self.config_name,
+            "batch_name": self.batch_name,
+            "task": self.task.value if self.task else None,
+            "batches_config_path": self.batches_config_path,
+            "multi_agent": self.multi_agent,
+            "guidance": self.guidance.value if self.guidance else None,
+            "use_langsmith": self.use_langsmith
+        }
 
 class BaseExperiment:
     def __init__(self, config: ExperimentConfig):
         self.config = config
         self.setup_environment()
-        self.logger = ExperimentLogger(self.results_dir)
+        self.logger = ExperimentLogger(
+            experiment_id=f"{config.config_name}-{config.model.value}-{config.variants[0].value}",
+            log_dir=self.results_dir
+        )
+        self.logger.log_config(config.to_dict())
         
     def setup_environment(self):
         # LangSmith Setting (Optional)
@@ -83,16 +95,16 @@ class BaseExperiment:
         
         self.experiment_config = load_experiment_config(self.config.config_name)
         
-        self.channel_config = self.experiment_config["channels"].get(self.config.channel)
+        self.channel_config = self.experiment_config["channels"].get(self.config.channel.value)
         if self.channel_config is None:
-            raise ValueError(f"[ERROR] Channel '{self.config.channel}' not found in config.yaml")
+            raise ValueError(f"[ERROR] Channel '{self.config.channel.value}' not found in config.yaml")
         
         self.benchmark_dir = Path(self.experiment_config["benchmark_dir"])
         self.results_dir = Path(self.experiment_config["results_dir"])
         if self.config.task:
-            self.results_dir = self.results_dir / self.config.task
+            self.results_dir = self.results_dir / self.config.task.value
         if self.config.variants:
-            self.results_dir = self.results_dir / self.config.variants[0]
+            self.results_dir = self.results_dir / self.config.variants[0].value
         self.results_dir.mkdir(parents=True, exist_ok=True)
         
         self.api_base_url = self.channel_config["api_base_url"]
@@ -104,15 +116,15 @@ class BaseExperiment:
         self.allowed_ids = self._load_batch_ids() if self.config.batch_name else None
 
     def set_langsmith_metadata(self):
-        project = f"{self.config.config_name}-{self.config.model}"
+        project = f"{self.config.config_name}-{self.config.model.value}"
         tags = []
         
         if self.config.variants:
-            tags.append(f"input_condition={','.join(self.config.variants)}")
+            tags.append(f"input_condition={','.join(v.value for v in self.config.variants)}")
         if self.config.guidance:
-            tags.append(f"guidance={self.config.guidance}")
+            tags.append(f"guidance={self.config.guidance.value}")
         if self.config.channel:
-            tags.append(f"channel={self.config.channel}")
+            tags.append(f"channel={self.config.channel.value}")
         
         machine = os.getenv("MACHINE_ID", "0")
         if machine:

@@ -271,3 +271,320 @@ export async function createText(params: {
     parentId: textNode.parent ? textNode.parent.id : undefined,
   };
 }
+
+export async function createVectorFromSVG(params: {
+  svg: string;
+  name?: string;
+  x?: number;
+  y?: number;
+  parentId?: string;
+}) {
+  const { svg, name, x = 0, y = 0, parentId } = params || {};
+
+  if (!svg) {
+    throw new Error('An SVG string must be provided.');
+  }
+
+  const node = figma.createNodeFromSvg(svg);
+
+  node.x = x;
+  node.y = y;
+
+  let returnNode: SceneNode = node;
+
+  if (node.children.length === 1) {
+    const child = node.children[0];
+    if (parentId) {
+      const parent = await figma.getNodeByIdAsync(parentId);
+      if (parent && 'appendChild' in parent) {
+        (parent as BaseNode & ChildrenMixin).appendChild(child);
+      }
+    } else {
+      figma.currentPage.appendChild(child);
+    }
+    child.x = x;
+    child.y = y;
+    node.remove();
+    returnNode = child;
+  } else {
+    if (parentId) {
+      const parent = await figma.getNodeByIdAsync(parentId);
+      if (parent && 'appendChild' in parent) {
+        (parent as BaseNode & ChildrenMixin).appendChild(node);
+      }
+    }
+  }
+
+  if (name) {
+    returnNode.name = name;
+  }
+
+  return {
+    id: returnNode.id,
+    name: returnNode.name,
+    x: returnNode.x,
+    y: returnNode.y,
+    width: returnNode.width,
+    height: returnNode.height,
+    parentId: returnNode.parent ? returnNode.parent.id : undefined,
+  };
+}
+
+export async function createEllipse(params: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  name?: string;
+  parentId?: string;
+  fillColor?: RGB | RGBA;
+  strokeColor?: RGB | RGBA;
+  strokeWeight?: number;
+}) {
+  const {
+    x = 0,
+    y = 0,
+    width = 100,
+    height = 100,
+    name = 'Ellipse',
+    parentId,
+    fillColor,
+    strokeColor,
+    strokeWeight,
+  } = params || {};
+
+  const ellipse = figma.createEllipse();
+  ellipse.x = x;
+  ellipse.y = y;
+  ellipse.resize(width, height);
+  ellipse.name = name;
+
+  if (fillColor) {
+    ellipse.fills = [makeSolidPaint(fillColor)];
+  }
+  if (strokeColor) {
+    ellipse.strokes = [makeSolidPaint(strokeColor)];
+  }
+  if (strokeWeight !== undefined) {
+    ellipse.strokeWeight = strokeWeight;
+  }
+
+  if (parentId) {
+    const parentNode = await figma.getNodeByIdAsync(parentId);
+    if (!parentNode) {
+      throw new Error(`Parent node not found with ID: ${parentId}`);
+    }
+    if (hasAppendChild(parentNode)) {
+      parentNode.appendChild(ellipse);
+    } else {
+      throw new Error(`Parent node does not support children: ${parentId}`);
+    }
+  } else {
+    figma.currentPage.appendChild(ellipse);
+  }
+
+  return {
+    id: ellipse.id,
+    name: ellipse.name,
+    x: ellipse.x,
+    y: ellipse.y,
+    width: ellipse.width,
+    height: ellipse.height,
+    fills: ellipse.fills,
+    strokes: ellipse.strokes,
+    strokeWeight: ellipse.strokeWeight,
+    parentId: ellipse.parent ? ellipse.parent.id : undefined,
+  };
+}
+
+export async function createPolygon(params: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  pointCount?: number;
+  name?: string;
+  parentId?: string;
+  fillColor?: any;
+  strokeColor?: any;
+  strokeWeight?: number;
+}) {
+  const {
+    x = 0,
+    y = 0,
+    width = 100,
+    height = 100,
+    pointCount = 5,
+    name = 'Polygon',
+    parentId,
+    fillColor,
+    strokeColor,
+    strokeWeight,
+  } = params || {};
+
+  const polygon = figma.createPolygon();
+  polygon.x = x;
+  polygon.y = y;
+  polygon.resize(width, height);
+  polygon.pointCount = pointCount;
+  polygon.name = name;
+
+  if (fillColor) polygon.fills = [makeSolidPaint(fillColor)];
+  if (strokeColor) polygon.strokes = [makeSolidPaint(strokeColor)];
+  if (strokeWeight !== undefined) polygon.strokeWeight = strokeWeight;
+
+  if (parentId) {
+    const parentNode = await figma.getNodeByIdAsync(parentId);
+    if (!parentNode)
+      throw new Error(`Parent node not found with ID: ${parentId}`);
+    if (hasAppendChild(parentNode)) parentNode.appendChild(polygon);
+    else throw new Error(`Parent node does not support children: ${parentId}`);
+  } else {
+    figma.currentPage.appendChild(polygon);
+  }
+
+  return {
+    id: polygon.id,
+    name: polygon.name,
+    x: polygon.x,
+    y: polygon.y,
+    width: polygon.width,
+    height: polygon.height,
+    pointCount: polygon.pointCount,
+    fills: polygon.fills,
+    strokes: polygon.strokes,
+    strokeWeight: polygon.strokeWeight,
+    parentId: polygon.parent ? polygon.parent.id : undefined,
+  };
+}
+
+export async function createStar(params: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  pointCount?: number;
+  innerRadius?: number;
+  name?: string;
+  parentId?: string;
+  fillColor?: RGB | RGBA;
+  strokeColor?: RGB | RGBA;
+  strokeWeight?: number;
+}) {
+  const {
+    x = 0,
+    y = 0,
+    width = 100,
+    height = 100,
+    pointCount = 5,
+    innerRadius = 50,
+    name = 'Star',
+    parentId,
+    fillColor,
+    strokeColor,
+    strokeWeight,
+  } = params || {};
+
+  const star = figma.createStar();
+  star.x = x;
+  star.y = y;
+  star.resize(width, height);
+  star.pointCount = pointCount;
+  star.innerRadius = innerRadius;
+  star.name = name;
+
+  if (fillColor) star.fills = [makeSolidPaint(fillColor)];
+  if (strokeColor) star.strokes = [makeSolidPaint(strokeColor)];
+  if (strokeWeight !== undefined) star.strokeWeight = strokeWeight;
+
+  if (parentId) {
+    const parentNode = await figma.getNodeByIdAsync(parentId);
+    if (!parentNode)
+      throw new Error(`Parent node not found with ID: ${parentId}`);
+    if (hasAppendChild(parentNode)) parentNode.appendChild(star);
+    else throw new Error(`Parent node does not support children: ${parentId}`);
+  } else {
+    figma.currentPage.appendChild(star);
+  }
+
+  return {
+    id: star.id,
+    name: star.name,
+    x: star.x,
+    y: star.y,
+    width: star.width,
+    height: star.height,
+    pointCount: star.pointCount,
+    innerRadius: star.innerRadius,
+    fills: star.fills,
+    strokes: star.strokes,
+    strokeWeight: star.strokeWeight,
+    parentId: star.parent ? star.parent.id : undefined,
+  };
+}
+
+export async function createLine(params: {
+  x?: number;
+  y?: number;
+  length?: number;
+  direction?: 'HORIZONTAL' | 'VERTICAL';
+  name?: string;
+  parentId?: string;
+  strokeColor?: RGB | RGBA;
+  strokeWeight?: number;
+  strokeCap?: StrokeCap;
+  dashPattern?: readonly number[];
+}) {
+  const {
+    x = 0,
+    y = 0,
+    length = 100,
+    direction = 'HORIZONTAL',
+    name = 'Line',
+    parentId,
+    strokeColor,
+    strokeWeight = 1,
+    strokeCap = 'NONE',
+    dashPattern,
+  } = params || {};
+
+  const line = figma.createLine();
+  line.x = x;
+  line.y = y;
+
+  if (direction === 'HORIZONTAL') {
+    line.resize(length, 0);
+  } else {
+    line.resize(0, length);
+  }
+  line.name = name;
+
+  if (strokeColor) line.strokes = [makeSolidPaint(strokeColor)];
+  line.strokeWeight = strokeWeight;
+  line.strokeCap = strokeCap;
+  if (dashPattern) line.dashPattern = dashPattern;
+
+  if (parentId) {
+    const parentNode = await figma.getNodeByIdAsync(parentId);
+    if (!parentNode)
+      throw new Error(`Parent node not found with ID: ${parentId}`);
+    if (hasAppendChild(parentNode)) parentNode.appendChild(line);
+    else throw new Error(`Parent node does not support children: ${parentId}`);
+  } else {
+    figma.currentPage.appendChild(line);
+  }
+
+  return {
+    id: line.id,
+    name: line.name,
+    x: line.x,
+    y: line.y,
+    width: line.width,
+    height: line.height,
+    strokeWeight: line.strokeWeight,
+    strokeCap: line.strokeCap,
+    dashPattern: line.dashPattern,
+    strokes: line.strokes,
+    parentId: line.parent ? line.parent.id : undefined,
+  };
+}

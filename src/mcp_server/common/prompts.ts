@@ -14,13 +14,6 @@ export function registerPrompts(server: McpServer) {
               type: "text",
               text: `When working with Figma designs, follow these best practices:
 
-
-0. Key Rule (Important!):
-    - All elements should be created inside the root frame in [ROOT FRAME INFO].
-    - Idenitfy the root frame using ROOT FRAME ID in [ROOT FRAME INFO].
-    - Any element created outside of this frame will be ignored.
-    - You can create multiple frames under the [ROOT FRAME ID] for different sections.
-
 1. Start with Document Structure:
    - First use get_document_info() to understand the current document
    - Plan your layout hierarchy before creating elements
@@ -33,6 +26,7 @@ export function registerPrompts(server: McpServer) {
 
 3. Layout Hierarchy:
    - Create parent frames first, then add child elements
+   - Do not add child elements to an element that is not a frame
    - For forms/login screens:
      * Start with the main screen container frame
      * Create a logo container at the top
@@ -48,10 +42,16 @@ export function registerPrompts(server: McpServer) {
 5. Element Creation:
    - Use create_frame() for containers and input fields
    - Use create_text() for labels, buttons text, and links
+   - Use create_rectangle() for simple shapes
+   - Use create_ellipse() for circular elements
+   - Use create_polygon() for custom shapes
+   - Use create_star() for star shapes
+   - Use create_line() for lines
    - Set appropriate colors and styles:
      * Use fillColor for backgrounds
      * Use strokeColor for borders
      * Set proper fontWeight for different text elements
+   - Use create_vector_from_svg() for icons or custom graphics using SVG code
 
 6. Mofifying existing elements:
   - use set_text_content() to modify text content.
@@ -250,30 +250,6 @@ This strategy focuses on practical implementation based on real-world usage patt
         ],
         description:
           "Strategy for converting manual annotations to Figma's native annotations",
-      };
-    }
-  );
-
-  server.prompt(
-    "read_design_strategy",
-    "Best practices for reading Figma designs",
-    (extra) => {
-      return {
-        messages: [
-          {
-            role: "assistant",
-            content: {
-              type: "text",
-              text: `When reading Figma designs, follow these best practices:
-
-1. Start with selection:
-   - First use read_my_design() to understand the current selection
-   - If no selection ask user to select single or multiple nodes
-`,
-            },
-          },
-        ],
-        description: "Best practices for reading Figma designs",
       };
     }
   );

@@ -7,7 +7,8 @@ import io
 from pathlib import Path
 from dotenv import load_dotenv
 import argparse
-from .base_runner import BaseExperiment, ExperimentConfig
+from .base_runner import BaseExperiment, ExperimentConfig, parse_common_args
+from .enums import ExperimentVariant
 
 load_dotenv()
 
@@ -17,19 +18,19 @@ class ModificationExperiment(BaseExperiment):
         self.figma_timeout = 30
         
     async def run(self):
-        self.logger.info(f"Starting modification experiment with model: {self.config.model}")
-        self.logger.info(f"Variants: {self.config.variants}")
-        self.logger.info(f"Task: {self.config.task}")
+        self.logger.info(f"Starting modification experiment with model: {self.config.model.value}")
+        self.logger.info(f"Variants: {[v.value for v in self.config.variants]}")
+        self.logger.info(f"Task: {self.config.task.value if self.config.task else None}")
         
         async with aiohttp.ClientSession() as session:
             await self.ensure_canvas_empty()
             await self.create_root_frame(session)
             
             for variant in self.config.variants:
-                self.logger.info(f"Running variant: {variant}")
+                self.logger.info(f"Running variant: {variant.value}")
                 await self.run_variant(session, variant)
     
-    async def run_variant(self, session: aiohttp.ClientSession, variant: str):
+    async def run_variant(self, session: aiohttp.ClientSession, variant: ExperimentVariant):
         try:
             meta_files = list(self.benchmark_dir.glob("*-base-meta.json"))
             if not meta_files:
@@ -49,20 +50,20 @@ class ModificationExperiment(BaseExperiment):
                 with open(meta_file, "r", encoding="utf-8") as f:
                     meta_json = json.load(f)
                 
-                result_name = f"{base_id}-{self.config.model}-{variant}"
+                result_name = f"{base_id}-{self.config.model.value}-{variant.value}"
                 self.logger.info(f"Processing result: {result_name}")
                 
-                if variant == "without_oracle":
+                if variant == ExperimentVariant.WITHOUT_ORACLE:
                     await self.run_without_oracle(session, image_path, meta_json, result_name)
-                elif variant == "perfect_hierarchy":
+                elif variant == ExperimentVariant.PERFECT_HIERARCHY:
                     await self.run_perfect_hierarchy(session, image_path, meta_json, result_name)
-                elif variant == "perfect_canvas":
+                elif variant == ExperimentVariant.PERFECT_CANVAS:
                     await self.run_perfect_canvas(session, image_path, meta_json, result_name)
                 else:
-                    raise ValueError(f"Unknown variant: {variant}")
+                    raise ValueError(f"Unknown variant: {variant.value}")
                 
         except Exception as e:
-            await self.handle_error(e, f"Running variant {variant}")
+            await self.handle_error(e, f"Running variant {variant.value}")
     
     async def run_without_oracle(self, session: aiohttp.ClientSession, image_path: Path, meta_json: dict, result_name: str):
         self.logger.info("Running without oracle")
@@ -113,17 +114,9 @@ class ModificationExperiment(BaseExperiment):
                     raise
 
 def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True, help="Worker Model name (e.g. gemini, gpt-4o)")
-    parser.add_argument("--variants", type=str, required=True, help="Comma-separated variants (e.g. image_only,text_level_1)")
-    parser.add_argument("--channel", type=str, required=True, help="Channel name from config.yaml (e.g. channel_1)")
-    parser.add_argument("--config_name", type=str, default="base", help="Path to config.yaml (optional)")
-    parser.add_argument("--batch_name", type=str, help="Optional: batch name to run (e.g., batch_1)")
-    parser.add_argument("--task", type=str, required=True, help="task-1, task-2, task-3.")
-    parser.add_argument("--batches_config_path", type=str, help="Optional: path to batches.yaml")
-    parser.add_argument("--multi_agent", action="store_true", help="Use multi-agent (supervisor-worker) mode")
-    parser.add_argument("--guidance", type=str, help="Guidance variants.")
-    parser.add_argument("--use_langsmith", action="store_true", help="Enable LangSmith logging")
+    parser = argparse.ArgumentParser(description="Run UI modification experiments")
+    parser = parse_common_args(parser)
+    parser.add_argument("--task", type=str, required=True, help="Task identifier (e.g., task-1, task-2, task-3)")
     return parser.parse_args()
 
 async def main():

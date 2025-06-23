@@ -7,7 +7,7 @@ import io
 from pathlib import Path
 from dotenv import load_dotenv
 import argparse
-from .base_runner import BaseExperiment, ExperimentConfig
+from .base_runner import BaseExperiment, ExperimentConfig, parse_common_args
 
 load_dotenv()
 
@@ -17,8 +17,8 @@ class GenerationExperiment(BaseExperiment):
         self.figma_timeout = 30
 
     async def run(self):
-        self.logger.info(f"Starting generation experiment with model: {self.config.model}")
-        self.logger.info(f"Variants: {self.config.variants}")
+        self.logger.info(f"Starting generation experiment with model: {self.config.model.value}")
+        self.logger.info(f"Variants: {[v.value for v in self.config.variants]}")
         if self.config.batch_name:
             self.logger.info(f"Batch: {self.config.batch_name}")
         
@@ -28,12 +28,12 @@ class GenerationExperiment(BaseExperiment):
                 await self.create_root_frame(session)
                 
                 for variant in self.config.variants:
-                    self.logger.info(f"Running variant: {variant}")
+                    self.logger.info(f"Running variant: {variant.value}")
                     await self.run_variant(session, variant)
             finally:
                 await self.ensure_canvas_empty()
     
-    async def run_variant(self, session: aiohttp.ClientSession, variant: str):
+    async def run_variant(self, session: aiohttp.ClientSession, variant: ExperimentVariant):
         try:
             meta_files = list(self.benchmark_dir.glob("*-meta.json"))
             if not meta_files:
@@ -54,24 +54,24 @@ class GenerationExperiment(BaseExperiment):
                     with open(meta_file, "r", encoding="utf-8") as f:
                         meta_json = json.load(f)
                     
-                    result_name = f"{base_id}-{self.config.model}-{variant}"
+                    result_name = f"{base_id}-{self.config.model.value}-{variant.value}"
                     self.logger.info(f"Processing result: {result_name}")
                     
-                    if variant == "image_only":
+                    if variant == ExperimentVariant.IMAGE_ONLY:
                         await self.run_image_only(session, image_path, meta_json, result_name)
-                    elif variant == "text_level_1":
-                        await self.run_text_level_1(session, image_path, meta_json, result_name)
-                    elif variant == "text_level_2":
-                        await self.run_text_level_2(session, image_path, meta_json, result_name)
+                    elif variant == ExperimentVariant.TEXT_LEVEL_1:
+                        await self.run_text_level_1(session, meta_json, result_name)
+                    elif variant == ExperimentVariant.TEXT_LEVEL_2:
+                        await self.run_text_level_2(session, meta_json, result_name)
                     else:
-                        raise ValueError(f"Unknown variant: {variant}")
+                        raise ValueError(f"Unknown variant: {variant.value}")
                 except Exception as e:
                     self.logger.error(f"Error processing {meta_file}: {str(e)}")
                     await self.ensure_canvas_empty()
                     continue
                 
         except Exception as e:
-            await self.handle_error(e, f"Running variant {variant}")
+            await self.handle_error(e, f"Running variant {variant.value}")
             await self.ensure_canvas_empty()
     
     async def run_image_only(self, session: aiohttp.ClientSession, image_path: Path, meta_json: dict, result_name: str):
@@ -132,16 +132,8 @@ class GenerationExperiment(BaseExperiment):
                 await self.ensure_canvas_empty()
 
 def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True, help="Worker Model name (e.g. gemini, gpt-4o)")
-    parser.add_argument("--variants", type=str, required=True, help="Comma-separated variants (e.g. image_only,text_level_1)")
-    parser.add_argument("--channel", type=str, required=True, help="Channel name from config.yaml (e.g. channel_1)")
-    parser.add_argument("--config_name", type=str, default="base", help="Path to config.yaml (optional)")
-    parser.add_argument("--batch_name", type=str, help="Optional: batch name to run (e.g., batch_1)")
-    parser.add_argument("--batches_config_path", type=str, help="Optional: path to batches.yaml")
-    parser.add_argument("--multi_agent", action="store_true", help="Use multi-agent (supervisor-worker) mode")
-    parser.add_argument("--guidance", type=str, help="Guidance variants.")
-    parser.add_argument("--use_langsmith", action="store_true", help="Enable LangSmith logging")
+    parser = argparse.ArgumentParser(description="Run UI generation experiments")
+    parser = parse_common_args(parser)
     return parser.parse_args()
 
 async def main():
