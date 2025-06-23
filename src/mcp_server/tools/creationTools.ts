@@ -295,11 +295,17 @@ export function registerCreationTools(server: McpServer) {
           parentId,
         });
         const typedResult = result as { name: string; id: string };
-        return createSuccessResponse(
-          `Created vector "${typedResult.name}" with ID: ${typedResult.id}.`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Created vector "${typedResult.name}" with ID: ${typedResult.id}.`
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "creating vector from SVG");
+        return createErrorResponse({
+          error,
+          context: "creating vector from svg",
+        });
       }
     }
   );
@@ -367,11 +373,17 @@ export function registerCreationTools(server: McpServer) {
           strokeWeight,
         });
         const typed = result as { name: string; id: string };
-        return createSuccessResponse(
-          `Created ellipse "${typed.name}" with ID: ${typed.id}.`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Created ellipse "${typed.name}" with ID: ${typed.id}.`
+          ],
+          dataItem: typed,
+        });
       } catch (err) {
-        return createErrorResponse(err, "creating ellipse");
+        return createErrorResponse({
+          error: err,
+          context: "creating ellipse",
+        });
       }
     }
   );
@@ -446,11 +458,17 @@ export function registerCreationTools(server: McpServer) {
           strokeWeight,
         });
         const typed = result as { name: string; id: string };
-        return createSuccessResponse(
-          `Created polygon "${typed.name}" with ID: ${typed.id}.`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Created polygon "${typed.name}" with ID: ${typed.id}.`
+          ],
+          dataItem: typed,
+        });
       } catch (err) {
-        return createErrorResponse(err, "creating polygon");
+        return createErrorResponse({
+          error: err,
+          context: "creating polygon",
+        });
       }
     }
   );
@@ -534,11 +552,17 @@ export function registerCreationTools(server: McpServer) {
           strokeWeight,
         });
         const typed = result as { name: string; id: string };
-        return createSuccessResponse(
-          `Created star "${typed.name}" with ID: ${typed.id}.`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Created star "${typed.name}" with ID: ${typed.id}.`
+          ],
+          dataItem: typed,
+        });
       } catch (err) {
-        return createErrorResponse(err, "creating star");
+        return createErrorResponse({
+          error: err,
+          context: "creating star",
+        });
       }
     }
   );
@@ -612,11 +636,17 @@ export function registerCreationTools(server: McpServer) {
           dashPattern,
         });
         const typed = result as { name: string; id: string };
-        return createSuccessResponse(
-          `Created line "${typed.name}" with ID: ${typed.id}.`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Created line "${typed.name}" with ID: ${typed.id}.`
+          ],
+          dataItem: typed,
+        });
       } catch (err) {
-        return createErrorResponse(err, "creating line");
+        return createErrorResponse({
+          error: err,
+          context: "creating line",
+        });
       }
     }
   );
