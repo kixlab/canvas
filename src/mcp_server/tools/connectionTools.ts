@@ -9,6 +9,8 @@ import {
 } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
 
+const CONNECTION_TIMEOUT = 5000;
+
 export function registerConnectionTools(server: McpServer) {
   server.tool(
     "get_channels",
@@ -21,9 +23,6 @@ export function registerConnectionTools(server: McpServer) {
 
         if (!ws || ws.readyState !== WebSocket.OPEN) {
           connectToFigma();
-          return createSuccessResponse(
-            "Not connected to Figma. Attempting to connect..."
-          );
         }
 
         // Get available channels
@@ -40,25 +39,30 @@ export function registerConnectionTools(server: McpServer) {
           const messageHandler = (data: any) => {
             try {
               const json = JSON.parse(data.toString());
-
-              if (json.type === "channels" && json.channels) {
-                const availableChannels = json.channels;
+              if (json.type === "get_channels" && json.payload.channels) {
+                const availableChannels = json.payload.channels;
                 ws!.removeListener("message", messageHandler);
 
-                resolve({
-                  content: [
-                    {
-                      type: "text",
-                      text: JSON.stringify({
-                        availableChannels,
-                        currentChannel,
-                      }),
+                resolve(
+                  createSuccessResponse({
+                    messages: [
+                      `Available channels: ${availableChannels.join(", ")}`,
+                    ],
+                    dataItem: {
+                      availableChannels,
+                      currentChannel,
                     },
-                  ],
-                });
+                  })
+                );
               }
             } catch (error) {
-              // Keep listening, this message wasn't the channels response
+              // If parsing fails, it might not be the channels response
+              console.error("Error parsing channels response:", error);
+
+              createErrorResponse({
+                error,
+                context: "get_channels",
+              });
             }
           };
 
@@ -68,12 +72,18 @@ export function registerConnectionTools(server: McpServer) {
           setTimeout(() => {
             ws!.removeListener("message", messageHandler);
             resolve(
-              createSuccessResponse("Timed out waiting for available channels")
+              createErrorResponse({
+                error: new Error("Timed out waiting for available channels"),
+                context: "get_channels",
+              })
             );
-          }, 5000);
+          }, CONNECTION_TIMEOUT);
         });
       } catch (error) {
-        return createErrorResponse(error, "getting channels");
+        return createErrorResponse({
+          error,
+          context: "get_channels",
+        });
       }
     }
   );
@@ -91,18 +101,18 @@ export function registerConnectionTools(server: McpServer) {
 
         if (!ws || ws.readyState !== WebSocket.OPEN) {
           connectToFigma();
-          return createSuccessResponse(
-            "Not connected to Figma. Attempting to connect..."
-          );
         }
 
         // Join the requested channel
         return new Promise((resolve) => {
           ws!.send(
             JSON.stringify({
+              source: "mcp_server",
               type: "join",
-              channel: channel,
-              clientType: "mcp_client",
+              payload: {
+                channel: channel,
+                clientType: "mcp_server",
+              },
             })
           );
 
@@ -113,23 +123,27 @@ export function registerConnectionTools(server: McpServer) {
 
               if (
                 joinJson.type === "join_result" &&
-                joinJson.channel === channel
+                joinJson.payload.channel === channel
               ) {
                 ws!.removeListener("message", joinHandler);
 
-                if (joinJson.success) {
+                if (joinJson.payload.success) {
                   resolve(
-                    createSuccessResponse(
-                      `Successfully joined channel: ${channel}`
-                    )
+                    createSuccessResponse({
+                      messages: [`Successfully joined channel: ${channel}`],
+                      dataItem: { channel },
+                    })
                   );
                 } else {
                   resolve(
-                    createSuccessResponse(
-                      `Failed to join channel: ${
-                        joinJson.error || "Unknown error"
-                      }`
-                    )
+                    createErrorResponse({
+                      error: new Error(
+                        `Failed to join channel: ${
+                          joinJson.error || "Unknown error"
+                        }`
+                      ),
+                      context: "select_channel",
+                    })
                   );
                 }
               }
@@ -144,14 +158,18 @@ export function registerConnectionTools(server: McpServer) {
           setTimeout(() => {
             ws!.removeListener("message", joinHandler);
             resolve(
-              createSuccessResponse(
-                "Timed out waiting for channel join response"
-              )
+              createErrorResponse({
+                error: new Error("Timed out waiting for channel join response"),
+                context: "select_channel",
+              })
             );
           }, 5000);
         });
       } catch (error) {
-        return createErrorResponse(error, "selecting channel");
+        return createErrorResponse({
+          error,
+          context: "select_channel",
+        });
       }
     }
   );
@@ -167,23 +185,25 @@ export function registerConnectionTools(server: McpServer) {
 
         if (!ws || ws.readyState !== WebSocket.OPEN) {
           connectToFigma();
-          return createSuccessResponse(
-            "Not connected to Figma. Attempting to connect..."
-          );
         }
 
         // If we're connected but don't have a channel
         if (!currentChannel) {
-          return createSuccessResponse(
-            "Connected to Figma socket server but not joined to any channel. Waiting for channel connection..."
+          throw new Error(
+            "Connected to Figma socket server but not joined to any channel."
           );
         }
-
-        return createSuccessResponse(
-          `Connected to Figma socket server and joined channel: ${currentChannel}`
-        );
+        return createSuccessResponse({
+          messages: [`Connected to Figma on channel: ${currentChannel}`],
+          dataItem: {
+            currentChannel,
+          },
+        });
       } catch (error) {
-        return createErrorResponse(error, "connecting to Figma");
+        return createErrorResponse({
+          error,
+          context: "check_connection_status",
+        });
       }
     }
   );

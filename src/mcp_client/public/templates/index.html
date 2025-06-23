@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CXI MCP Server Interface</title>
+    <style>
+        /* Color variables */
+        :root {
+            --color-canvas-default: #fff;
+            --color-canvas-subtle: #f6f8fa;
+            --color-border-default: #d0d7de;
+            --color-border-muted: #d8dee4;
+            --color-accent-fg: #0969da;
+            --color-accent-emphasis: #0969da;
+            --color-fg-default: #24292f;
+            --color-fg-muted: #57606a;
+            --color-fg-subtle: #6e7781;
+            --color-success-fg: #1a7f37;
+            --color-danger-fg: #cf222e;
+        }
+        
+        /* Base styles */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            color: var(--color-fg-default);
+            line-height: 1.6;
+        }
+        
+        /* Layout */
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+        
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--color-border-default);
+            max-width: 65%;
+        }
+        
+        .sidebar-panel {
+            width: 35%;
+            padding: 16px;
+            overflow-y: auto;
+            background-color: var(--color-canvas-subtle);
+        }
+        
+        /* Header */
+        header {
+            border-bottom: 1px solid var(--color-border-muted);
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        h1 {
+            font-size: 20px;
+            font-weight: 500;
+            margin: 0;
+        }
+        
+        /* Task container */
+        .task-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .task-header {
+            background-color: var(--color-canvas-subtle);
+            border-bottom: 1px solid var(--color-border-default);
+            padding: 8px 16px;
+        }
+        
+        .task-header h2 {
+            font-size: 16px;
+            font-weight: 500;
+            margin: 0;
+        }
+        
+        .task-result {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background-color: var(--color-canvas-default);
+        }
+
+        .select-with-refresh {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .select-with-refresh select {
+            flex: 1;
+        }
+        
+        .button.small {
+            padding: 4px;
+            min-width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        
+        /* Task type selector */
+        .task-type-selector {
+            display: flex;
+            background-color: var(--color-canvas-subtle);
+            border-bottom: 1px solid var(--color-border-default);
+            padding: 0;
+        }
+        
+        .task-type-option {
+            flex: 1;
+            padding: 10px 16px;
+            text-align: center;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-weight: 500;
+        }
+        
+        .task-type-option.active {
+            background-color: var(--color-canvas-default);
+            border-bottom: 3px solid var(--color-accent-fg);
+            color: var(--color-accent-fg);
+        }
+        
+        /* Forms and inputs */
+        .task-form {
+            background-color: var(--color-canvas-subtle);
+            padding: 16px;
+            border-top: 1px solid var(--color-border-default);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .form-group {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .task-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 20px;
+        }
+        
+        /* File input styling */
+        .file-input-container {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .file-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .file-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 20px;
+            white-space: nowrap;
+            cursor: pointer;
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            background-color: var(--color-canvas-default);
+            color: var(--color-fg-default);
+        }
+        
+        .file-label:hover {
+            background-color: var(--color-canvas-subtle);
+        }
+        
+        .file-name {
+            margin-left: 8px;
+            font-size: 12px;
+            color: var(--color-fg-muted);
+        }
+        
+        /* Buttons */
+        .button {
+            padding: 5px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 20px;
+            white-space: nowrap;
+            cursor: pointer;
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            background-color: var(--color-canvas-default);
+            color: var(--color-fg-default);
+        }
+        
+        .button.primary {
+            background-color: var(--color-accent-emphasis);
+            border-color: var(--color-accent-emphasis);
+            color: white;
+        }
+        
+        .button:hover {
+            background-color: var(--color-canvas-subtle);
+        }
+        
+        .button.primary:hover {
+            background-color: #0550ae;
+        }
+        
+        /* Messages */
+        .message {
+            margin-bottom: 16px;
+            padding: 16px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border-default);
+        }
+        
+        .user-message {
+            background-color: var(--color-canvas-subtle);
+        }
+        
+        .ai-message {
+            background-color: var(--color-canvas-default);
+            border-left: 4px solid var(--color-accent-emphasis);
+        }
+        
+        .message-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .message-author {
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        
+        .message-time {
+            font-size: 12px;
+            color: var(--color-fg-muted);
+        }
+        
+        .message-content {
+            margin-bottom: 8px;
+        }
+        
+        .message-metadata {
+            font-size: 12px;
+            padding: 8px;
+            margin-top: 8px;
+            border-radius: 6px;
+            background-color: var(--color-canvas-subtle);
+            color: var(--color-fg-muted);
+            font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        /* Details and summary */
+        details {
+            margin-top: 8px;
+        }
+        
+        summary {
+            cursor: pointer;
+            color: var(--color-fg-muted);
+            font-size: 12px;
+        }
+        
+        /* Image gallery */
+        .image-gallery {
+            margin-top: 16px;
+            border-top: 1px solid var(--color-border-muted);
+            padding-top: 16px;
+        }
+        
+        .gallery-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .gallery-image {
+            width: calc(50% - 4px);
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .gallery-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        /* Tool calls and responses */
+        .tool-workflow-item {
+            margin-bottom: 16px;
+            border-left: 2px solid var(--color-border-muted);
+            padding-left: 10px;
+        }
+        
+        .tool-call, .tool-response {
+            margin: 8px 0;
+            padding: 8px 10px;
+            border-radius: 6px;
+        }
+        
+        .tool-call {
+            background-color: rgba(9, 105, 218, 0.08);
+        }
+        
+        .tool-response {
+            background-color: rgba(26, 127, 55, 0.08);
+            margin-left: 16px;
+        }
+        
+        /* Debug tools */
+        .debug-tools {
+            padding: 16px;
+            background-color: var(--color-canvas-subtle);
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+
+        .debug-tool-panel {
+            padding: 16px;
+            background-color: var(--color-canvas-subtle);
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        
+        .debug-tool-panel h3 {
+            margin-top: 0;
+            margin-bottom: 12px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        .debug-tool-panel h4 {
+            margin-top: 12px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        /* Channel selector styles */
+        .channel-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .channel-selector .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .channel-selector select {
+            width: 100%;
+            padding: 8px;
+        }
+        
+        .channel-selector .button-group {
+            display: flex;
+            gap: 8px;
+        }
+        
+        #current-channel-display {
+            font-weight: 600;
+            color: var(--color-accent-fg);
+        }
+        
+        .tool-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .tool-buttons button {
+            flex: 1;
+            min-width: 120px;
+            font-size: 12px;
+        }
+        
+        .tool-result {
+            font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+            background-color: var(--color-canvas-default);
+            padding: 12px;
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.4;
+            margin-bottom: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        /* Frame parameters form */
+        .frame-params-form {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .frame-params-form .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .frame-params-form button {
+            grid-column: span 2;
+            margin-top: 8px;
+        }
+        
+        /* Loading animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--color-accent-fg);
+            animation: spin 0.8s ease infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-panel">
+            <header>
+                <h1>CXI MCP Server Interface</h1>
+            </header>
+            
+            <div class="task-container">
+                <div class="task-header">
+                    <h2>Task</h2>
+                </div>
+                
+                <div class="task-type-selector">
+                    <div class="task-type-option active" data-task-type="text">Text Only</div>
+                    <div class="task-type-option" data-task-type="image">Image Only</div>
+                    <div class="task-type-option" data-task-type="text-image">Text + Image</div>
+                    <div class="task-type-option" data-task-type="modify-without-oracle">Modify Without Oracle</div>
+                    <div class="task-type-option" data-task-type="modify-hierarchy">Modify with Hierarchy</div>
+                    <div class="task-type-option" data-task-type="modify-canvas">Modify with Canvas</div>
+                </div>
+                
+                <!-- Text-only Task Form -->
+                <form id="text-task-form" class="task-form">
+                    <div class="form-group">
+                        <input type="text" id="text-input" class="task-input" placeholder="Type your instruction..." required>
+                        <button type="submit" id="text-submit" class="button primary">Generate</button>
+                    </div>
+                </form>
+                
+                <!-- Image-only Task Form -->
+                <form id="image-task-form" class="task-form" style="display:none;">
+                    <div class="file-input-container">
+                        <label class="file-label">
+                            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+                                <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+                            </svg>
+                            Select Image
+                            <input type="file" id="image-only-upload" class="file-input" accept="image/*" required>
+                        </label>
+                        <span id="image-only-file-name" class="file-name"></span>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" id="image-submit" class="button primary">Generate</button>
+                    </div>
+                </form>
+                
+                <!-- Text+Image Task Form -->
+                <form id="text-image-task-form" class="task-form" style="display:none;">
+                    <div class="file-input-container">
+                        <label class="file-label">
+                            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+                                <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+                            </svg>
+                            Select Image
+                            <input type="file" id="text-image-upload" class="file-input" accept="image/*" required>
+                        </label>
+                        <span id="text-image-file-name" class="file-name"></span>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="text-image-input" class="task-input" placeholder="Type your instruction..." required>
+                        <button type="submit" id="text-image-submit" class="button primary">Generate</button>
+                    </div>
+                </form>
+
+                <!-- Modify Without Oracle Form -->
+                <form id="modify-without-oracle-task-form" class="task-form" style="display:none;">
+                    <div class="file-input-container">
+                        <label class="file-label">
+                            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+                                <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+                            </svg>
+                            Select Image
+                            <input type="file" id="modify-without-oracle-upload" class="file-input" accept="image/*" required>
+                        </label>
+                        <span id="modify-without-oracle-file-name" class="file-name"></span>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="modify-without-oracle-input" class="task-input" placeholder="Type your modification instruction..." required>
+                        <button type="submit" id="modify-without-oracle-submit" class="button primary">Modify</button>
+                    </div>
+                </form>
+
+                <!-- Modify with Hierarchy Form -->
+                <form id="modify-hierarchy-task-form" class="task-form" style="display:none;">
+                    <div class="file-input-container">
+                        <label class="file-label">
+                            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+                                <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+                            </svg>
+                            Select Image
+                            <input type="file" id="modify-hierarchy-upload" class="file-input" accept="image/*" required>
+                        </label>
+                        <span id="modify-hierarchy-file-name" class="file-name"></span>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="modify-hierarchy-input" class="task-input" placeholder="Type your modification instruction..." required>
+                        <button type="submit" id="modify-hierarchy-submit" class="button primary">Modify with Hierarchy</button>
+                    </div>
+                </form>
+
+                <!-- Modify with Canvas Form -->
+                <form id="modify-canvas-task-form" class="task-form" style="display:none;">
+                    <div class="file-input-container">
+                        <label class="file-label">
+                            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+                                <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+                            </svg>
+                            Select Image
+                            <input type="file" id="modify-canvas-upload" class="file-input" accept="image/*" required>
+                        </label>
+                        <span id="modify-canvas-file-name" class="file-name"></span>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="modify-canvas-input" class="task-input" placeholder="Type your modification instruction..." required>
+                        <button type="submit" id="modify-canvas-submit" class="button primary">Modify with Canvas</button>
+                    </div>
+                </form>
+                
+                <div class="task-result" id="task-result"></div>
+                
+                <div class="image-gallery" id="image-gallery" style="display: none;">
+                    <h3>Generated Images</h3>
+                    <div class="gallery-container" id="gallery-container"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sidebar-panel">
+            <h2>Debug Tools</h2>
+        
+            <!-- Channel Selector Panel -->
+            <div class="debug-tool-panel">
+                <h3>Channel Selector</h3>
+                <div class="channel-selector">
+                    <div class="form-group channel-select-container">
+                        <label for="channel-select">Current Channel: <span id="current-channel-display">None</span></label>
+                        <div class="select-with-refresh">
+                            <select id="channel-select" class="task-input">
+                                <option value="">Loading channels...</option>
+                            </select>
+                            <button id="refresh-channels" class="button small" title="Refresh Channels">
+                                ↻
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Node Manipulation Panel -->
+            <div class="debug-tool-panel">
+                <h3>Node Tools</h3>
+                <div class="tool-buttons">
+                    <button id="get-selection" class="button">Get Selection</button>
+                    <button id="create-frame" class="button">Create Root Frame</button>
+                    <button id="create-text" class="button">Create Text in Root Frame</button>
+                </div>
+                
+                <div class="tool-buttons" style="margin-top: 8px;">
+                    <button id="delete-all-nodes" class="button">Delete All Top Level Nodes</button>
+                </div>
+                
+                <div style="margin-top: 12px;">
+                    <h4>Delete Specific Node</h4>
+                    <div class="form-group" style="flex-direction: column; gap: 4px;">
+                        <input type="text" id="delete-node-id" class="task-input" placeholder="Enter node ID..." style="font-size: 12px;">
+                        <button id="delete-single-node" class="button">Delete Node</button>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 12px;">
+                    <h4>Delete Multiple Nodes</h4>
+                    <div class="form-group" style="flex-direction: column; gap: 4px;">
+                        <textarea id="delete-multiple-ids" class="task-input" placeholder="Enter node IDs (comma-separated)..." rows="3" style="font-size: 12px; resize: vertical;"></textarea>
+                        <button id="delete-multiple-nodes" class="button">Delete Multiple Nodes</button>
+                    </div>
+                </div>
+                
+                <div id="frame-params" style="display: none;">
+                    <h4>Create Frame Parameters</h4>
+                    <form id="frame-params-form" class="frame-params-form">
+                        <div class="form-group">
+                            <label for="frame-x">X:</label>
+                            <input type="number" id="frame-x" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="frame-y">Y:</label>
+                            <input type="number" id="frame-y" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="frame-width">Width:</label>
+                            <input type="number" id="frame-width" value="320" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="frame-height">Height:</label>
+                            <input type="number" id="frame-height" value="720" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="frame-name">Name:</label>
+                            <input type="text" id="frame-name" value="Frame">
+                        </div>
+                        <button type="submit" class="button primary">Create</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Results Panel -->
+            <div class="debug-tool-panel">
+                <h3>Tool Results</h3>
+                <div id="tool-results" class="tool-result"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Setup and configuration
+        const debugMode = true;
+        
+        // Utility functions
+        function log(message, data) {
+            if (debugMode) console.log(`[DEBUG] ${message}`, data || '');
+        }
+        
+        function formatDate(date) {
+            return new Date(date).toLocaleTimeString();
+        }
+        
+        function showLoading(button) {
+            button.disabled = true;
+            const originalText = button.textContent;
+            button.dataset.originalText = originalText;
+            button.innerHTML = '<span class="loading"></span>Loading...';
+        }
+        
+        function resetButton(button, text = null) {
+            button.disabled = false;
+            const originalText = text || button.dataset.originalText || 'Button';
+            button.textContent = originalText;
+        }
+        
+        // Message handling functions
+        function extractAIContent(response) {
+            log("Extracting content from:", response);
+            
+            try {
+                // Handle new standardized format: { status: "success", payload: { history: messageHistory } }
+                if (response && response.status === "success" && response.payload) {
+                    if (response.payload.history && Array.isArray(response.payload.history)) {
+                        return processMessages({ messages: response.payload.history });
+                    }
+                    
+                    // Handle responses payload format from generate/modify routes
+                    if (response.payload.responses && Array.isArray(response.payload.responses)) {
+                        return processMessages({ messages: response.payload.responses });
+                    }
+                    
+                    // Handle other payload formats
+                    if (response.payload.messages && Array.isArray(response.payload.messages)) {
+                        return processMessages(response.payload);
+                    }
+                }
+                
+                // Handle legacy simple format: { messages: messageHistory }
+                if (response && response.messages && Array.isArray(response.messages)) {
+                    return processMessages(response);
+                }
+                
+                // Handle legacy json_response format
+                if (response && response.json_response) {
+                    const json = response.json_response;
+                    
+                    if (json.main_content) {
+                        return {
+                            content: json.main_content,
+                            fullResponse: json,
+                            images: json.images || [],
+                            messages: json.messages || []
+                        };
+                    }
+                    
+                    if (json.messages && json.messages.length > 0) {
+                        return processMessages(json);
+                    }
+                }
+                
+                // Handle error responses
+                if (response && response.error) {
+                    return {
+                        content: `Error: ${response.error}`,
+                        fullResponse: response,
+                        images: [],
+                        messages: []
+                    };
+                }
+                
+                // Fallback
+                return {
+                    content: typeof response === 'string' ? response : JSON.stringify(response),
+                    fullResponse: response || {},
+                    images: [],
+                    messages: []
+                };
+                
+            } catch (e) {
+                console.error("Error extracting AI content:", e);
+                return {
+                    content: `Error processing response: ${e.message}`,
+                    fullResponse: response || {},
+                    images: [],
+                    messages: []
+                };
+            }
+            
+            // Helper for processing message arrays
+            function processMessages(container) {
+                const messages = container.messages || [];
+                
+                // Find the last assistant message with content
+                for (let i = messages.length - 1; i >= 0; i--) {
+                    const msg = messages[i];
+                    
+                    // Handle different message formats
+                    if (msg.role === 'assistant') {
+                        // Check for content in various formats
+                        let content = '';
+                        
+                        if (msg.content && Array.isArray(msg.content)) {
+                            // Handle content array format
+                            const textContent = msg.content.find(c => c.type === 'text');
+                            if (textContent) {
+                                content = textContent.text;
+                            }
+                        } else if (msg.content && typeof msg.content === 'string') {
+                            // Handle string content
+                            content = msg.content;
+                        } else if (msg.content && msg.content.data && msg.content.data.content) {
+                            // Handle nested content format
+                            content = msg.content.data.content;
+                        }
+                        
+                        if (content) {
+                            return {
+                                content: content,
+                                fullResponse: container,
+                                images: container.images || [],
+                                messages: messages
+                            };
+                        }
+                    }
+                }
+                
+                return {
+                    content: "No assistant response found",
+                    fullResponse: container,
+                    images: container.images || [],
+                    messages: messages
+                };
+            }
+        }
+        
+        function formatResponseMessage(response) {
+            if (!response) return '<div class="error-message">Empty response received</div>';
+            
+            try {
+                // Handle new simple format: { messages: messageHistory }
+                if (response && response.messages && Array.isArray(response.messages)) {
+                    const messages = response.messages;
+                    let finalMessage = "";
+                    let toolCalls = [];
+                    let toolResponses = [];
+                    
+                    // Extract tool calls and final message from the message history
+                    messages.forEach(msg => {
+                        if (msg.role === 'assistant') {
+                            // Get content from various formats
+                            if (msg.content && Array.isArray(msg.content)) {
+                                // Handle content array format
+                                const textContent = msg.content.find(c => c.type === 'text');
+                                if (textContent && textContent.text && textContent.text.trim() !== '') {
+                                    finalMessage = textContent.text;
+                                }
+                            } else if (msg.content && typeof msg.content === 'string') {
+                                // Handle string content
+                                if (msg.content.trim() !== '') finalMessage = msg.content;
+                            }
+                            
+                            // Extract tool calls if they exist
+                            if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+                                msg.tool_calls.forEach(tool => {
+                                    toolCalls.push({
+                                        id: tool.id,
+                                        name: tool.function?.name || tool.name,
+                                        args: tool.function?.arguments || tool.args || {}
+                                    });
+                                });
+                            }
+                        }
+                        
+                        if (msg.role === 'tool') {
+                            const toolContent = msg.content || '';
+                            const toolName = msg.name || '';
+                            const toolCallId = msg.tool_call_id || '';
+                            
+                            if (toolContent && toolName) {
+                                toolResponses.push({
+                                    id: toolCallId,
+                                    name: toolName,
+                                    content: toolContent
+                                });
+                            }
+                        }
+                    });
+                    
+                    // Build workflow visualization
+                    let conversationFlow = "";
+                    if (toolCalls.length > 0) {
+                        conversationFlow = '<div class="conversation-workflow"><h3>Actions Performed</h3>';
+                        
+                        toolCalls.forEach(tool => {
+                            conversationFlow += `
+                                <div class="tool-workflow-item">
+                                    <div class="tool-call">
+                                        <div class="tool-call-label">
+                                            <span class="tool-icon">⚙️</span>
+                                            <strong>${tool.name}</strong>
+                                        </div>
+                                        <div class="tool-call-content">
+                                            <pre>${JSON.stringify(tool.args, null, 2)}</pre>
+                                        </div>
+                                    </div>`;
+                            
+                            // Find matching response
+                            const response = toolResponses.find(r => r.id === tool.id);
+                            if (response) {
+                                conversationFlow += `
+                                    <div class="tool-response">
+                                        <div class="tool-response-label">
+                                            <span class="tool-icon">✓</span>
+                                            <strong>${response.name} Result:</strong>
+                                        </div>
+                                        <div class="tool-response-content">${response.content}</div>
+                                    </div>`;
+                            }
+                            
+                            conversationFlow += '</div>';
+                        });
+                        
+                        conversationFlow += '</div>';
+                    }
+                    
+                    // Return formatted message
+                    return `
+                        ${finalMessage ? `<div class="message-content">${finalMessage}</div>` : ''}
+                        ${conversationFlow}
+                        <details>
+                            <summary>Show details</summary>
+                            <div class="message-metadata">${JSON.stringify(response, null, 2)}</div>
+                        </details>`;
+                }
+                
+                // Process legacy json_response format
+                if (response.json_response) {
+                    const messages = response.json_response.messages || [];
+                    let finalMessage = "";
+                    let toolCalls = [];
+                    let toolResponses = [];
+                    
+                    // Extract tool calls and final message
+                    messages.forEach(msg => {
+                        if (msg.role === 'assistant') {
+                            // Get content
+                            const content = msg.content?.data?.content || '';
+                            if (content && content.trim() !== '') finalMessage = content;
+                            
+                            // Get tool calls
+                            if (msg.content?.data?.tool_calls?.length > 0) {
+                                msg.content.data.tool_calls.forEach(tool => {
+                                    toolCalls.push({
+                                        id: tool.id,
+                                        name: tool.name,
+                                        args: tool.args
+                                    });
+                                });
+                            }
+                        }
+                        
+                        if (msg.role === 'tool') {
+                            const toolContent = msg.content?.data?.content || '';
+                            const toolName = msg.content?.data?.name || '';
+                            const toolCallId = msg.content?.data?.tool_call_id || '';
+                            
+                            if (toolContent && toolName) {
+                                toolResponses.push({
+                                    id: toolCallId,
+                                    name: toolName,
+                                    content: toolContent
+                                });
+                            }
+                        }
+                    });
+                    
+                    // Build workflow visualization
+                    let conversationFlow = "";
+                    if (toolCalls.length > 0) {
+                        conversationFlow = '<div class="conversation-workflow"><h3>Actions Performed</h3>';
+                        
+                        toolCalls.forEach(tool => {
+                            conversationFlow += `
+                                <div class="tool-workflow-item">
+                                    <div class="tool-call">
+                                        <div class="tool-call-label">
+                                            <span class="tool-icon">⚙️</span>
+                                            <strong>${tool.name}</strong>
+                                        </div>
+                                        <div class="tool-call-content">
+                                            <pre>${JSON.stringify(tool.args, null, 2)}</pre>
+                                        </div>
+                                    </div>`;
+                            
+                            // Find matching response
+                            const response = toolResponses.find(r => r.id === tool.id);
+                            if (response) {
+                                conversationFlow += `
+                                    <div class="tool-response">
+                                        <div class="tool-response-label">
+                                            <span class="tool-icon">✓</span>
+                                            <strong>${response.name} Result:</strong>
+                                        </div>
+                                        <div class="tool-response-content">${response.content}</div>
+                                    </div>`;
+                            }
+                            
+                            conversationFlow += '</div>';
+                        });
+                        
+                        conversationFlow += '</div>';
+                    }
+                    
+                    // Return formatted message
+                    return `
+                        ${finalMessage ? `<div class="message-content">${finalMessage}</div>` : ''}
+                        ${conversationFlow}
+                        <details>
+                            <summary>Show details</summary>
+                            <div class="message-metadata">${JSON.stringify(response, null, 2)}</div>
+                        </details>`;
+                }
+                
+                // Fallback for other formats
+                const { content, fullResponse } = extractAIContent(response);
+                return `
+                    <div class="message-content">${content || "No message content"}</div>
+                    <details>
+                        <summary>Show details</summary>
+                        <div class="message-metadata">${JSON.stringify(fullResponse, null, 2)}</div>
+                    </details>`;
+                
+            } catch (e) {
+                console.error("Error formatting message:", e);
+                return `
+                    <div class="error-message">Error formatting response: ${e.message}</div>
+                    <details>
+                        <summary>Show raw response</summary>
+                        <div class="message-metadata">${JSON.stringify(response, null, 2)}</div>
+                    </details>`;
+            }
+        }
+        
+        function addImageToGallery(imageData) {
+            if (!imageData) return;
+            
+            const galleryContainer = document.getElementById('gallery-container');
+            const imageGallery = document.getElementById('image-gallery');
+            
+            imageGallery.style.display = 'block';
+            
+            const imageWrapper = document.createElement('div');
+            imageWrapper.className = 'gallery-image';
+            
+            const img = document.createElement('img');
+            img.src = `data:image/png;base64,${imageData}`;
+            img.alt = 'Generated image';
+            
+            imageWrapper.appendChild(img);
+            galleryContainer.appendChild(imageWrapper);
+        }
+        
+        function displayTaskResult(response) {
+            log("Displaying task result", response);
+            
+            const resultContainer = document.getElementById('task-result');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message ai-message';
+            
+            const now = new Date();
+            const messageHTML = `
+                <div class="message-header">
+                    <span class="message-author">System</span>
+                    <span class="message-time">${formatDate(now)}</span>
+                </div>
+                <div class="message-content-container">
+                    ${formatResponseMessage(response)}
+                </div>`;
+            
+            messageElement.innerHTML = messageHTML;
+            
+            // Clear previous results
+            resultContainer.innerHTML = '';
+            resultContainer.appendChild(messageElement);
+            resultContainer.scrollTop = 0;
+            
+            // Process images from the new message format
+            if (response && response.messages && Array.isArray(response.messages)) {
+                response.messages.forEach(msg => {
+                    if (msg.content && Array.isArray(msg.content)) {
+                        msg.content.forEach(contentItem => {
+                            if (contentItem.type === 'image' && contentItem.data) {
+                                // Handle base64 image data
+                                let imageData = contentItem.data;
+                                if (imageData.startsWith('data:image/')) {
+                                    // Extract base64 part from data URL
+                                    imageData = imageData.split(',')[1];
+                                }
+                                addImageToGallery(imageData);
+                            }
+                        });
+                    }
+                });
+            }
+            
+            // Fallback: Process images in legacy format
+            const { images } = extractAIContent(response);
+            if (images && images.length > 0) {
+                images.forEach(img => {
+                    if (img && img.data && !img.data.startsWith('base64_uris')) {
+                        addImageToGallery(img.data);
+                    }
+                });
+            }
+        }
+        
+        async function fetchChannels() {
+            try {
+                const button = document.getElementById('refresh-channels');
+                showLoading(button);
+                
+                const response = await fetch('/tool/get_channels', { method: 'POST' });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Channel list:", data);
+                
+                // Update channel dropdown
+                const channelSelect = document.getElementById('channel-select');
+                channelSelect.innerHTML = ''; // Clear options
+                
+                // Add a placeholder option
+                const placeholderOption = document.createElement('option');
+                placeholderOption.value = '';
+                placeholderOption.textContent = '-- Select a channel --';
+                channelSelect.appendChild(placeholderOption);
+                
+                // Add channel options
+                if (data.status === 'success' && data.payload && data.payload.available_channels) {
+                    data.payload.available_channels.forEach(channel => {
+                        const option = document.createElement('option');
+                        option.value = channel;
+                        option.textContent = channel;
+                        channelSelect.appendChild(option);
+                    });
+                    
+                    // Update current channel display
+                    if (data.payload.current_channel && data.payload.current_channel !== 'None') {
+                        document.getElementById('current-channel-display').textContent = data.payload.current_channel;
+                        // Select the current channel in dropdown
+                        Array.from(channelSelect.options).forEach(option => {
+                            if (option.value === data.payload.current_channel) {
+                                option.selected = true;
+                            }
+                        });
+                    }
+                } else {
+                    document.getElementById('tool-results').textContent = `Error fetching channels: ${data.message || 'Unknown error'}`;
+                }
+                
+                resetButton(button, '↻');
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+                resetButton(document.getElementById('refresh-channels'), '↻');
+            }
+        }
+        
+        async function joinSelectedChannel(channelName) {
+            if (!channelName) {
+                return;
+            }
+            
+            try {
+                // Show loading state in the display text
+                document.getElementById('current-channel-display').textContent = `Joining ${channelName}...`;
+                
+                const response = await fetch(`/tool/select_channel?channel=${encodeURIComponent(channelName)}`, {
+                    method: 'POST',
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Join channel response:", data);
+                
+                if (data.status === 'success') {
+                    // Handle new response format with payload
+                    const channelName = data.message ? data.message.split(': ')[1] : selectedChannel;
+                    document.getElementById('current-channel-display').textContent = channelName || selectedChannel;
+                    document.getElementById('tool-results').textContent = `Successfully joined channel: ${channelName || selectedChannel}`;
+                } else {
+                    document.getElementById('current-channel-display').textContent = 'Connection failed';
+                    document.getElementById('tool-results').textContent = `Error joining channel: ${data.message || 'Unknown error'}`;
+                }
+            } catch (error) {
+                document.getElementById('current-channel-display').textContent = 'Connection error';
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        // Event listeners for channel selector
+        // Refresh channels button
+        document.getElementById('refresh-channels').addEventListener('click', fetchChannels);
+        
+        // Channel select change event - automatically join the selected channel
+        document.getElementById('channel-select').addEventListener('change', function() {
+            const selectedChannel = this.value;
+            if (selectedChannel) {
+                joinSelectedChannel(selectedChannel);
+            }
+        });
+        // Initialize - fetch channels when page loads
+        document.addEventListener('DOMContentLoaded', fetchChannels);
+        
+        // Task type selector
+        document.querySelectorAll('.task-type-option').forEach(option => {
+            option.addEventListener('click', function() {
+                // Reset active state
+                document.querySelectorAll('.task-type-option').forEach(opt => {
+                    opt.classList.remove('active');
+                });
+                
+                // Set this option as active
+                this.classList.add('active');
+                
+                // Hide all forms
+                document.querySelectorAll('.task-form').forEach(form => {
+                    form.style.display = 'none';
+                });
+                
+                // Show the selected form
+                const taskType = this.getAttribute('data-task-type');
+                document.getElementById(`${taskType}-task-form`).style.display = 'flex';
+            });
+        });
+        
+        // File input event handlers
+        document.getElementById('image-only-upload').addEventListener('change', function(e) {
+            const fileName = e.target.files.length > 0 ? e.target.files[0].name : '';
+            document.getElementById('image-only-file-name').textContent = fileName;
+        });
+        
+        document.getElementById('text-image-upload').addEventListener('change', function(e) {
+            const fileName = e.target.files.length > 0 ? e.target.files[0].name : '';
+            document.getElementById('text-image-file-name').textContent = fileName;
+        });
+        
+        document.getElementById('modify-without-oracle-upload').addEventListener('change', function(e) {
+            const fileName = e.target.files.length > 0 ? e.target.files[0].name : '';
+            document.getElementById('modify-without-oracle-file-name').textContent = fileName;
+        });
+        
+        document.getElementById('modify-hierarchy-upload').addEventListener('change', function(e) {
+            const fileName = e.target.files.length > 0 ? e.target.files[0].name : '';
+            document.getElementById('modify-hierarchy-file-name').textContent = fileName;
+        });
+        
+        document.getElementById('modify-canvas-upload').addEventListener('change', function(e) {
+            const fileName = e.target.files.length > 0 ? e.target.files[0].name : '';
+            document.getElementById('modify-canvas-file-name').textContent = fileName;
+        });
+        
+        // Task form handlers
+        document.getElementById('text-task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('text-input').value.trim();
+            
+            if (!message) {
+                document.getElementById('tool-results').textContent = 'Please enter a text instruction';
+                return;
+            }
+            
+            const submitButton = document.getElementById('text-submit');
+            showLoading(submitButton);
+            
+            try {
+                // Send text-only task
+                log("Submitting text-only task", { message });
+                const response = await fetch('/generate/text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message }),
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Server response:", data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
+            } catch (error) {
+                console.error("Request error:", error);
+                displayTaskResult({ error: error.message });
+            } finally {
+                resetButton(submitButton);
+            }
+        });
+        
+        document.getElementById('image-task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const imageFile = document.getElementById('image-only-upload').files[0];
+            
+            if (!imageFile) {
+                document.getElementById('tool-results').textContent = 'Please select an image file';
+                return;
+            }
+            
+            const submitButton = document.getElementById('image-submit');
+            showLoading(submitButton);
+            
+            try {
+                // Send image-only task
+                log("Submitting image-only task", { image: imageFile.name });
+                const formData = new FormData();
+                formData.append('image', imageFile);
+                
+                const response = await fetch('/generate/image', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Server response:", data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
+            } catch (error) {
+                console.error("Request error:", error);
+                displayTaskResult({ error: error.message });
+            } finally {
+                resetButton(submitButton);
+            }
+        });
+        
+        document.getElementById('text-image-task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('text-image-input').value.trim();
+            const imageFile = document.getElementById('text-image-upload').files[0];
+            
+            if (!message) {
+                document.getElementById('tool-results').textContent = 'Please enter a text instruction';
+                return;
+            }
+            
+            if (!imageFile) {
+                document.getElementById('tool-results').textContent = 'Please select an image file';
+                return;
+            }
+            
+            const submitButton = document.getElementById('text-image-submit');
+            showLoading(submitButton);
+            
+            try {
+                // Send text+image task
+                log("Submitting text+image task", { message, image: imageFile.name });
+                const formData = new FormData();
+                formData.append('message', message);
+                formData.append('image', imageFile);
+                
+                const response = await fetch('/generate/text-image', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Server response:", data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
+            } catch (error) {
+                console.error("Request error:", error);
+                displayTaskResult({ error: error.message });
+            } finally {
+                resetButton(submitButton);
+            }
+        });
+        
+        // Modification task form handlers
+        document.getElementById('modify-without-oracle-task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('modify-without-oracle-input').value.trim();
+            const imageFile = document.getElementById('modify-without-oracle-upload').files[0];
+            
+            if (!message) {
+                document.getElementById('tool-results').textContent = 'Please enter a modification instruction';
+                return;
+            }
+            
+            if (!imageFile) {
+                document.getElementById('tool-results').textContent = 'Please select an image file';
+                return;
+            }
+            
+            const submitButton = document.getElementById('modify-without-oracle-submit');
+            showLoading(submitButton);
+            
+            try {
+                log("Submitting modify without oracle task", { message, image: imageFile.name });
+                const formData = new FormData();
+                formData.append('message', message);
+                formData.append('image', imageFile);
+                
+                const response = await fetch('/modify/without-oracle', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Server response:", data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
+            } catch (error) {
+                console.error("Request error:", error);
+                displayTaskResult({ error: error.message });
+            } finally {
+                resetButton(submitButton);
+            }
+        });
+        
+        document.getElementById('modify-hierarchy-task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('modify-hierarchy-input').value.trim();
+            const imageFile = document.getElementById('modify-hierarchy-upload').files[0];
+            
+            if (!message) {
+                document.getElementById('tool-results').textContent = 'Please enter a modification instruction';
+                return;
+            }
+            
+            if (!imageFile) {
+                document.getElementById('tool-results').textContent = 'Please select an image file';
+                return;
+            }
+            
+            const submitButton = document.getElementById('modify-hierarchy-submit');
+            showLoading(submitButton);
+            
+            try {
+                log("Submitting modify with hierarchy task", { message, image: imageFile.name });
+                const formData = new FormData();
+                formData.append('message', message);
+                formData.append('image', imageFile);
+                
+                const response = await fetch('/modify/with-oracle/perfect-hierachy', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Server response:", data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
+            } catch (error) {
+                console.error("Request error:", error);
+                displayTaskResult({ error: error.message });
+            } finally {
+                resetButton(submitButton);
+            }
+        });
+        
+        document.getElementById('modify-canvas-task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('modify-canvas-input').value.trim();
+            const imageFile = document.getElementById('modify-canvas-upload').files[0];
+            
+            if (!message) {
+                document.getElementById('tool-results').textContent = 'Please enter a modification instruction';
+                return;
+            }
+            
+            if (!imageFile) {
+                document.getElementById('tool-results').textContent = 'Please select an image file';
+                return;
+            }
+            
+            const submitButton = document.getElementById('modify-canvas-submit');
+            showLoading(submitButton);
+            
+            try {
+                log("Submitting modify with canvas task", { message, image: imageFile.name });
+                const formData = new FormData();
+                formData.append('message', message);
+                formData.append('image', imageFile);
+                
+                const response = await fetch('/modify/with-oracle/perfect-canvas', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Server response:", data);
+                
+                // Handle both new payload format and legacy format
+                if (data.status === 'success' && data.payload) {
+                    displayTaskResult(data.payload);
+                } else if (data.status === 'success') {
+                    displayTaskResult(data);
+                } else {
+                    displayTaskResult({ error: data.message || 'Unknown error occurred' });
+                }
+            } catch (error) {
+                console.error("Request error:", error);
+                displayTaskResult({ error: error.message });
+            } finally {
+                resetButton(submitButton);
+            }
+        });
+        
+        // Debug tools handlers
+        document.getElementById('get-selection').addEventListener('click', async (e) => {
+            const button = e.target;
+            showLoading(button);
+            
+            try {
+                const response = await fetch('/tool/get_selection', { method: 'POST' });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Get Selection');
+            }
+        });
+        
+        document.getElementById('create-frame').addEventListener('click', () => {
+            const paramsForm = document.getElementById('frame-params');
+            paramsForm.style.display = paramsForm.style.display === 'none' ? 'block' : 'none';
+        });
+        
+        document.getElementById('frame-params-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const button = e.target.querySelector('button[type="submit"]');
+            showLoading(button);
+            
+            const x = document.getElementById('frame-x').value;
+            const y = document.getElementById('frame-y').value;
+            const width = document.getElementById('frame-width').value;
+            const height = document.getElementById('frame-height').value;
+            const name = document.getElementById('frame-name').value;
+            
+            try {
+                const response = await fetch(`/tool/create_root_frame?x=${x}&y=${y}&width=${width}&height=${height}&name=${encodeURIComponent(name)}`, {
+                    method: 'POST',
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Create');
+            }
+        });
+        
+        document.getElementById('create-text').addEventListener('click', async (e) => {
+            const button = e.target;
+            showLoading(button);
+            
+            try {
+                const response = await fetch('/tool/create_text_in_root_frame', { method: 'POST' });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Create Text in Root Frame');
+            }
+        });
+        
+        // Delete all top level nodes handler
+        document.getElementById('delete-all-nodes').addEventListener('click', async (e) => {
+            const button = e.target;
+            showLoading(button);
+            
+            try {
+                const response = await fetch('/tool/delete_all_top_level_nodes', { method: 'POST' });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Delete All Top Level Nodes');
+            }
+        });
+        
+        // Delete single node handler
+        document.getElementById('delete-single-node').addEventListener('click', async (e) => {
+            const button = e.target;
+            const nodeId = document.getElementById('delete-node-id').value.trim();
+            
+            if (!nodeId) {
+                document.getElementById('tool-results').textContent = 'Please enter a node ID';
+                return;
+            }
+            
+            showLoading(button);
+            
+            try {
+                const response = await fetch('/tool/delete_node', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node_id: nodeId }),
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                    // Clear the input on success
+                    document.getElementById('delete-node-id').value = '';
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Delete Node');
+            }
+        });
+        
+        // Delete multiple nodes handler
+        document.getElementById('delete-multiple-nodes').addEventListener('click', async (e) => {
+            const button = e.target;
+            const nodeIdsText = document.getElementById('delete-multiple-ids').value.trim();
+            
+            if (!nodeIdsText) {
+                document.getElementById('tool-results').textContent = 'Please enter node IDs';
+                return;
+            }
+            
+            // Parse comma-separated node IDs
+            const nodeIds = nodeIdsText.split(',').map(id => id.trim()).filter(id => id.length > 0);
+            
+            if (nodeIds.length === 0) {
+                document.getElementById('tool-results').textContent = 'Please enter valid node IDs';
+                return;
+            }
+            
+            showLoading(button);
+            
+            try {
+                const response = await fetch('/tool/delete_multiple_nodes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node_ids: nodeIds }),
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Handle new response format
+                if (data.status === 'success' && data.payload) {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data.payload, null, 2);
+                    // Clear the input on success
+                    document.getElementById('delete-multiple-ids').value = '';
+                } else {
+                    document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Delete Multiple Nodes');
+            }
+        });
+        
+        // Initialize
+        log("Task interface initialized");
+    </script>
+</body>
+</html>

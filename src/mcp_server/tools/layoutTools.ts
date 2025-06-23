@@ -48,11 +48,15 @@ export function registerLayoutTools(server: McpServer) {
             ? `padding (${paddingMessages.join(", ")})`
             : "padding";
 
-        return createSuccessResponse(
-          `Set ${paddingText} for frame "${typedResult.name}"`
-        );
+        return createSuccessResponse({
+          messages: [`Set ${paddingText} for frame "${typedResult.name}"`],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting padding");
+        return createErrorResponse({
+          error,
+          context: "set_padding",
+        });
       }
     }
   );
@@ -97,11 +101,15 @@ export function registerLayoutTools(server: McpServer) {
             ? `axis alignment (${alignMessages.join(", ")})`
             : "axis alignment";
 
-        return createSuccessResponse(
-          `Set ${alignText} for frame "${typedResult.name}"`
-        );
+        return createSuccessResponse({
+          messages: [`Set ${alignText} for frame "${typedResult.name}"`],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting axis alignment");
+        return createErrorResponse({
+          error,
+          context: "set_axis_align",
+        });
       }
     }
   );
@@ -146,11 +154,15 @@ export function registerLayoutTools(server: McpServer) {
             ? `layout sizing (${sizingMessages.join(", ")})`
             : "layout sizing";
 
-        return createSuccessResponse(
-          `Set ${sizingText} for frame "${typedResult.name}"`
-        );
+        return createSuccessResponse({
+          messages: [`Set ${sizingText} for frame "${typedResult.name}"`],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting layout sizing");
+        return createErrorResponse({
+          error,
+          context: "set_layout_sizing",
+        });
       }
     }
   );
@@ -176,11 +188,17 @@ export function registerLayoutTools(server: McpServer) {
 
         const typedResult = result as { name: string };
 
-        return createSuccessResponse(
-          `Set item spacing to ${itemSpacing} for frame "${typedResult.name}"`
-        );
+        return createSuccessResponse({
+          messages: [
+            `Set item spacing to ${itemSpacing} for frame "${typedResult.name}"`,
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting item spacing");
+        return createErrorResponse({
+          error,
+          context: "set_item_spacing",
+        });
       }
     }
   );
@@ -207,13 +225,20 @@ export function registerLayoutTools(server: McpServer) {
           layoutWrap: layoutWrap || "NO_WRAP",
         });
         const typedResult = result as { name: string };
-        return createSuccessResponse(
-          `Set layout mode of frame "${typedResult.name}" to ${layoutMode}${
-            layoutWrap ? ` with ${layoutWrap}` : ""
-          }`
-        );
+
+        return createSuccessResponse({
+          messages: [
+            `Set layout mode of frame "${typedResult.name}" to ${layoutMode}${
+              layoutWrap ? ` with ${layoutWrap}` : ""
+            }`,
+          ],
+          dataItem: typedResult,
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting layout mode");
+        return createErrorResponse({
+          error,
+          context: "set_layout_mode",
+        });
       }
     }
   );

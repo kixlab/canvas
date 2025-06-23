@@ -1,3 +1,10 @@
+import {
+  TextContent,
+  ImageContent,
+  AudioContent,
+  EmbeddedResource,
+} from "@modelcontextprotocol/sdk/types.js";
+
 // Type definitions and interfaces for the MCP server
 
 export interface FigmaResponse {
@@ -6,8 +13,14 @@ export interface FigmaResponse {
   error?: string;
 }
 
+export type ResponseContent =
+  | TextContent
+  | ImageContent
+  | AudioContent
+  | EmbeddedResource;
+
 export interface CommandProgressUpdate {
-  type: "command_progress";
+  type: "command-progress";
   commandId: string;
   commandType: string;
   status: "started" | "in_progress" | "completed" | "error";
@@ -116,6 +129,7 @@ export type FigmaCommand =
   | "set_layout_sizing"
   | "set_item_spacing"
   | "check_connection_status"
+  | "get_result_image"
   | "create_vector_from_svg"
   | "create_ellipse"
   | "create_polygon"

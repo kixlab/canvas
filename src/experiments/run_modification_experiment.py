@@ -80,6 +80,7 @@ class ModificationExperiment(BaseExperiment):
         endpoint = "modify/with-oracle/perfect-hierachy"
         data = aiohttp.FormData()
         data.add_field("image", image_path.open("rb"), filename=image_path.name, content_type="image/png")
+        data.add_field("message", meta_json.get("instruction", ""))
         data.add_field("metadata", result_name)
         
         await self._make_request(session, endpoint, data, result_name)
@@ -88,6 +89,7 @@ class ModificationExperiment(BaseExperiment):
         self.logger.info("Running with perfect canvas")
         endpoint = "modify/with-oracle/perfect-canvas"
         data = aiohttp.FormData()
+        data.add_field("image", image_path.open("rb"), filename=image_path.name, content_type="image/png")
         data.add_field("message", meta_json.get("instruction", ""))
         data.add_field("metadata", result_name)
         

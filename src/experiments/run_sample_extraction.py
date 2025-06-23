@@ -80,23 +80,29 @@ class SampleExtractionExperiment(BaseExperiment):
                         else:
                             print("Invalid input. Please enter y / n / q.")
 
-    async def run_variant(self, session, image_path, meta_json, result_name, variant: ExperimentVariant):
-        endpoint = "generate/image"
-
+    async def run_variant(self, session, image_path, meta_json, result_name, variant):
+        if variant == "image_only":
+            endpoint = "generate/image"
+            message_text = None
+        elif variant == "text_level_1":
+            endpoint = "generate/text-image"
+            message_text = meta_json.get("description_one", "")
+        elif variant == "text_level_2":
+            endpoint = "generate/text-image"
+            message_text = meta_json.get("description_two", "")
+        else:
+            raise ValueError(f"Unknown variant: {variant}")
+        
         def build_form_data():
             form = aiohttp.FormData()
-            form.add_field("image", image_path.open("rb"), filename=image_path.name, content_type="image/png")
-
-            if variant == ExperimentVariant.IMAGE_ONLY:
-                pass
-            elif variant == ExperimentVariant.TEXT_LEVEL_1:
-                endpoint = "generate/text-image"
-                form.add_field("message", meta_json.get("description_one", ""))
-            elif variant == ExperimentVariant.TEXT_LEVEL_2:
-                endpoint = "generate/text-image"
-                form.add_field("message", meta_json.get("description_two", ""))
-            else:
-                raise ValueError(f"Unknown variant: {variant.value}")
+            form.add_field(
+                "image",
+                image_path.open("rb"),
+                filename=image_path.name,
+                content_type="image/png",
+            )
+            if message_text is not None:
+                form.add_field("message", message_text)
 
             form.add_field("metadata", result_name)
             return form

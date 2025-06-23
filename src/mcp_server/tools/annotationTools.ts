@@ -26,16 +26,12 @@ export function registerAnnotationTools(server: McpServer) {
           nodeId,
           includeCategories,
         });
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [JSON.stringify(result)],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "getting annotations");
+        return createErrorResponse({ error, context: "getting annotations" });
       }
     }
   );
@@ -77,16 +73,12 @@ export function registerAnnotationTools(server: McpServer) {
           categoryId,
           properties,
         });
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
+        return createSuccessResponse({
+          messages: [`${JSON.stringify(result)}`],
+          dataItem: result,
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting annotation");
+        return createErrorResponse({ error, context: "setting annotation" });
       }
     }
   );
@@ -131,7 +123,9 @@ export function registerAnnotationTools(server: McpServer) {
     async ({ nodeId, annotations }, extra) => {
       try {
         if (!annotations || annotations.length === 0) {
-          return createSuccessResponse("No annotations provided");
+          return createSuccessResponse({
+            messages: ["No annotations provided to set."],
+          });
         }
 
         // Initial response to indicate we're starting the process
@@ -176,17 +170,17 @@ export function registerAnnotationTools(server: McpServer) {
             .join("\n")}`;
         }
 
-        return {
-          content: [
-            initialStatus,
-            {
-              type: "text" as const,
-              text: progressText + detailedResponse,
-            },
+        return createSuccessResponse({
+          messages: [
+            `Starting annotation process for ${annotations.length} nodes. This will be processed in batches of 5...`,
+            progressText + detailedResponse,
           ],
-        };
+        });
       } catch (error) {
-        return createErrorResponse(error, "setting multiple annotations");
+        return createErrorResponse({
+          error,
+          context: "setting multiple annotations",
+        });
       }
     }
   );

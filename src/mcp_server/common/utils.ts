@@ -1,3 +1,10 @@
+import {
+  TextContent,
+  ImageContent,
+  CallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
+import { ResponseContent } from "../types.js";
+
 /**
  * Convert RGBA color object to hex string
  */
@@ -113,32 +120,58 @@ export function filterFigmaNode(node: any) {
   return filtered;
 }
 
-/**
- * Create standardized error response
- */
-export function createErrorResponse(error: unknown, context: string) {
-  return {
-    content: [
-      {
-        type: "text" as const,
-        text: `Error ${context}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      },
-    ],
+export function createSuccessResponse(params: {
+  messages: string[];
+  images?: { data: string; mimeType: string }[];
+  dataItem?: {
+    [x: string]: unknown;
   };
+}): CallToolResult {
+  const content: ResponseContent[] = [];
+
+  params.messages.forEach((text) =>
+    content.push({ type: "text", text } satisfies TextContent)
+  );
+
+  params.images?.forEach(({ data, mimeType }) =>
+    content.push({ type: "image", data, mimeType } satisfies ImageContent)
+  );
+
+  const responseObject: CallToolResult = {
+    content: content as CallToolResult["content"],
+    isError: false,
+  };
+  if (params.dataItem && Object.keys(params.dataItem).length > 0) {
+    responseObject.structuredContent = params.dataItem;
+  }
+
+  return responseObject;
 }
 
-/**
- * Create standardized success response
- */
-export function createSuccessResponse(message: string) {
-  return {
+export function createErrorResponse(params: {
+  error: unknown;
+  context: string;
+  dataItem?: {
+    [x: string]: unknown;
+  };
+}): CallToolResult {
+  const responseObject: CallToolResult = {
     content: [
       {
-        type: "text" as const,
-        text: message,
-      },
+        type: "text",
+        text: `Error (${params.context}): ${
+          params.error instanceof Error
+            ? params.error.message
+            : String(params.error)
+        }`,
+      } satisfies TextContent,
     ],
+    isError: true,
   };
+
+  if (params.dataItem) {
+    responseObject.structuredContent = params.dataItem;
+  }
+
+  return responseObject;
 }

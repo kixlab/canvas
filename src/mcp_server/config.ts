@@ -1,10 +1,42 @@
 // Custom logging functions that write to stderr instead of stdout to avoid being captured
+// ANSI color codes for styling
+const COLORS = {
+  GRAY: "\x1b[90m", // Bright black (gray)
+  RESET: "\x1b[0m", // Reset to default
+};
+
 export const logger = {
-  info: (message: string) => process.stderr.write(`[INFO] ${message}\n`),
-  debug: (message: string) => process.stderr.write(`[DEBUG] ${message}\n`),
-  warn: (message: string) => process.stderr.write(`[WARN] ${message}\n`),
-  error: (message: string) => process.stderr.write(`[ERROR] ${message}\n`),
-  log: (message: string) => process.stderr.write(`[LOG] ${message}\n`),
+  info: ({ header, body }: { header: string; body?: string }) => {
+    process.stderr.write(
+      `[INFO][mcp-server] ${header} ${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    );
+  },
+  debug: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `[DEBUG][mcp-server] ${header} ${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+  warn: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `[WARN][mcp-server] ${header} ${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+  error: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `[ERROR][mcp-server] ${header} ${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+  log: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `[LOG][mcp-server] ${header} ${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
 };
 
 const args = process.argv.slice(2);
