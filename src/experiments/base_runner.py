@@ -141,21 +141,27 @@ class BaseExperiment:
     async def ensure_canvas_empty(self):
         for _ in range(3):
             try:
-                res = requests.post(f"{self.api_base_url}/tool/get_document_info")
-                results = res.json().get("status", "{}")
-                self.logger.info(f"{results}")
-                if not results == "success":
-                    del_res = requests.post(f"{self.api_base_url}/tool/delete_all_top_level_nodes")
-                    if del_res.status_code == 200:
-                        self.logger.info("[CLEANUP] Deleted top-level nodes")
+                del_res = requests.post(f"{self.api_base_url}/tool/delete_all_top_level_nodes")
+
+                if del_res.status_code == 200:
+                    try:
+                        status = del_res.json().get("status", "")
+                    except Exception:
+                        status = ""
+
+                    if status == "success":
+                        self.logger.info("[CLEANUP] Canvas is now empty (or already empty)")
                         return
                     else:
-                        self.logger.info(f"[CLEANUP-RETRY] Failed with status {del_res.status_code}")
+                        self.logger.info(f"[CLEANUP-RETRY] Unexpected response status: {status}")
                 else:
-                    return
+                    self.logger.info(f"[CLEANUP-RETRY] HTTP {del_res.status_code}")
+
             except Exception as e:
                 self.logger.error(f"[CLEANUP-ERROR] Exception during cleanup: {e}")
+
             await asyncio.sleep(1)
+
         raise RuntimeError("Canvas cleanup failed after retries")
 
     async def create_root_frame(self, session: aiohttp.ClientSession) -> Dict[str, Any]:

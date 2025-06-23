@@ -60,9 +60,9 @@ class GenerationExperiment(BaseExperiment):
                     if variant == "image_only":
                         await self.run_image_only(session, image_path, meta_json, result_name)
                     elif variant == "text_level_1":
-                        await self.run_text_level_1(session, meta_json, result_name)
+                        await self.run_text_level_1(session, image_path, meta_json, result_name)
                     elif variant == "text_level_2":
-                        await self.run_text_level_2(session, meta_json, result_name)
+                        await self.run_text_level_2(session, image_path, meta_json, result_name)
                     else:
                         raise ValueError(f"Unknown variant: {variant}")
                 except Exception as e:
@@ -86,11 +86,12 @@ class GenerationExperiment(BaseExperiment):
         finally:
             await self.ensure_canvas_empty()
     
-    async def run_text_level_1(self, session: aiohttp.ClientSession, meta_json: dict, result_name: str):
+    async def run_text_level_1(self, session: aiohttp.ClientSession, image_path: Path, meta_json: dict, result_name: str):
         try:
             self.logger.info("Running text level 1 generation")
             endpoint = "generate/text-image"
             data = aiohttp.FormData()
+            data.add_field("image", image_path.open("rb"), filename=image_path.name, content_type="image/png")
             data.add_field("message", meta_json.get("description_one", ""))
             data.add_field("metadata", result_name)
             
@@ -98,11 +99,12 @@ class GenerationExperiment(BaseExperiment):
         finally:
             await self.ensure_canvas_empty()
     
-    async def run_text_level_2(self, session: aiohttp.ClientSession, meta_json: dict, result_name: str):
+    async def run_text_level_2(self, session: aiohttp.ClientSession, image_path: Path, meta_json: dict, result_name: str):
         try:
             self.logger.info("Running text level 2 generation")
             endpoint = "generate/text-image"
             data = aiohttp.FormData()
+            data.add_field("image", image_path.open("rb"), filename=image_path.name, content_type="image/png")
             data.add_field("message", meta_json.get("description_two", ""))
             data.add_field("metadata", result_name)
             

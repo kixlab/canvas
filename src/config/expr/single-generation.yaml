@@ -12,11 +12,11 @@ variants:
 channels:
   channel_1:
     figma_file_key: 
-    api_base_url: http://localhost:8000
+    api_base_url: http://localhost:3000
 
   channel_2:
     figma_file_key: JtTP5OvsUBvSiS2g5BK95t
-    api_base_url: http://localhost:8001
+    api_base_url: http://localhost:3000
   
   channel_3:
     figma_file_key: fKAsAWsx28xTdWlAogIwga
