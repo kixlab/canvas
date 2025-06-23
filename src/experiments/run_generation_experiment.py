@@ -33,7 +33,7 @@ class GenerationExperiment(BaseExperiment):
             finally:
                 await self.ensure_canvas_empty()
     
-    async def run_variant(self, session: aiohttp.ClientSession, variant: ExperimentVariant):
+    async def run_variant(self, session: aiohttp.ClientSession, variant: str):
         try:
             meta_files = list(self.benchmark_dir.glob("*-meta.json"))
             if not meta_files:
@@ -54,24 +54,24 @@ class GenerationExperiment(BaseExperiment):
                     with open(meta_file, "r", encoding="utf-8") as f:
                         meta_json = json.load(f)
                     
-                    result_name = f"{base_id}-{self.config.model.value}-{variant.value}"
+                    result_name = f"{base_id}-{self.config.model}-{variant}"
                     self.logger.info(f"Processing result: {result_name}")
                     
-                    if variant == ExperimentVariant.IMAGE_ONLY:
+                    if variant == "image_only":
                         await self.run_image_only(session, image_path, meta_json, result_name)
-                    elif variant == ExperimentVariant.TEXT_LEVEL_1:
-                        await self.run_text_level_1(session, meta_json, result_name)
-                    elif variant == ExperimentVariant.TEXT_LEVEL_2:
-                        await self.run_text_level_2(session, meta_json, result_name)
+                    elif variant == "text_level_1":
+                        await self.run_text_level_1(session, image_path, meta_json, result_name)
+                    elif variant == "text_level_2":
+                        await self.run_text_level_2(session, image_path, meta_json, result_name)
                     else:
-                        raise ValueError(f"Unknown variant: {variant.value}")
+                        raise ValueError(f"Unknown variant: {variant}")
                 except Exception as e:
                     self.logger.error(f"Error processing {meta_file}: {str(e)}")
                     await self.ensure_canvas_empty()
                     continue
                 
         except Exception as e:
-            await self.handle_error(e, f"Running variant {variant.value}")
+            await self.handle_error(e, f"Running variant {variant}")
             await self.ensure_canvas_empty()
     
     async def run_image_only(self, session: aiohttp.ClientSession, image_path: Path, meta_json: dict, result_name: str):
