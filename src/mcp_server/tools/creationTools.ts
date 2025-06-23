@@ -17,7 +17,9 @@ export function registerCreationTools(server: McpServer) {
       parentId: z
         .string()
         .optional()
-        .describe("Optional parent node ID to append the rectangle to"),
+        .describe(
+          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID to append the rectangle to"
+        ),
     },
     async ({ x, y, width, height, name, parentId }) => {
       try {
@@ -56,7 +58,9 @@ export function registerCreationTools(server: McpServer) {
       parentId: z
         .string()
         .optional()
-        .describe("Optional parent node ID to append the frame to"),
+        .describe(
+          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID to append the frame to"
+        ),
       fillColor: z
         .object({
           r: z.number().min(0).max(1).describe("Red component (0-1)"),
@@ -224,7 +228,9 @@ export function registerCreationTools(server: McpServer) {
       parentId: z
         .string()
         .optional()
-        .describe("Optional parent node ID to append the text to"),
+        .describe(
+          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID to append the text to"
+        ),
     },
     async ({ x, y, text, fontSize, fontWeight, fontColor, name, parentId }) => {
       try {
@@ -244,6 +250,362 @@ export function registerCreationTools(server: McpServer) {
         );
       } catch (error) {
         return createErrorResponse(error, "creating text");
+      }
+    }
+  );
+
+  // create SVG tool
+  server.tool(
+    "create_vector_from_svg",
+    "Create a vector layer containing vector shapes extracted from an SVG string in Figma",
+    {
+      svg: z
+        .string()
+        .describe(
+          "The raw SVG code as a string. Must contain at least one <path> element with a 'd' attribute"
+        ),
+      x: z.number().describe("X position for the new vector layer"),
+      y: z.number().describe("Y position for the new vector layer"),
+      name: z.string().describe("A name for the new vector layer"),
+      parentId: z
+        .string()
+        .optional()
+        .describe(
+          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID to append the vector layer to"
+        ),
+    },
+    async ({ svg, x, y, name, parentId }) => {
+      try {
+        const result = await sendCommandToFigma("create_vector_from_svg", {
+          svg,
+          x,
+          y,
+          name: name || "SVG Vector",
+          parentId,
+        });
+        const typedResult = result as { name: string; id: string };
+        return createSuccessResponse(
+          `Created vector "${typedResult.name}" with ID: ${typedResult.id}.`
+        );
+      } catch (error) {
+        return createErrorResponse(error, "creating vector from SVG");
+      }
+    }
+  );
+
+  server.tool(
+    "create_ellipse",
+    "Create a new ellipse in Figma",
+    {
+      x: z.number().describe("X position"),
+      y: z.number().describe("Y position"),
+      width: z.number().describe("Width of the ellipse"),
+      height: z.number().describe("Height of the ellipse"),
+      name: z.string().optional().describe("Optional name for the ellipse"),
+      parentId: z
+        .string()
+        .optional()
+        .describe(
+          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID to append the ellipse to"
+        ),
+      fillColor: z
+        .object({
+          r: z.number().min(0).max(1),
+          g: z.number().min(0).max(1),
+          b: z.number().min(0).max(1),
+          a: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Fill color (RGBA, 0-1)"),
+      strokeColor: z
+        .object({
+          r: z.number().min(0).max(1),
+          g: z.number().min(0).max(1),
+          b: z.number().min(0).max(1),
+          a: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Stroke color (RGBA, 0-1)"),
+      strokeWeight: z
+        .number()
+        .positive()
+        .optional()
+        .describe("Stroke weight in px"),
+    },
+    async ({
+      x,
+      y,
+      width,
+      height,
+      name,
+      parentId,
+      fillColor,
+      strokeColor,
+      strokeWeight,
+    }) => {
+      try {
+        const result = await sendCommandToFigma("create_ellipse", {
+          x,
+          y,
+          width,
+          height,
+          name: name || "Ellipse",
+          parentId,
+          fillColor,
+          strokeColor,
+          strokeWeight,
+        });
+        const typed = result as { name: string; id: string };
+        return createSuccessResponse(
+          `Created ellipse "${typed.name}" with ID: ${typed.id}.`
+        );
+      } catch (err) {
+        return createErrorResponse(err, "creating ellipse");
+      }
+    }
+  );
+
+  server.tool(
+    "create_polygon",
+    "Create a new polygon in Figma",
+    {
+      x: z.number().describe("X position"),
+      y: z.number().describe("Y position"),
+      width: z.number().describe("Width of the polygon"),
+      height: z.number().describe("Height of the polygon"),
+      pointCount: z
+        .number()
+        .int()
+        .min(3)
+        .describe("Number of sides (integer ≥ 3)"),
+      name: z.string().optional().describe("Optional name for the polygon"),
+      parentId: z
+        .string()
+        .optional()
+        .describe(
+          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID"
+        ),
+      fillColor: z
+        .object({
+          r: z.number().min(0).max(1),
+          g: z.number().min(0).max(1),
+          b: z.number().min(0).max(1),
+          a: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Fill color (RGBA 0-1)"),
+      strokeColor: z
+        .object({
+          r: z.number().min(0).max(1),
+          g: z.number().min(0).max(1),
+          b: z.number().min(0).max(1),
+          a: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Stroke color (RGBA 0-1)"),
+      strokeWeight: z
+        .number()
+        .positive()
+        .optional()
+        .describe("Stroke weight (px)"),
+    },
+    async ({
+      x,
+      y,
+      width,
+      height,
+      pointCount,
+      name,
+      parentId,
+      fillColor,
+      strokeColor,
+      strokeWeight,
+    }) => {
+      try {
+        const result = await sendCommandToFigma("create_polygon", {
+          x,
+          y,
+          width,
+          height,
+          pointCount,
+          name: name || "Polygon",
+          parentId,
+          fillColor,
+          strokeColor,
+          strokeWeight,
+        });
+        const typed = result as { name: string; id: string };
+        return createSuccessResponse(
+          `Created polygon "${typed.name}" with ID: ${typed.id}.`
+        );
+      } catch (err) {
+        return createErrorResponse(err, "creating polygon");
+      }
+    }
+  );
+
+  server.tool(
+    "create_star",
+    "Create a new star in Figma",
+    {
+      x: z.number().describe("X position"),
+      y: z.number().describe("Y position"),
+      width: z.number().describe("Width of the star"),
+      height: z.number().describe("Height of the star"),
+      pointCount: z
+        .number()
+        .int()
+        .min(3)
+        .max(60)
+        .describe("Number of star points (3–60)"),
+      innerRadius: z
+        .number()
+        .min(0)
+        .max(100)
+        .optional()
+        .describe("Inner radius as % of diameter (0–100)"),
+      name: z.string().optional().describe("Optional layer name"),
+      parentId: z
+        .string()
+        .optional()
+        .describe(
+          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID"
+        ),
+      fillColor: z
+        .object({
+          r: z.number().min(0).max(1),
+          g: z.number().min(0).max(1),
+          b: z.number().min(0).max(1),
+          a: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Fill colour (RGBA 0–1)"),
+      strokeColor: z
+        .object({
+          r: z.number().min(0).max(1),
+          g: z.number().min(0).max(1),
+          b: z.number().min(0).max(1),
+          a: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Stroke colour (RGBA 0–1)"),
+      strokeWeight: z
+        .number()
+        .positive()
+        .optional()
+        .describe("Stroke weight (px)"),
+    },
+    async ({
+      x,
+      y,
+      width,
+      height,
+      pointCount,
+      innerRadius,
+      name,
+      parentId,
+      fillColor,
+      strokeColor,
+      strokeWeight,
+    }) => {
+      try {
+        const result = await sendCommandToFigma("create_star", {
+          x,
+          y,
+          width,
+          height,
+          pointCount,
+          innerRadius,
+          name: name || "Star",
+          parentId,
+          fillColor,
+          strokeColor,
+          strokeWeight,
+        });
+        const typed = result as { name: string; id: string };
+        return createSuccessResponse(
+          `Created star "${typed.name}" with ID: ${typed.id}.`
+        );
+      } catch (err) {
+        return createErrorResponse(err, "creating star");
+      }
+    }
+  );
+
+  server.tool(
+    "create_line",
+    "Create a straight line in Figma",
+    {
+      x: z.number().describe("X position"),
+      y: z.number().describe("Y position"),
+      length: z.number().positive().describe("Length of the line in pixels"),
+      direction: z
+        .enum(["HORIZONTAL", "VERTICAL"])
+        .optional()
+        .describe("Orientation of the line (default: HORIZONTAL)"),
+      name: z.string().optional().describe("Optional name for the line"),
+      parentId: z
+        .string()
+        .optional()
+        .describe(
+          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID"
+        ),
+      strokeColor: z
+        .object({
+          r: z.number().min(0).max(1),
+          g: z.number().min(0).max(1),
+          b: z.number().min(0).max(1),
+          a: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Stroke color in RGBA (0–1)"),
+      strokeWeight: z
+        .number()
+        .positive()
+        .optional()
+        .describe("Stroke weight in pixels"),
+      strokeCap: z
+        .enum(["NONE", "ROUND", "SQUARE", "ARROW_LINES", "TRIANGLE_WIRE"])
+        .optional()
+        .describe("Line cap style"),
+      dashPattern: z
+        .array(z.number().positive())
+        .min(2)
+        .max(2)
+        .optional()
+        .describe("Dash pattern, e.g. [4,2]"),
+    },
+    async ({
+      x,
+      y,
+      length,
+      direction,
+      name,
+      parentId,
+      strokeColor,
+      strokeWeight,
+      strokeCap,
+      dashPattern,
+    }) => {
+      try {
+        const result = await sendCommandToFigma("create_line", {
+          x,
+          y,
+          length,
+          direction,
+          name: name || "Line",
+          parentId,
+          strokeColor,
+          strokeWeight,
+          strokeCap,
+          dashPattern,
+        });
+        const typed = result as { name: string; id: string };
+        return createSuccessResponse(
+          `Created line "${typed.name}" with ID: ${typed.id}.`
+        );
+      } catch (err) {
+        return createErrorResponse(err, "creating line");
       }
     }
   );

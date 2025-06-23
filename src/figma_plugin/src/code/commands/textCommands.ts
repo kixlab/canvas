@@ -1,5 +1,4 @@
 import {
-  makeSolidPaint,
   getErrorMessage,
   sendProgressUpdate,
   setCharacters,
@@ -8,26 +7,8 @@ import {
   processTextNode,
   collectNodesToProcess,
   delay,
-  findNodesByTypes,
-  uint8ArrayToBase64,
-  safeParseFloat,
-  customBase64Encode,
-  filterFigmaNode,
 } from '../utils';
-import { hasAppendChild, hasClone, hasExportAsync } from '../figma-api';
-import {
-  LayoutMode,
-  LayoutWrap,
-  PrimaryAxisAlign,
-  CounterAxisAlign,
-  LayoutSizing,
-  ProgressStatus,
-  NodeInfo,
-  MinimalTextNode,
-  CategoryInfo,
-  MinimalNodeMatch,
-  ImageFormat,
-} from '../types';
+import { NodeInfo, MinimalTextNode } from '../types';
 
 export async function setTextContent(params: { nodeId: string; text: string }) {
   const { nodeId, text } = params || {};
