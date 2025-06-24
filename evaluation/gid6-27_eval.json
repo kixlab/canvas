@@ -1,0 +1,30 @@
+[
+  {
+    "id": "gid6-27",
+    "alignment_match": 0.7448,
+    "alignment_diff": 0.0529,
+    "semantic_match": 0.6421,
+    "canvas_fill_ratio": 0.508,
+    "element_count_ratio": 0.25,
+    "layout_overlap": 0.0,
+    "num_matched": 15,
+    "pixel_fidelity": 0.598800003528595,
+    "psnr": 9.2607,
+    "tool_accuracy": null,
+    "tool_step_count": 23,
+    "tool_call_count": 36,
+    "unique_tool_count": 5,
+    "unique_tool_list": [
+      "create_frame",
+      "create_rectangle",
+      "create_text",
+      "set_corner_radius",
+      "set_fill_color"
+    ],
+    "tool_efficiency": 0.0154,
+    "hierarchy_sim": 0.0,
+    "hierarchy_type_sim": 0.0,
+    "visual_completeness": 0.5830000042915344,
+    "struct_completeness": 0.2487
+  }
+]
