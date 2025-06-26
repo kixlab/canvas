@@ -20,7 +20,7 @@ def compute_similarity(text1, text2):
 
 def compute_blip_score(gt_img_path: str, gen_img_path: str) -> dict:
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base", use_fast=False)
     model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base").to(device)
 
     gt_caption = generate_caption(gt_img_path, model, processor, device)
