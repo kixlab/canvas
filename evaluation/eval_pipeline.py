@@ -133,16 +133,15 @@ def run_generation_evaluation(
                 4,
             )
 
-        if all(k in metric for k in ("element_count_ratio", "layout_overlap", "alignment_match", "hierarchy_type_sim")):
+        if all(k in metric for k in ("element_count_ratio", "layout_overlap", "alignment_match")):
             metric["struct_completeness"] = round(
                 (
                     metric["element_count_ratio"]
                     + metric["layout_overlap"]
                     + metric["alignment_match"]
-                    + metric["hierarchy_type_sim"]
                 )
-                / 4,
-                4,
+                / 3,
+                3,
             )
 
     if out_path:

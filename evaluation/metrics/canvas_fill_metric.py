@@ -12,8 +12,8 @@ def _canvas_fill_ratio(gt_img: str = None, gen_img: str = None, gt_json: str = N
     if gt_json is None or gen_json is None:
         return {"canvas_fill_ratio": None}
 
-    gt_boxes = load_boxes_from_json(gt_json)
-    gen_boxes = load_boxes_from_json(gen_json)
+    gt_boxes, _ = load_boxes_from_json(gt_json)
+    gen_boxes, _ = load_boxes_from_json(gen_json)
 
     if not gt_boxes:
         return {"canvas_fill_ratio": 0.0}
