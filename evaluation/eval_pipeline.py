@@ -107,15 +107,23 @@ def run_generation_evaluation(
 
     results: List[Dict[str, any]] = []
 
+    output_vis_dir = Path(base_path) / "eval_outputs"
+    output_vis_dir.mkdir(parents=True, exist_ok=True)
+
     for gt_id, gt_img, gen_img, gt_json, gen_json in pairs:
         metric: Dict[str, any] = {"id": gt_id}
 
+        case_id = gt_id
         for name, func in metric_funcs.items():
             try:
+                metric.update(func(
+                    str(gt_img), str(gen_img), str(gt_json), str(gen_json),
+                    out_dir=str(output_vis_dir), case_id=case_id,
+                ))
+            except TypeError:
                 metric.update(func(str(gt_img), str(gen_img), str(gt_json), str(gen_json)))
             except Exception as e:
                 metric[f"{name}_error"] = str(e)
-
         results.append(metric)
 
     for metric in results:
