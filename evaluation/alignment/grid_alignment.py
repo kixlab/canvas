@@ -153,6 +153,10 @@ def compute_local_group_alignment(df: pd.DataFrame, axis: str, threshold: float 
 
 def analyze_grid_alignment(json_path: str, n_col_clusters: int = 3, n_row_clusters: int = 5) -> Dict[str, pd.DataFrame]:
     df = load_figma_boxes(json_path)
+    n_samples = len(df)
+    n_col_clusters = min(n_col_clusters, n_samples) if n_samples > 0 else 1
+    n_row_clusters = min(n_row_clusters, n_samples) if n_samples > 0 else 1
+
     kmeans_x = KMeans(n_clusters=n_col_clusters, random_state=0).fit(df[["center_x"]])
     kmeans_y = KMeans(n_clusters=n_row_clusters, random_state=0).fit(df[["center_y"]])
 
