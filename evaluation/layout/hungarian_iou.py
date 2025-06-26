@@ -71,9 +71,9 @@ def load_boxes_from_json(json_path: str) -> Tuple[List[Dict], Dict]:
         r["width"] = r["width"] / frame["width"] if frame["width"] else 0.0
         r["height"] = r["height"] / frame["height"] if frame["height"] else 0.0
 
-        if not (0.0 <= r["x"] <= 1.0 and 0.0 <= r["y"] <= 1.0):
-            print(f"Warning: Normalized x/y out of bounds | id={r.get('id')} name={r.get('name')} "
-                  f"before=({before_x},{before_y}) after=({r['x']},{r['y']}) frame=({frame['x']},{frame['y']})")
+        # if not (0.0 <= r["x"] <= 1.0 and 0.0 <= r["y"] <= 1.0):
+        #     print(f"Warning: Normalized x/y out of bounds | id={r.get('id')} name={r.get('name')} "
+        #           f"before=({before_x},{before_y}) after=({r['x']},{r['y']}) frame=({frame['x']},{frame['y']})")
     return results, frame
 
 # ---------- IoU Matching Only ----------
