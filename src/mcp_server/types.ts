@@ -102,6 +102,11 @@ export type FigmaCommand =
   | "create_rectangle"
   | "create_frame"
   | "create_text"
+  | "create_graphic"
+  | "create_ellipse"
+  | "create_polygon"
+  | "create_star"
+  | "create_line"
   | "set_fill_color"
   | "set_stroke_color"
   | "move_node"
@@ -121,9 +126,4 @@ export type FigmaCommand =
   | "set_layout_sizing"
   | "set_item_spacing"
   | "check_connection_status"
-  | "get_result_image"
-  | "create_vector_from_svg"
-  | "create_ellipse"
-  | "create_polygon"
-  | "create_star"
-  | "create_line";
+  | "get_result_image";

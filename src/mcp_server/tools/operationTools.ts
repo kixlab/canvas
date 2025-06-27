@@ -10,12 +10,12 @@ export function registerOperationTools(server: McpServer) {
     "Move a node to a new position in Figma",
     {
       nodeId: z.string().describe("The ID of the node to move"),
+      x: z.number().describe("New X position"),
+      y: z.number().describe("New Y position"),
       newParentId: z
         .string()
         .optional()
-        .describe("The ID of the new parent node (optional)"),
-      x: z.number().describe("New X position"),
-      y: z.number().describe("New Y position"),
+        .describe("The ID of the new parent node if needed (optional)"),
     },
     async ({ nodeId, x, y, newParentId }) => {
       try {
@@ -60,12 +60,23 @@ export function registerOperationTools(server: McpServer) {
     "Clone an existing node in Figma",
     {
       nodeId: z.string().describe("The ID of the node to clone"),
+      newParentId: z
+        .string()
+        .optional()
+        .describe(
+          "The ID of the new parent node to place the clone (optional)"
+        ),
       x: z.number().optional().describe("New X position for the clone"),
       y: z.number().optional().describe("New Y position for the clone"),
     },
-    async ({ nodeId, x, y }) => {
+    async ({ nodeId, newParentId, x, y }) => {
       try {
-        const result = await sendCommandToFigma("clone_node", { nodeId, x, y });
+        const result = await sendCommandToFigma("clone_node", {
+          nodeId,
+          newParentId,
+          x,
+          y,
+        });
         const typedResult = result as { name: string; id: string };
 
         return createSuccessResponse({

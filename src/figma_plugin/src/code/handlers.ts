@@ -34,8 +34,8 @@ export async function handleCommand(command: string, params: any) {
       return await CreationCommands.createFrame(params);
     case 'create_text':
       return await CreationCommands.createText(params);
-    case 'create_vector_from_svg':
-      return await CreationCommands.createVectorFromSVG(params);
+    case 'create_graphic':
+      return await CreationCommands.createGraphic(params);
     case 'create_ellipse':
       return await CreationCommands.createEllipse(params);
     case 'create_polygon':

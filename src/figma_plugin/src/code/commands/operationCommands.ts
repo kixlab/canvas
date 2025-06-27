@@ -4,6 +4,7 @@ import {
   generateCommandId,
   delay,
   getLocalPosition,
+  getAbsolutePosition,
 } from '../utils';
 import { hasClone } from '../figma-api';
 
@@ -30,15 +31,7 @@ export async function moveNode(params: {
   if (!('x' in node) || !('y' in node)) {
     throw new Error(`Node does not support position: ${nodeId}`);
   }
-
-  const oldX =
-    'x' in node && node.absoluteBoundingBox
-      ? node.absoluteBoundingBox.x
-      : undefined;
-  const oldY =
-    'y' in node && node.absoluteBoundingBox
-      ? node.absoluteBoundingBox.y
-      : undefined;
+  const [oldX, oldY] = getAbsolutePosition(node);
 
   // Set Parent if provided
   if (newParentId && node.parent?.id !== newParentId) {
@@ -200,11 +193,11 @@ export async function deleteNode(params: { nodeIds: string[] }) {
 
 export async function cloneNode(params: {
   nodeId: string;
-  parentId?: string;
+  newParentId?: string;
   x?: number;
   y?: number;
 }) {
-  const { nodeId, parentId, x, y } = params || {};
+  const { nodeId, newParentId, x, y } = params || {};
   if (!nodeId) throw new Error('Missing nodeId');
 
   const commandId = generateCommandId();
@@ -228,15 +221,31 @@ export async function cloneNode(params: {
     // Clone the node
     const clone = node.clone();
 
-    // Only set x/y if clone is a SceneNode
-    if (typeof x === 'number' && 'x' in clone) (clone as SceneNode).x = x;
-    if (typeof y === 'number' && 'y' in clone) (clone as SceneNode).y = y;
-
-    if (node.parent) {
-      node.parent.appendChild(clone as SceneNode);
-    } else {
-      figma.currentPage.appendChild(clone as SceneNode);
+    if (x !== undefined && y !== undefined) {
+      if (newParentId) {
+        // If newParentId is provided, append to that parent
+        const newParent = (await figma.getNodeByIdAsync(
+          newParentId
+        )) as ChildrenMixin & SceneNode;
+        if (!newParent) {
+          throw new Error(`New parent node not found with ID: ${newParentId}`);
+        }
+        newParent.appendChild(clone as SceneNode);
+      } else {
+        // If no newParentId, append to the current page or the node's parent
+        if (node.parent) {
+          node.parent.appendChild(clone as SceneNode);
+        } else {
+          figma.currentPage.appendChild(clone as SceneNode);
+        }
+      }
+      // Set position relative to the new parent
+      const [localX, localY] = getLocalPosition(x, y, clone.parent);
+      (clone as SceneNode).x = localX;
+      (clone as SceneNode).y = localY;
     }
+
+    const [newX, newY] = getAbsolutePosition(clone as SceneNode);
 
     sendProgressUpdate(
       commandId,
@@ -252,8 +261,8 @@ export async function cloneNode(params: {
     return {
       id: clone.id,
       name: clone.name,
-      x: 'x' in clone ? (clone as SceneNode).x : undefined,
-      y: 'y' in clone ? (clone as SceneNode).y : undefined,
+      x: newX,
+      y: newY,
       width: 'width' in clone ? clone.width : undefined,
       height: 'height' in clone ? clone.height : undefined,
     };

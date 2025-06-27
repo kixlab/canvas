@@ -730,19 +730,28 @@ export function getLocalPosition(
   if (!parent) {
     return [x, y];
   }
-  const parentX =
-    'x' in parent && parent.absoluteBoundingBox
-      ? parent.absoluteBoundingBox.x
-      : 0;
-  const parentY =
-    'y' in parent && parent.absoluteBoundingBox
-      ? parent.absoluteBoundingBox.y
-      : 0;
-
+  const [parentX, parentY] = getAbsolutePosition(parent);
   const localPosition = {
     x: x - parentX,
     y: y - parentY,
   };
 
   return [localPosition.x, localPosition.y];
+}
+
+export function getAbsolutePosition(node: BaseNode): [number, number] {
+  if (node.type === 'PAGE' || node.type === 'DOCUMENT') {
+    return [0, 0];
+  }
+  if ('absoluteBoundingBox' in node && node.absoluteBoundingBox) {
+    const x = node.absoluteBoundingBox.x;
+    const y = node.absoluteBoundingBox.y;
+    return [x, y];
+  }
+  if ('x' in node && 'y' in node) {
+    return [node.x, node.y];
+  }
+  throw new Error(
+    `Node ${node['id']} does not have absolute position or position properties.`
+  );
 }
