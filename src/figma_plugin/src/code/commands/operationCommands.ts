@@ -3,6 +3,7 @@ import {
   sendProgressUpdate,
   generateCommandId,
   delay,
+  getLocalPosition,
 } from '../utils';
 import { hasClone } from '../figma-api';
 
@@ -10,8 +11,9 @@ export async function moveNode(params: {
   nodeId: string;
   x: number;
   y: number;
+  newParentId?: string;
 }) {
-  const { nodeId, x, y } = params || {};
+  const { nodeId, x, y, newParentId } = params || {};
 
   if (!nodeId) {
     throw new Error('Missing nodeId parameter');
@@ -25,19 +27,46 @@ export async function moveNode(params: {
   if (!node) {
     throw new Error(`Node not found with ID: ${nodeId}`);
   }
-
   if (!('x' in node) || !('y' in node)) {
     throw new Error(`Node does not support position: ${nodeId}`);
   }
 
-  node.x = x;
-  node.y = y;
+  const oldX =
+    'x' in node && node.absoluteBoundingBox
+      ? node.absoluteBoundingBox.x
+      : undefined;
+  const oldY =
+    'y' in node && node.absoluteBoundingBox
+      ? node.absoluteBoundingBox.y
+      : undefined;
+
+  // Set Parent if provided
+  if (newParentId && node.parent?.id !== newParentId) {
+    const newParent = (await figma.getNodeByIdAsync(
+      newParentId
+    )) as ChildrenMixin & SceneNode;
+    if (!newParent) {
+      throw new Error(`New parent node not found with ID: ${newParentId}`);
+    }
+    newParent.appendChild(node);
+  }
+
+  // Set Coordinates
+  const [newX, newY] = getLocalPosition(x, y, node.parent ? node.parent : null);
+
+  node.x = newX;
+  node.y = newY;
+
+  const parentId = node.parent ? node.parent.id : null;
 
   return {
-    id: node.id,
     name: node.name,
-    x: node.x,
-    y: node.y,
+    id: node.id,
+    parentId: parentId,
+    oldX: oldX,
+    oldY: oldY,
+    newX: node.x,
+    newY: node.y,
   };
 }
 
@@ -75,31 +104,7 @@ export async function resizeNode(params: {
   };
 }
 
-export async function deleteNode(params: { nodeId: string }) {
-  const { nodeId } = params || {};
-
-  if (!nodeId) {
-    throw new Error('Missing nodeId parameter');
-  }
-
-  const node = await figma.getNodeByIdAsync(nodeId);
-  if (!node) {
-    throw new Error(`Node not found with ID: ${nodeId}`);
-  }
-
-  // Save node info before deleting
-  const nodeInfo = {
-    id: node.id,
-    name: node.name,
-    type: node.type,
-  };
-
-  node.remove();
-
-  return nodeInfo;
-}
-
-export async function deleteMultipleNodes(params: { nodeIds: string[] }) {
+export async function deleteNode(params: { nodeIds: string[] }) {
   const { nodeIds } = params || {};
   if (!Array.isArray(nodeIds)) throw new Error('nodeIds must be an array');
 
@@ -111,7 +116,7 @@ export async function deleteMultipleNodes(params: { nodeIds: string[] }) {
   try {
     sendProgressUpdate(
       commandId,
-      'deleteMultipleNodes',
+      'deleteNode',
       'started',
       0,
       total,
@@ -130,27 +135,13 @@ export async function deleteMultipleNodes(params: { nodeIds: string[] }) {
         try {
           const node = await figma.getNodeByIdAsync(nodeId);
           if (node) {
-            // Add visual feedback - temporarily highlight the node
-            if ('fills' in node) {
-              const originalFills = node.fills;
-              node.fills = [
-                {
-                  type: 'SOLID',
-                  color: { r: 1, g: 0.5, b: 0 },
-                  opacity: 0.3,
-                },
-              ];
-              await delay(100);
-              node.fills = originalFills;
-            }
-
             const nodeInfo = { id: node.id, name: node.name, type: node.type };
             node.remove();
             deleted.push(nodeInfo);
 
             sendProgressUpdate(
               commandId,
-              'deleteMultipleNodes',
+              'deleteNode',
               'in_progress',
               Math.round(((deleted.length + errors.length) / total) * 100),
               total,
@@ -168,13 +159,13 @@ export async function deleteMultipleNodes(params: { nodeIds: string[] }) {
 
       // Delay between chunks
       if (i + chunkSize < nodeIds.length) {
-        await delay(1000);
+        await delay(200);
       }
     }
 
     sendProgressUpdate(
       commandId,
-      'deleteMultipleNodes',
+      'deleteNode',
       'completed',
       100,
       total,

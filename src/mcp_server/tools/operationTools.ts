@@ -10,17 +10,38 @@ export function registerOperationTools(server: McpServer) {
     "Move a node to a new position in Figma",
     {
       nodeId: z.string().describe("The ID of the node to move"),
+      newParentId: z
+        .string()
+        .optional()
+        .describe("The ID of the new parent node (optional)"),
       x: z.number().describe("New X position"),
       y: z.number().describe("New Y position"),
     },
-    async ({ nodeId, x, y }) => {
+    async ({ nodeId, x, y, newParentId }) => {
       try {
-        const result = await sendCommandToFigma("move_node", { nodeId, x, y });
-        const typedResult = result as { name: string };
+        const result = await sendCommandToFigma("move_node", {
+          nodeId,
+          x,
+          y,
+          newParentId,
+        });
+        const typedResult = result as {
+          name: string;
+          id: string;
+          parentId: string | null;
+          oldX: number;
+          oldY: number;
+          newX: number;
+          newY: number;
+        };
 
         return createSuccessResponse({
           messages: [
-            `Moved node "${typedResult.name}" to position (${x}, ${y})`,
+            `Moved node "${typedResult.id}" to position (${typedResult.newX}, ${
+              typedResult.newY
+            }) from (${typedResult.oldX}, ${typedResult.oldY}) in parent "${
+              typedResult.parentId || "none"
+            }."`,
           ],
           dataItem: typedResult,
         });
@@ -98,46 +119,16 @@ export function registerOperationTools(server: McpServer) {
     }
   );
 
-  // Delete Node Tool
-  server.tool(
-    "delete_node",
-    "Delete a node from Figma",
-    {
-      nodeId: z.string().describe("The ID of the node to delete"),
-    },
-    async ({ nodeId }) => {
-      try {
-        const result = await sendCommandToFigma("delete_node", { nodeId });
-
-        const typescriptResult = result as {
-          id: string;
-          name: string;
-          type: string;
-        };
-
-        return createSuccessResponse({
-          messages: [`Deleted node with ID: ${nodeId}`],
-          dataItem: typescriptResult,
-        });
-      } catch (error) {
-        return createErrorResponse({
-          error,
-          context: "deleting_node",
-        });
-      }
-    }
-  );
-
   // Delete Multiple Nodes Tool
   server.tool(
-    "delete_multiple_nodes",
-    "Delete multiple nodes from Figma at once",
+    "delete_node",
+    "Delete nodes from Figma",
     {
       nodeIds: z.array(z.string()).describe("Array of node IDs to delete"),
     },
     async ({ nodeIds }) => {
       try {
-        const result = await sendCommandToFigma("delete_multiple_nodes", {
+        const result = await sendCommandToFigma("delete_node", {
           nodeIds,
         });
         return createSuccessResponse({
@@ -147,7 +138,7 @@ export function registerOperationTools(server: McpServer) {
       } catch (error) {
         return createErrorResponse({
           error,
-          context: "deleting_multiple_nodes",
+          context: "delete_node",
         });
       }
     }

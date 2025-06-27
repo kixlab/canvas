@@ -24,10 +24,10 @@ This document describes the modular structure of the MCP server for CanvasBench.
   - `get_channels`, `select_channel`, `check_connection_status`
 
 - **[`inspectionTools.ts`](tools/inspectionTools.ts)** - Document and selection operations
-  - `get_document_info`, `get_selection`, `read_my_design`, `get_node_info`, `get_nodes_info`, `get_styles`, `get_local_components`, `scan_text_nodes`, `scan_nodes_by_types`
+  - `get_document_info`, `get_selection`, `read_my_design`, `get_node_info`, `get_nodes_info`, `get_styles`, `scan_text_nodes`, `scan_nodes_by_types`
 
 - **[`creationTools.ts`](tools/creationTools.ts)** - Element creation tools
-  - `create_rectangle`, `create_frame`, `create_text`, `create_component_instance`
+  - `create_rectangle`, `create_frame`, `create_text`
 
 - **[`styleTools.ts`](tools/styleTools.ts)** - Styling and appearance tools
   - `set_fill_color`, `set_stroke_color`, `set_corner_radius`
@@ -39,16 +39,7 @@ This document describes the modular structure of the MCP server for CanvasBench.
   - `set_text_content`, `set_multiple_text_contents`
 
 - **[`operationTools.ts`](tools/operationTools.ts)** - Node operations
-  - `move_node`, `clone_node`, `resize_node`, `delete_node`, `delete_multiple_nodes`, `export_node_as_image`
-
-- **[`componentTools.ts`](tools/componentTools.ts)** - Component management tools
-  - Component-related operations and management
-
-- **[`annotationTools.ts`](tools/annotationTools.ts)** - Annotation management
-  - `get_annotations`, `set_annotation`, `set_multiple_annotations`
-
-- **[`miscellaneousTools.ts`](tools/miscellaneousTools.ts)** - Additional utility tools
-  - Various helper tools and operations
+  - `move_node`, `clone_node`, `resize_node`, `delete_node`, `delete_multiple_nodes`
 
 ## Usage
 
@@ -68,6 +59,12 @@ For debuging, run following comand:
 
 ```bash
 npx @modelcontextprotocol/inspector node dist/server.js
+```
+
+Alternatively, you can also call following command
+
+```bash
+npm run debug
 ```
 
 ## Adding New Tools

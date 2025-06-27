@@ -4,7 +4,6 @@ export async function setFillColor(params: {
   nodeId: string;
   color: { r: number; g: number; b: number; a: number };
 }) {
-  console.log('setFillColor', params);
   const {
     nodeId,
     color: { r, g, b, a },
@@ -23,7 +22,6 @@ export async function setFillColor(params: {
     throw new Error(`Node does not support fills: ${nodeId}`);
   }
 
-  // Create RGBA color
   const rgbColor = {
     r: safeParseFloat(r),
     g: safeParseFloat(g),
@@ -31,10 +29,7 @@ export async function setFillColor(params: {
     a: safeParseFloat(a, 1),
   };
 
-  // Set fill
   const paintStyle = makeSolidPaint(rgbColor);
-
-  console.log('paintStyle', paintStyle);
 
   node.fills = [paintStyle];
 

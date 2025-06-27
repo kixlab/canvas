@@ -84,9 +84,6 @@ export async function scanTextNodes(params: {
     commandId = generateCommandId(),
   } = params;
 
-  console.log(`Starting to scan text nodes from node ID: ${nodeId}`);
-
-  /* ----------------------------- find root -------------------------------- */
   const node = await figma.getNodeByIdAsync(nodeId);
 
   if (!node) {
@@ -98,7 +95,6 @@ export async function scanTextNodes(params: {
     throw new Error(msg);
   }
 
-  /* --------------------- non-chunked (simple) mode ------------------------ */
   if (!useChunking) {
     try {
       sendProgressUpdate(

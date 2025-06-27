@@ -334,12 +334,9 @@ interface SetItemSpacingResult {
   id: string;
   name: string;
   itemSpacing: number;
-  layoutMode: LayoutMode; // from Figma typings
+  layoutMode: LayoutMode;
 }
 
-/* ---------------------------------------------------------
-   Main function – original logic preserved
---------------------------------------------------------- */
 export async function setItemSpacing(params: {
   nodeId: string;
   itemSpacing?: number; // in pixels, optional
@@ -368,14 +365,12 @@ export async function setItemSpacing(params: {
     throw new Error(`Node type ${node['type']} does not support item spacing`);
   }
 
-  // Check if the node has auto-layout enabled
   if (node.layoutMode === 'NONE') {
     throw new Error(
       'Item spacing can only be set on auto-layout frames (layoutMode must not be NONE)'
     );
   }
 
-  // Set item spacing
   if (itemSpacing !== undefined) {
     if (typeof itemSpacing !== 'number') {
       throw new Error('Item spacing must be a number');

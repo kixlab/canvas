@@ -552,24 +552,14 @@ export async function collectNodesToProcess(
 export async function findNodesByTypes(
   node: SceneNode | BaseNode,
   types: string[],
-  matchingNodes: MinimalNodeMatch[] = []
+  matchingNodes: any[] = []
 ): Promise<void> {
   if ('visible' in node && node.visible === false) return;
 
   if (types.includes(node.type)) {
-    matchingNodes.push({
-      id: node.id,
-      name: node.name || `Unnamed ${node.type}`,
-      type: node.type,
-      bbox: {
-        x: typeof (node as any).x === 'number' ? (node as any).x : 0,
-        y: typeof (node as any).y === 'number' ? (node as any).y : 0,
-        width:
-          typeof (node as any).width === 'number' ? (node as any).width : 0,
-        height:
-          typeof (node as any).height === 'number' ? (node as any).height : 0,
-      },
-    });
+    const nodeInfo = distillNodeInfo(node);
+
+    matchingNodes.push(nodeInfo);
   }
 
   if ('children' in node) {
@@ -633,7 +623,7 @@ export function customBase64Encode(bytes: Uint8Array): string {
   return base64;
 }
 
-export function filterFigmaNode(node: any): any {
+export function distillNodeInfo(node: any): any {
   if (node.type === 'VECTOR') {
     return null;
   }
@@ -643,6 +633,7 @@ export function filterFigmaNode(node: any): any {
     name: node.name,
     type: node.type,
   };
+
   if ('fills' in node && Array.isArray(node.fills) && node.fills.length > 0) {
     filtered.fills = node.fills.map((fill: any) => {
       const processedFill = { ...fill };
@@ -684,8 +675,17 @@ export function filterFigmaNode(node: any): any {
   if ('cornerRadius' in node) {
     filtered.cornerRadius = node.cornerRadius;
   }
+
+  // Stick to absoluteBoundingBox for position and size
   if ('absoluteBoundingBox' in node) {
-    filtered.absoluteBoundingBox = node.absoluteBoundingBox;
+    filtered.position = {
+      x: node.absoluteBoundingBox.x || 0,
+      y: node.absoluteBoundingBox.y || 0,
+    };
+    filtered.size = {
+      width: node.absoluteBoundingBox.width || 0,
+      height: node.absoluteBoundingBox.height || 0,
+    };
   }
   if ('characters' in node) {
     filtered.characters = node.characters;
@@ -701,11 +701,48 @@ export function filterFigmaNode(node: any): any {
       lineHeightPx: node.style.lineHeightPx,
     };
   }
+  if ('visible' in node) filtered.visible = node.visible;
   if ('children' in node && Array.isArray(node.children)) {
-    filtered.children = node.children
-      .map((child: any) => filterFigmaNode(child))
-      .filter((child: any) => child !== null);
+    filtered.children = node.children.map((child: any) => {
+      return {
+        id: child.id || 'Unknown ID',
+        name: child.name || 'Unknown Name',
+        type: child.type || 'Unknown Type',
+      };
+    });
   }
 
+  if ('parent' in node) {
+    filtered.parent = {
+      id: node.parent.id || 'Unknown ID',
+      name: node.parent.name || 'Unknown Name',
+      type: node.parent.type || 'Unknown Type',
+    };
+  }
   return filtered;
+}
+
+export function getLocalPosition(
+  x: number,
+  y: number,
+  parent: BaseNode | null = null
+): [number, number] {
+  if (!parent) {
+    return [x, y];
+  }
+  const parentX =
+    'x' in parent && parent.absoluteBoundingBox
+      ? parent.absoluteBoundingBox.x
+      : 0;
+  const parentY =
+    'y' in parent && parent.absoluteBoundingBox
+      ? parent.absoluteBoundingBox.y
+      : 0;
+
+  const localPosition = {
+    x: x - parentX,
+    y: y - parentY,
+  };
+
+  return [localPosition.x, localPosition.y];
 }
