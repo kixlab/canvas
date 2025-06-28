@@ -45,14 +45,24 @@ export async function handleCommand(command: string, params: any) {
     case 'create_line':
       return await CreationCommands.createLine(params);
 
-    case 'set_fill_color':
-      return await StyleCommands.setFillColor(params);
-    case 'set_stroke_color':
-      return await StyleCommands.setStrokeColor(params);
     case 'get_styles':
       return await StyleCommands.getStyles();
+    case 'copy_style':
+      return await StyleCommands.copyStyle(params);
+    case 'set_fill_color':
+      return await StyleCommands.setFillColor(params);
     case 'set_corner_radius':
       return await StyleCommands.setCornerRadius(params);
+    case 'set_opacity':
+      return await StyleCommands.setOpacity(params);
+    case 'set_stroke':
+      return await StyleCommands.setStroke(params);
+    case 'set_fill_gradient':
+      return await StyleCommands.setFillGradient(params);
+    case 'set_drop_shadow':
+      return await StyleCommands.setDropShadow(params);
+    case 'set_inner_shadow':
+      return await StyleCommands.setInnerShadow(params);
 
     case 'get_text_node_info':
       return await TextCommands.getTextNodeInfo(params);

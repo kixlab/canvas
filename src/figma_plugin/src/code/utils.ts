@@ -735,3 +735,50 @@ export function getAbsolutePosition(node: BaseNode): [number, number] {
     `Node ${node['id']} does not have absolute position or position properties.`
   );
 }
+
+export function makeGradientPaint(
+  stops: { r: number; g: number; b: number; a?: number; position: number }[],
+  type: GradientPaint['type'] = 'GRADIENT_LINEAR',
+  angle: number = 0
+): GradientPaint {
+  return {
+    type,
+    gradientStops: stops.map(({ r, g, b, a = 1, position }) => ({
+      color: { r, g, b, a },
+      position,
+    })),
+    gradientTransform: [
+      [Math.cos((angle * Math.PI) / 180), Math.sin((angle * Math.PI) / 180), 0],
+      [
+        -Math.sin((angle * Math.PI) / 180),
+        Math.cos((angle * Math.PI) / 180),
+        0,
+      ],
+    ],
+  };
+}
+
+export function makeShadowEffect(
+  params: {
+    r: number;
+    g: number;
+    b: number;
+    a?: number;
+    offsetX: number;
+    offsetY: number;
+    radius: number;
+    spread?: number;
+  },
+  type: 'DROP_SHADOW' | 'INNER_SHADOW'
+): Effect {
+  const { r, g, b, a = 1, offsetX, offsetY, radius, spread = 0 } = params;
+  return {
+    type,
+    color: { r, g, b, a },
+    offset: { x: offsetX, y: offsetY },
+    radius,
+    spread,
+    visible: true,
+    blendMode: 'NORMAL',
+  };
+}
