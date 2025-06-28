@@ -16,6 +16,8 @@ export async function handleCommand(command: string, params: any) {
       return await InspectionCommands.getNodeInfo(params);
     case 'get_node_info_by_types':
       return await InspectionCommands.getNodeInfoByTypes(params);
+    case 'get_page_structure':
+      return await InspectionCommands.getPageStructure();
     case 'get_result_image':
       return await InspectionCommands.getResultImage(params);
 

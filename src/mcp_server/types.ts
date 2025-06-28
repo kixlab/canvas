@@ -96,6 +96,7 @@ export interface SetMultipleAnnotationsParams {
 
 export type FigmaCommand =
   | "get_page_info"
+  | "get_page_structure"
   | "get_selection_info"
   | "get_node_info"
   | "create_rectangle"

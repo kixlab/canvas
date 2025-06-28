@@ -192,4 +192,40 @@ export function registerInspectionTools(server: McpServer) {
       }
     }
   );
+
+  // Page layer-tree inspection Tool
+  server.tool(
+    "get_page_structure",
+    "Get complete elements structure of the current page (name, id, type, absolute position).",
+    {},
+    async () => {
+      try {
+        const data = await sendCommandToFigma("get_page_structure");
+
+        const toLines = (nodes: any[], indent = ""): string =>
+          nodes
+            .map((n) => {
+              const pos = `(${Math.round(n.position.x)}, ${Math.round(
+                n.position.y
+              )})`;
+              const line = `${indent}${n.name}: {id: "${n.id}", type: "${n.type}", position: ${pos}}`;
+              return n.children && n.children.length
+                ? line + "\n" + toLines(n.children, indent + "- ")
+                : line;
+            })
+            .join("\n");
+
+        const treeString = toLines(data.structureTree);
+        const description =
+          "The structure of the current page is as follows:\n" + treeString;
+
+        return createSuccessResponse({
+          messages: [description],
+          dataItem: data,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "get_page_structure" });
+      }
+    }
+  );
 }

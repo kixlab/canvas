@@ -77,7 +77,7 @@ export function registerTextTools(server: McpServer) {
   // Scan Text Nodes Tool
   server.tool(
     "get_text_node_info",
-    "Scan and collect all text nodes within a specified node",
+    "Collect all text nodes within a specified node",
     {
       nodeId: z.string().describe("The ID of the node to scan for text nodes"),
     },
@@ -93,7 +93,7 @@ export function registerTextTools(server: McpServer) {
       } catch (error) {
         return createErrorResponse({
           error,
-          context: "scanning_text_nodes",
+          context: "get_text_node_info",
         });
       }
     }

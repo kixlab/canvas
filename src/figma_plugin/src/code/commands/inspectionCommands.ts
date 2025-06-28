@@ -5,6 +5,7 @@ import {
   findNodesByTypes,
   distillNodeInfo,
   customBase64Encode,
+  getAbsolutePosition,
 } from '../utils';
 import { MinimalNodeMatch, ImageFormat } from '../types';
 
@@ -204,4 +205,42 @@ export async function getResultImage(opts?: {
   } finally {
     figma.ungroup(group as GroupNode);
   }
+}
+
+interface StructureInfo {
+  id: string;
+  name: string;
+  type: string;
+  position: { x: number; y: number };
+  children?: StructureInfo[];
+}
+export async function getPageStructure() {
+  await figma.currentPage.loadAsync();
+
+  function buildLayerInfo(node: SceneNode): StructureInfo {
+    const [x, y] = getAbsolutePosition(node);
+
+    const info: StructureInfo = {
+      id: node.id,
+      name: node.name,
+      type: node.type,
+      position: { x, y },
+    };
+
+    if ('children' in node && node.children.length) {
+      info.children = (node.children as SceneNode[]).map(buildLayerInfo);
+    }
+
+    return info;
+  }
+
+  const structureTree = figma.currentPage.children.map((n) =>
+    buildLayerInfo(n as SceneNode)
+  );
+
+  return {
+    pageId: figma.currentPage.id,
+    pageName: figma.currentPage.name,
+    structureTree,
+  };
 }
