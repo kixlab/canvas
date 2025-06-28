@@ -1,5 +1,4 @@
 import {
-  getErrorMessage,
   sendProgressUpdate,
   setCharacters,
   generateCommandId,
@@ -10,22 +9,12 @@ import {
 } from '../utils';
 import { NodeInfo, MinimalTextNode } from '../types';
 
+const TEXT_CHUNK_CHANGE_DELAY = 500; // ms
+
 export async function setTextContent(params: { nodeId: string; text: string }) {
   const { nodeId, text } = params || {};
-  const commandId = generateCommandId();
 
   try {
-    sendProgressUpdate(
-      commandId,
-      'setTextContent',
-      'started',
-      0,
-      1,
-      0,
-      `Setting text content for node ${nodeId}`,
-      {}
-    );
-
     const node = await figma.getNodeByIdAsync(nodeId);
     if (!node) {
       throw new Error(`Node not found with ID: ${nodeId}`);
@@ -46,21 +35,11 @@ export async function setTextContent(params: { nodeId: string; text: string }) {
       fontName: node.fontName,
     };
   } catch (error) {
-    sendProgressUpdate(
-      commandId,
-      'setTextContent',
-      'error',
-      0,
-      1,
-      0,
-      `Error: ${getErrorMessage(error)}`,
-      {}
-    );
     throw error;
   }
 }
 
-export interface ScanTextNodesResult {
+export interface GetTextNodeInfoResult {
   success: true;
   message: string;
   totalNodes: number;
@@ -70,13 +49,12 @@ export interface ScanTextNodesResult {
   commandId: string;
 }
 
-export async function scanTextNodes(params: {
+export async function getTextNodeInfo(params: {
   nodeId: string;
   useChunking?: boolean;
   chunkSize?: number;
   commandId?: string;
-}): Promise<ScanTextNodesResult> {
-  /* ------------------------- parameter unpacking -------------------------- */
+}): Promise<GetTextNodeInfoResult> {
   const {
     nodeId,
     useChunking = true,
@@ -89,7 +67,7 @@ export async function scanTextNodes(params: {
   if (!node) {
     const msg = `Node with ID ${nodeId} not found`;
     console.error(msg);
-    sendProgressUpdate(commandId, 'scan_text_nodes', 'error', 0, 0, 0, msg, {
+    sendProgressUpdate(commandId, 'get_text_node_info', 'error', 0, 0, 0, msg, {
       error: msg,
     });
     throw new Error(msg);
@@ -99,7 +77,7 @@ export async function scanTextNodes(params: {
     try {
       sendProgressUpdate(
         commandId,
-        'scan_text_nodes',
+        'get_text_node_info',
         'started',
         0,
         1,
@@ -113,7 +91,7 @@ export async function scanTextNodes(params: {
 
       sendProgressUpdate(
         commandId,
-        'scan_text_nodes',
+        'get_text_node_info',
         'completed',
         100,
         textNodes.length,
@@ -142,9 +120,6 @@ export async function scanTextNodes(params: {
     }
   }
 
-  /* ----------------------- chunked (batched) mode ------------------------- */
-  console.log(`Using chunked scanning with chunk size: ${chunkSize}`);
-
   sendProgressUpdate(
     commandId,
     'scan_text_nodes',
@@ -156,7 +131,6 @@ export async function scanTextNodes(params: {
     { chunkSize }
   );
 
-  /* 1️⃣ Collect a flat list of *all* descendant nodes first  */
   const nodesToProcessInfo: NodeInfo[] = [];
   await collectNodesToProcess(node, [], 0, nodesToProcessInfo);
 
@@ -247,7 +221,6 @@ export async function scanTextNodes(params: {
     if (i + chunkSize < totalNodes) await delay(50); // pause before next chunk
   }
 
-  /* 3️⃣ All done                                                             */
   sendProgressUpdate(
     commandId,
     'scan_text_nodes',
@@ -274,12 +247,12 @@ export async function scanTextNodes(params: {
   };
 }
 
-interface TextReplacement {
+interface TextChanges {
   nodeId: string;
   text: string;
 }
 
-interface ReplacementResult {
+interface ChangeResult {
   success: boolean;
   nodeId: string;
   originalText?: string;
@@ -287,32 +260,30 @@ interface ReplacementResult {
   error?: string;
 }
 
-interface SetMultipleTextContentsResult {
+interface ChangeTextContentResult {
   success: boolean;
-  nodeId: string;
-  replacementsApplied: number;
-  replacementsFailed: number;
-  totalReplacements: number;
-  results: ReplacementResult[];
+  changesApplied: number;
+  changesFailed: number;
+  totalChanges: number;
+  results: ChangeResult[];
   completedInChunks: number;
   commandId: string;
 }
 
-export async function setMultipleTextContents(params: {
-  nodeId: string;
-  text: TextReplacement[];
+export async function changeTextContent(params: {
+  changes: TextChanges[];
   commandId?: string;
-}): Promise<SetMultipleTextContentsResult> {
-  const { nodeId, text } = params ?? {};
+}): Promise<ChangeTextContentResult> {
+  const { changes } = params ?? {};
   const commandId = params.commandId ?? generateCommandId();
 
-  if (!nodeId || !text || !Array.isArray(text)) {
-    const errorMsg = 'Missing required parameters: nodeId and text array';
+  if (!changes || !Array.isArray(changes)) {
+    const errorMsg = 'Missing required parameters: changes array';
 
     // Send error progress update
     sendProgressUpdate(
       commandId,
-      'set_multiple_text_contents',
+      'change_text_content',
       'error',
       0,
       0,
@@ -324,48 +295,46 @@ export async function setMultipleTextContents(params: {
     throw new Error(errorMsg);
   }
 
-  console.log(
-    `Starting text replacement for node: ${nodeId} with ${text.length} text replacements`
-  );
+  console.log(`Starting text change for ${changes.length} nodes`);
 
   // Send started progress update
   sendProgressUpdate(
     commandId,
-    'set_multiple_text_contents',
+    'change_text_content',
     'started',
     0,
-    text.length,
+    changes.length,
     0,
-    `Starting text replacement for ${text.length} nodes`,
-    { totalReplacements: text.length }
+    `Starting text change for ${changes.length} nodes`,
+    { totalChanges: changes.length }
   );
 
   // Define the results array and counters
-  const results: ReplacementResult[] = [];
+  const results: ChangeResult[] = [];
   let successCount = 0;
   let failureCount = 0;
 
-  // Split text replacements into chunks of 5
+  // Split text changes into chunks of 5
   const CHUNK_SIZE = 5;
-  const chunks: TextReplacement[][] = [];
+  const chunks: TextChanges[][] = [];
 
-  for (let i = 0; i < text.length; i += CHUNK_SIZE) {
-    chunks.push(text.slice(i, i + CHUNK_SIZE));
+  for (let i = 0; i < changes.length; i += CHUNK_SIZE) {
+    chunks.push(changes.slice(i, i + CHUNK_SIZE));
   }
 
-  console.log(`Split ${text.length} replacements into ${chunks.length} chunks`);
+  console.log(`Split ${changes.length} changes into ${chunks.length} chunks`);
 
   // Send chunking info update
   sendProgressUpdate(
     commandId,
-    'set_multiple_text_contents',
+    'change_text_content',
     'in_progress',
     5, // 5 % progress for planning phase
-    text.length,
+    changes.length,
     0,
-    `Preparing to replace text in ${text.length} nodes using ${chunks.length} chunks`,
+    `Preparing to change text in ${changes.length} nodes using ${chunks.length} chunks`,
     {
-      totalReplacements: text.length,
+      totalChanges: changes.length,
       chunks: chunks.length,
       chunkSize: CHUNK_SIZE,
     }
@@ -377,18 +346,18 @@ export async function setMultipleTextContents(params: {
   for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
     const chunk = chunks[chunkIndex];
     console.log(
-      `Processing chunk ${chunkIndex + 1}/${chunks.length} with ${chunk.length} replacements`
+      `Processing chunk ${chunkIndex + 1}/${chunks.length} with ${chunk.length} changes`
     );
 
     // Send chunk processing start update
     sendProgressUpdate(
       commandId,
-      'set_multiple_text_contents',
+      'change_text_content',
       'in_progress',
       Math.round(5 + (chunkIndex / chunks.length) * 90), // 5-95 % for processing
-      text.length,
+      changes.length,
       successCount + failureCount,
-      `Processing text replacements chunk ${chunkIndex + 1}/${chunks.length}`,
+      `Processing text changes chunk ${chunkIndex + 1}/${chunks.length}`,
       {
         currentChunk: chunkIndex + 1,
         totalChunks: chunks.length,
@@ -397,9 +366,9 @@ export async function setMultipleTextContents(params: {
       }
     );
 
-    // Process replacements within a chunk in parallel
+    // Process changes within a chunk in parallel
     const chunkPromises = chunk.map(
-      async (replacement): Promise<ReplacementResult> => {
+      async (replacement): Promise<ChangeResult> => {
         if (!replacement.nodeId || replacement.text === undefined) {
           console.error(`Missing nodeId or text for replacement`);
           return {
@@ -411,7 +380,7 @@ export async function setMultipleTextContents(params: {
 
         try {
           console.log(
-            `Attempting to replace text in node: ${replacement.nodeId}`
+            `Attempting to change text in node: ${replacement.nodeId}`
           );
 
           // Get the text node (validate existence & type)
@@ -444,43 +413,14 @@ export async function setMultipleTextContents(params: {
           console.log(`Original text: "${originalText}"`);
           console.log(`Will translate to: "${replacement.text}"`);
 
-          // Highlight the node before changing text
-          let originalFills: readonly Paint[] | undefined;
-          try {
-            originalFills = JSON.parse(JSON.stringify(textNode.fills));
-            // Highlight (orange, 30 % opacity)
-            textNode.fills = [
-              {
-                type: 'SOLID',
-                color: { r: 1, g: 0.5, b: 0 },
-                opacity: 0.3,
-              },
-            ];
-          } catch (highlightErr: any) {
-            console.error(
-              `Error highlighting text node: ${highlightErr.message}`
-            );
-            // Highlighting is cosmetic; continue
-          }
-
           // Replace the text (handles font loading, etc.)
           await setTextContent({
             nodeId: replacement.nodeId,
             text: replacement.text,
           });
 
-          // Restore original fills after a brief delay
-          if (originalFills) {
-            try {
-              await delay(500);
-              textNode.fills = originalFills;
-            } catch (restoreErr: any) {
-              console.error(`Error restoring fills: ${restoreErr.message}`);
-            }
-          }
-
           console.log(
-            `Successfully replaced text in node: ${replacement.nodeId}`
+            `Successfully changed text in node: ${replacement.nodeId}`
           );
           return {
             success: true,
@@ -490,18 +430,18 @@ export async function setMultipleTextContents(params: {
           };
         } catch (error: any) {
           console.error(
-            `Error replacing text in node ${replacement.nodeId}: ${error.message}`
+            `Error changing text in node ${replacement.nodeId}: ${error.message}`
           );
           return {
             success: false,
             nodeId: replacement.nodeId,
-            error: `Error applying replacement: ${error.message}`,
+            error: `Error applying change: ${error.message}`,
           };
         }
       }
     );
 
-    // Wait for all replacements in this chunk
+    // Wait for all changes in this chunk
     const chunkResults = await Promise.all(chunkPromises);
 
     // Tally results
@@ -513,10 +453,10 @@ export async function setMultipleTextContents(params: {
     // Chunk done update
     sendProgressUpdate(
       commandId,
-      'set_multiple_text_contents',
+      'change_text_content',
       'in_progress',
       Math.round(5 + ((chunkIndex + 1) / chunks.length) * 90),
-      text.length,
+      changes.length,
       successCount + failureCount,
       `Completed chunk ${chunkIndex + 1}/${chunks.length}. ${successCount} successful, ${failureCount} failed so far.`,
       {
@@ -531,27 +471,27 @@ export async function setMultipleTextContents(params: {
     // Gentle throttle between chunks
     if (chunkIndex < chunks.length - 1) {
       console.log('Pausing between chunks to avoid overloading Figma...');
-      await delay(1000);
+      await delay(TEXT_CHUNK_CHANGE_DELAY);
     }
   }
 
   console.log(
-    `Replacement complete: ${successCount} successful, ${failureCount} failed`
+    `Change complete: ${successCount} successful, ${failureCount} failed`
   );
 
   // Final progress update
   sendProgressUpdate(
     commandId,
-    'set_multiple_text_contents',
+    'change_text_content',
     'completed',
     100,
-    text.length,
+    changes.length,
     successCount + failureCount,
-    `Text replacement complete: ${successCount} successful, ${failureCount} failed`,
+    `Text change complete: ${successCount} successful, ${failureCount} failed`,
     {
-      totalReplacements: text.length,
-      replacementsApplied: successCount,
-      replacementsFailed: failureCount,
+      totalChanges: changes.length,
+      changesApplied: successCount,
+      changesFailed: failureCount,
       completedInChunks: chunks.length,
       results,
     }
@@ -559,10 +499,9 @@ export async function setMultipleTextContents(params: {
 
   return {
     success: successCount > 0,
-    nodeId,
-    replacementsApplied: successCount,
-    replacementsFailed: failureCount,
-    totalReplacements: text.length,
+    changesApplied: successCount,
+    changesFailed: failureCount,
+    totalChanges: changes.length,
     results,
     completedInChunks: chunks.length,
     commandId,

@@ -57,12 +57,11 @@ export interface AnnotationResult {
   }>;
 }
 
-export interface TextReplaceResult {
+export interface TextChangeResult {
   success: boolean;
-  nodeId: string;
-  replacementsApplied?: number;
-  replacementsFailed?: number;
-  totalReplacements?: number;
+  changesApplied?: number;
+  changesFailed?: number;
+  totalChanges?: number;
   completedInChunks?: number;
   results?: Array<{
     success: boolean;
@@ -117,8 +116,8 @@ export type FigmaCommand =
   | "set_corner_radius"
   | "clone_node"
   | "set_text_content"
-  | "scan_text_nodes"
-  | "set_multiple_text_contents"
+  | "get_text_node_info"
+  | "change_text_content"
   | "get_node_info_by_types"
   | "set_layout_mode"
   | "set_padding"

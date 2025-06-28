@@ -475,6 +475,7 @@ export async function findTextNodes(
           if ('style' in node.fontName) fontStyle = node.fontName.style;
         }
       }
+      const [absX, absY] = getAbsolutePosition(node);
 
       const safeTextNode = {
         id: node.id,
@@ -484,34 +485,13 @@ export async function findTextNodes(
         fontSize: typeof node.fontSize === 'number' ? node.fontSize : 0,
         fontFamily: fontFamily,
         fontStyle: fontStyle,
-        x: typeof node.x === 'number' ? node.x : 0,
-        y: typeof node.y === 'number' ? node.y : 0,
+        x: absX,
+        y: absY,
         width: typeof node.width === 'number' ? node.width : 0,
         height: typeof node.height === 'number' ? node.height : 0,
         path: nodePath.join(' > '),
         depth: depth,
       };
-
-      try {
-        const originalFills = JSON.parse(JSON.stringify(node.fills));
-        node.fills = [
-          {
-            type: 'SOLID',
-            color: { r: 1, g: 0.5, b: 0 },
-            opacity: 0.3,
-          },
-        ];
-
-        await delay(500);
-
-        try {
-          node.fills = originalFills;
-        } catch (err) {
-          console.error('Error resetting fills:', err);
-        }
-      } catch (highlightErr) {
-        console.error('Error highlighting text node:', highlightErr);
-      }
 
       textNodes.push(safeTextNode);
     } catch (nodeErr) {

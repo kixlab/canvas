@@ -52,12 +52,10 @@ export async function handleCommand(command: string, params: any) {
     case 'set_corner_radius':
       return await StyleCommands.setCornerRadius(params);
 
-    case 'set_text_content':
-      return await TextCommands.setTextContent(params);
-    case 'scan_text_nodes':
-      return await TextCommands.scanTextNodes(params);
-    case 'set_multiple_text_contents':
-      return await TextCommands.setMultipleTextContents(params);
+    case 'get_text_node_info':
+      return await TextCommands.getTextNodeInfo(params);
+    case 'change_text_content':
+      return await TextCommands.changeTextContent(params);
 
     case 'set_layout_mode':
       return await LayoutCommands.setLayoutMode(params);

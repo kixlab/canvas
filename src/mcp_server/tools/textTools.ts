@@ -2,116 +2,73 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { sendCommandToFigma } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
-import { TextReplaceResult } from "../types.js";
+import { TextChangeResult } from "../types.js";
 
 export function registerTextTools(server: McpServer) {
   // Set Multiple Text Contents Tool
   server.tool(
-    "set_multiple_text_contents",
-    "Set text content for multiple text nodes in a parent node",
+    "change_text_content",
+    "Replace text content for text nodes",
     {
-      nodeId: z
-        .string()
-        .describe("The ID of the parent node containing the text nodes"),
-      text: z
+      changes: z
         .array(
           z.object({
             nodeId: z.string().describe("The ID of the text node to modify"),
             text: z.string().describe("New text content"),
           })
         )
-        .describe("Array of text replacements to apply"),
+        .describe("Array of text changes to apply"),
     },
-    async ({ nodeId, text }, extra) => {
+    async ({ changes }) => {
       try {
-        if (!text || text.length === 0) {
+        if (!changes || changes.length === 0) {
           return createErrorResponse({
-            error: new Error("No text replacements provided"),
-            context: "setting_multiple_text_contents",
+            error: new Error("No text changes provided"),
+            context: "change_text_content",
           });
         }
 
-        // Initial response to indicate we're starting the process
-        const initialStatus = {
-          type: "text" as const,
-          text: `Starting text replacement for ${text.length} nodes. This will be processed in batches of 5...`,
-        };
+        const totalToProcess = changes.length;
 
-        // Track overall progress
-        let totalProcessed = 0;
-        const totalToProcess = text.length;
-
-        // Use the plugin's set_multiple_text_contents function with chunking
-        const result = await sendCommandToFigma("set_multiple_text_contents", {
-          nodeId,
-          text,
+        // Use the plugin's change_text_content function with chunking
+        const result = await sendCommandToFigma("change_text_content", {
+          changes,
         });
 
-        const typedResult = result as TextReplaceResult;
+        const typedResult = result as TextChangeResult;
 
-        // Format the results for display
         const success =
-          typedResult.replacementsApplied &&
-          typedResult.replacementsApplied > 0;
-        const progressText = `
-        Text replacement completed:
-        - ${
-          typedResult.replacementsApplied || 0
-        } of ${totalToProcess} successfully updated
-        - ${typedResult.replacementsFailed || 0} failed
-        - Processed in ${typedResult.completedInChunks || 1} batches
-        `;
+          typedResult.changesApplied && typedResult.changesApplied > 0;
 
-        // Detailed results
-        const detailedResults = typedResult.results || [];
-        const failedResults = detailedResults.filter((item) => !item.success);
-
-        // Create the detailed part of the response
-        let detailedResponse = "";
-        if (failedResults.length > 0) {
-          detailedResponse = `\n\nNodes that failed:\n${failedResults
-            .map((item) => `- ${item.nodeId}: ${item.error || "Unknown error"}`)
-            .join("\n")}`;
+        if (!success) {
+          throw new Error(
+            `No text changes were applied. Changes applied: ${
+              typedResult.changesApplied || 0
+            }, Changes failed: ${typedResult.changesFailed || 0}`
+          );
         }
 
+        const message = `Text changes: ${
+          typedResult.changesApplied || 0
+        }/${totalToProcess} applied, ${
+          typedResult.changesFailed || 0
+        } failed \n ${
+          (typedResult.changesFailed || 0) > 0
+            ? `. Errors: ${(typedResult.results || [])
+                .filter((r) => !r.success)
+                .map((r) => `${r.nodeId}(${r.error || "unknown"})`)
+                .join(", ")}`
+            : ""
+        }`;
+
         return createSuccessResponse({
-          messages: [progressText + detailedResponse],
+          messages: [message],
           dataItem: result,
         });
       } catch (error) {
         return createErrorResponse({
           error,
-          context: "setting_multiple_text_contents",
-        });
-      }
-    }
-  );
-
-  // Set Text Content Tool
-  server.tool(
-    "set_text_content",
-    "Set the text content of an existing text node in Figma",
-    {
-      nodeId: z.string().describe("The ID of the text node to modify"),
-      text: z.string().describe("New text content"),
-    },
-    async ({ nodeId, text }) => {
-      try {
-        const result = await sendCommandToFigma("set_text_content", {
-          nodeId,
-          text,
-        });
-        const typedResult = result as { name: string };
-        return createSuccessResponse({
-          messages: [
-            `Updated text content of node "${typedResult.name}" to "${text}"`,
-          ],
-          dataItem: typedResult,
-        });
-      } catch (error) {
-        return createErrorResponse({
-          error,
-          context: "setting_text_content",
+          context: "change_text_content",
         });
       }
     }
@@ -119,14 +76,16 @@ export function registerTextTools(server: McpServer) {
 
   // Scan Text Nodes Tool
   server.tool(
-    "scan_text_nodes",
+    "get_text_node_info",
     "Scan and collect all text nodes within a specified node",
     {
       nodeId: z.string().describe("The ID of the node to scan for text nodes"),
     },
     async ({ nodeId }) => {
       try {
-        const result = await sendCommandToFigma("scan_text_nodes", { nodeId });
+        const result = await sendCommandToFigma("get_text_node_info", {
+          nodeId,
+        });
         return createSuccessResponse({
           messages: [JSON.stringify(result)],
           dataItem: result,
