@@ -154,4 +154,117 @@ export function registerOperationTools(server: McpServer) {
       }
     }
   );
+
+  server.tool(
+    "reorder_node",
+    "Re-order a node within its parent’s layer stack",
+    {
+      nodeId: z.string().describe("ID of the node to reorder"),
+      direction: z
+        .enum(["TOP", "BOTTOM", "FORWARD", "BACKWARD"])
+        .describe(
+          "Layer-stack move: " +
+            "TOP (bring to front), BOTTOM (send to back), " +
+            "FORWARD (one layer up), BACKWARD (one layer down)"
+        ),
+    },
+    async ({ nodeId, direction }) => {
+      try {
+        const result = await sendCommandToFigma("reorder_node", {
+          nodeId,
+          direction,
+        });
+        const typed = result as {
+          id: string;
+          name: string;
+          parentId: string;
+          oldIndex: number;
+          newIndex: number;
+        };
+        return createSuccessResponse({
+          messages: [
+            `Moved “${typed.name}” from index ${typed.oldIndex} to ${typed.newIndex} in parent ${typed.parentId}.`,
+          ],
+          dataItem: typed,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "reorder_node" });
+      }
+    }
+  );
+
+  server.tool(
+    "group_nodes",
+    "Group multiple nodes into a single group",
+    {
+      nodeIds: z
+        .array(z.string())
+        .min(2)
+        .describe("IDs of the nodes to group (≥2 required)"),
+      groupName: z
+        .string()
+        .optional()
+        .describe("Name to give the new group (optional)"),
+    },
+    async ({ nodeIds, groupName }) => {
+      try {
+        const result = await sendCommandToFigma("group_nodes", {
+          nodeIds,
+          groupName,
+        });
+        return createSuccessResponse({
+          messages: [
+            `Created group “${result.name}” containing ${nodeIds.length} node(s).`,
+          ],
+          dataItem: result,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "group_nodes" });
+      }
+    }
+  );
+
+  server.tool(
+    "ungroup_nodes",
+    "Ungroup an existing GROUP node",
+    {
+      groupId: z.string().describe("ID of the group node to ungroup"),
+    },
+    async ({ groupId }) => {
+      try {
+        const result = await sendCommandToFigma("ungroup_nodes", { groupId });
+        return createSuccessResponse({
+          messages: [
+            `Ungrouped “${groupId}” into ${result.releasedIds.length} child node(s).`,
+          ],
+          dataItem: result,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "ungroup_nodes" });
+      }
+    }
+  );
+
+  server.tool(
+    "rename_node",
+    "Rename a node",
+    {
+      nodeId: z.string().describe("ID of the node to rename"),
+      newName: z.string().describe("New name for the node"),
+    },
+    async ({ nodeId, newName }) => {
+      try {
+        const result = await sendCommandToFigma("rename_node", {
+          nodeId,
+          newName,
+        });
+        return createSuccessResponse({
+          messages: [`Renamed “${result.oldName}” → “${result.newName}”.`],
+          dataItem: result,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "rename_node" });
+      }
+    }
+  );
 }
