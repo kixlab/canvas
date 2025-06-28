@@ -11,7 +11,10 @@ import { NodeInfo, MinimalTextNode } from '../types';
 
 const TEXT_CHUNK_CHANGE_DELAY = 500; // ms
 
-export async function setTextContent(params: { nodeId: string; text: string }) {
+export async function setNodeCharacters(params: {
+  nodeId: string;
+  text: string;
+}) {
   const { nodeId, text } = params || {};
 
   try {
@@ -39,22 +42,12 @@ export async function setTextContent(params: { nodeId: string; text: string }) {
   }
 }
 
-export interface GetTextNodeInfoResult {
-  success: true;
-  message: string;
-  totalNodes: number;
-  processedNodes: number;
-  chunks: number;
-  textNodes: MinimalTextNode[];
-  commandId: string;
-}
-
 export async function getTextNodeInfo(params: {
   nodeId: string;
   useChunking?: boolean;
   chunkSize?: number;
   commandId?: string;
-}): Promise<GetTextNodeInfoResult> {
+}): Promise<any> {
   const {
     nodeId,
     useChunking = true,
@@ -101,8 +94,6 @@ export async function getTextNodeInfo(params: {
       );
 
       return {
-        success: true,
-        message: `Scanned ${textNodes.length} text nodes.`,
         totalNodes: textNodes.length,
         processedNodes: textNodes.length,
         chunks: 1,
@@ -113,16 +104,25 @@ export async function getTextNodeInfo(params: {
       const error = err as Error;
       const msg = `Error scanning text nodes: ${error.message}`;
       console.error(msg);
-      sendProgressUpdate(commandId, 'scan_text_nodes', 'error', 0, 0, 0, msg, {
-        error: error.message,
-      });
+      sendProgressUpdate(
+        commandId,
+        'get_text_node_info',
+        'error',
+        0,
+        0,
+        0,
+        msg,
+        {
+          error: error.message,
+        }
+      );
       throw error;
     }
   }
 
   sendProgressUpdate(
     commandId,
-    'scan_text_nodes',
+    'get_text_node_info',
     'started',
     0,
     0,
@@ -142,7 +142,7 @@ export async function getTextNodeInfo(params: {
 
   sendProgressUpdate(
     commandId,
-    'scan_text_nodes',
+    'get_text_node_info',
     'in_progress',
     5,
     totalNodes,
@@ -151,7 +151,6 @@ export async function getTextNodeInfo(params: {
     { totalNodes, totalChunks, chunkSize }
   );
 
-  /* 2️⃣ Process them in batches */
   const allTextNodes: MinimalTextNode[] = [];
   let processedNodes = 0;
   let chunksProcessed = 0;
@@ -163,7 +162,7 @@ export async function getTextNodeInfo(params: {
 
     sendProgressUpdate(
       commandId,
-      'scan_text_nodes',
+      'get_text_node_info',
       'in_progress',
       Math.round(5 + ((chunksProcessed - 1) / totalChunks) * 90), // 5–95 %
       totalNodes,
@@ -202,7 +201,7 @@ export async function getTextNodeInfo(params: {
 
     sendProgressUpdate(
       commandId,
-      'scan_text_nodes',
+      'get_text_node_info',
       'in_progress',
       Math.round(5 + (chunksProcessed / totalChunks) * 90),
       totalNodes,
@@ -223,7 +222,7 @@ export async function getTextNodeInfo(params: {
 
   sendProgressUpdate(
     commandId,
-    'scan_text_nodes',
+    'get_text_node_info',
     'completed',
     100,
     totalNodes,
@@ -237,7 +236,6 @@ export async function getTextNodeInfo(params: {
   );
 
   return {
-    success: true,
     message: `Chunked scan complete. Found ${allTextNodes.length} text nodes.`,
     totalNodes: allTextNodes.length,
     processedNodes,
@@ -260,7 +258,7 @@ interface ChangeResult {
   error?: string;
 }
 
-interface ChangeTextContentResult {
+interface SetTextContentResult {
   success: boolean;
   changesApplied: number;
   changesFailed: number;
@@ -270,10 +268,10 @@ interface ChangeTextContentResult {
   commandId: string;
 }
 
-export async function changeTextContent(params: {
+export async function setTextContent(params: {
   changes: TextChanges[];
   commandId?: string;
-}): Promise<ChangeTextContentResult> {
+}): Promise<SetTextContentResult> {
   const { changes } = params ?? {};
   const commandId = params.commandId ?? generateCommandId();
 
@@ -283,7 +281,7 @@ export async function changeTextContent(params: {
     // Send error progress update
     sendProgressUpdate(
       commandId,
-      'change_text_content',
+      'set_text_content',
       'error',
       0,
       0,
@@ -300,7 +298,7 @@ export async function changeTextContent(params: {
   // Send started progress update
   sendProgressUpdate(
     commandId,
-    'change_text_content',
+    'set_text_content',
     'started',
     0,
     changes.length,
@@ -327,7 +325,7 @@ export async function changeTextContent(params: {
   // Send chunking info update
   sendProgressUpdate(
     commandId,
-    'change_text_content',
+    'set_text_content',
     'in_progress',
     5, // 5 % progress for planning phase
     changes.length,
@@ -352,7 +350,7 @@ export async function changeTextContent(params: {
     // Send chunk processing start update
     sendProgressUpdate(
       commandId,
-      'change_text_content',
+      'set_text_content',
       'in_progress',
       Math.round(5 + (chunkIndex / chunks.length) * 90), // 5-95 % for processing
       changes.length,
@@ -370,12 +368,9 @@ export async function changeTextContent(params: {
     const chunkPromises = chunk.map(
       async (replacement): Promise<ChangeResult> => {
         if (!replacement.nodeId || replacement.text === undefined) {
-          console.error(`Missing nodeId or text for replacement`);
-          return {
-            success: false,
-            nodeId: replacement.nodeId || 'unknown',
-            error: 'Missing nodeId or text in replacement entry',
-          };
+          throw new Error(
+            `Missing nodeId or text for replacement: ${JSON.stringify(replacement)}`
+          );
         }
 
         try {
@@ -389,23 +384,7 @@ export async function changeTextContent(params: {
           )) as TextNode | undefined;
 
           if (!textNode) {
-            console.error(`Text node not found: ${replacement.nodeId}`);
-            return {
-              success: false,
-              nodeId: replacement.nodeId,
-              error: `Node not found: ${replacement.nodeId}`,
-            };
-          }
-
-          if (textNode.type !== 'TEXT') {
-            console.error(
-              `Node is not a text node: ${replacement.nodeId} (type: ${textNode.type})`
-            );
-            return {
-              success: false,
-              nodeId: replacement.nodeId,
-              error: `Node is not a text node: ${replacement.nodeId} (type: ${textNode.type})`,
-            };
+            throw new Error(`Node not found: ${replacement.nodeId}`);
           }
 
           // Save original text for the result
@@ -414,7 +393,7 @@ export async function changeTextContent(params: {
           console.log(`Will translate to: "${replacement.text}"`);
 
           // Replace the text (handles font loading, etc.)
-          await setTextContent({
+          await setNodeCharacters({
             nodeId: replacement.nodeId,
             text: replacement.text,
           });
@@ -429,14 +408,9 @@ export async function changeTextContent(params: {
             translatedText: replacement.text,
           };
         } catch (error: any) {
-          console.error(
-            `Error changing text in node ${replacement.nodeId}: ${error.message}`
+          throw new Error(
+            `Failed to change text in node "${replacement.nodeId}". ${error}`
           );
-          return {
-            success: false,
-            nodeId: replacement.nodeId,
-            error: `Error applying change: ${error.message}`,
-          };
         }
       }
     );
@@ -453,7 +427,7 @@ export async function changeTextContent(params: {
     // Chunk done update
     sendProgressUpdate(
       commandId,
-      'change_text_content',
+      'set_text_content',
       'in_progress',
       Math.round(5 + ((chunkIndex + 1) / chunks.length) * 90),
       changes.length,
@@ -482,7 +456,7 @@ export async function changeTextContent(params: {
   // Final progress update
   sendProgressUpdate(
     commandId,
-    'change_text_content',
+    'set_text_content',
     'completed',
     100,
     changes.length,
@@ -506,4 +480,89 @@ export async function changeTextContent(params: {
     completedInChunks: chunks.length,
     commandId,
   };
+}
+
+export async function setTextProperties(params: {
+  nodeId: string;
+  fontSize?: number;
+  lineHeight?: number;
+  letterSpacing?: number;
+  textAlignHorizontal?: 'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED';
+  textAlignVertical?: 'TOP' | 'CENTER' | 'BOTTOM';
+}): Promise<any> {
+  const { nodeId, ...props } = params;
+
+  try {
+    const node = await figma.getNodeByIdAsync(nodeId);
+    if (!node || node.type !== 'TEXT')
+      throw new Error(`Text node not found: ${nodeId}`);
+
+    await figma.loadFontAsync(node.fontName as FontName);
+
+    if (props.fontSize !== undefined) node.fontSize = props.fontSize;
+    if (props.lineHeight !== undefined)
+      node.lineHeight = { value: props.lineHeight, unit: 'PIXELS' };
+    if (props.letterSpacing !== undefined)
+      node.letterSpacing = { value: props.letterSpacing, unit: 'PIXELS' };
+    if (props.textAlignHorizontal !== undefined)
+      node.textAlignHorizontal = props.textAlignHorizontal;
+    if (props.textAlignVertical !== undefined)
+      node.textAlignVertical = props.textAlignVertical;
+
+    return { nodeId };
+  } catch (error: any) {
+    throw new Error(
+      `Failed to set text properties for node "${nodeId}". ${error}`
+    );
+  }
+}
+
+export async function setTextDecoration(params: {
+  nodeId: string;
+  textDecoration?: 'NONE' | 'UNDERLINE' | 'STRIKETHROUGH';
+  textCase?:
+    | 'ORIGINAL'
+    | 'UPPER'
+    | 'LOWER'
+    | 'TITLE'
+    | 'SMALL_CAPS'
+    | 'SMALL_CAPS_FORCED';
+}): Promise<any> {
+  const { nodeId, textDecoration, textCase } = params;
+  try {
+    const node = await figma.getNodeByIdAsync(nodeId);
+    if (!node || node.type !== 'TEXT')
+      throw new Error(`Text node not found: ${nodeId}`);
+
+    await figma.loadFontAsync(node.fontName as FontName);
+
+    if (textDecoration !== undefined) node.textDecoration = textDecoration;
+    if (textCase !== undefined) node.textCase = textCase;
+
+    return { nodeId };
+  } catch (error: any) {
+    throw new Error(
+      `Failed to set text decoration for node "${nodeId}". ${error}`
+    );
+  }
+}
+
+export async function setTextFont(params: {
+  nodeId: string;
+  font: FontName;
+}): Promise<any> {
+  const { nodeId, font } = params;
+  try {
+    await figma.loadFontAsync(font);
+
+    const node = await figma.getNodeByIdAsync(nodeId);
+    if (!node || node.type !== 'TEXT')
+      throw new Error(`Text node not found: ${nodeId}`);
+
+    node.fontName = font;
+
+    return { nodeId };
+  } catch (error: any) {
+    throw new Error(`Failed to set font for node "${nodeId}". ${error}`);
+  }
 }

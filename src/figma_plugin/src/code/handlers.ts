@@ -66,8 +66,14 @@ export async function handleCommand(command: string, params: any) {
 
     case 'get_text_node_info':
       return await TextCommands.getTextNodeInfo(params);
-    case 'change_text_content':
-      return await TextCommands.changeTextContent(params);
+    case 'set_text_content':
+      return await TextCommands.setTextContent(params);
+    case 'set_text_properties':
+      return await TextCommands.setTextProperties(params);
+    case 'set_text_decoration':
+      return await TextCommands.setTextDecoration(params);
+    case 'set_text_font':
+      return await TextCommands.setTextFont(params);
 
     case 'set_layout_mode':
       return await LayoutCommands.setLayoutMode(params);

@@ -36,7 +36,7 @@ This document describes the modular structure of the MCP server for CanvasBench.
   - `set_padding`, `set_axis_align`, `set_layout_sizing`, `set_item_spacing`, `set_layout_mode`
 
 - **[`textTools.ts`](tools/textTools.ts)** - Text manipulation tools
-  - `change_text_content`, `get_text_node_info`
+  - `set_text_content`, `get_text_node_info`
 
 - **[`operationTools.ts`](tools/operationTools.ts)** - Node operations
   - `move_node`, `clone_node`, `resize_node`, `delete_node`
