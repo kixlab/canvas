@@ -606,4 +606,34 @@ export function registerCreationTools(server: McpServer) {
       }
     }
   );
+
+  server.tool(
+    "create_mask",
+    "Turn a node into a mask and group it with other nodes to apply the mask",
+    {
+      maskNodeId: z.string().describe("ID of the node to be used as mask"),
+      contentNodeIds: z
+        .array(z.string())
+        .min(1)
+        .describe("IDs of nodes to be masked by the mask node (M"),
+      groupName: z.string().optional().describe("Name for the resulting group"),
+    },
+    async ({ maskNodeId, contentNodeIds, groupName }) => {
+      try {
+        const result = await sendCommandToFigma("create_mask", {
+          maskNodeId,
+          contentNodeIds,
+          groupName,
+        });
+        return createSuccessResponse({
+          messages: [
+            `Created mask group “${result.name}” with mask ${maskNodeId} covering ${contentNodeIds.length} node(s).`,
+          ],
+          dataItem: result,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "create_mask" });
+      }
+    }
+  );
 }

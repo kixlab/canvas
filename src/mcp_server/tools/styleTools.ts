@@ -334,4 +334,52 @@ export function registerStyleTools(server: McpServer) {
       }
     }
   );
+
+  /* ────────────  NEW:  set_blend_mode  ──────────── */
+  server.tool(
+    "set_blend_mode",
+    "Set the blend-mode of a node (e.g. MULTIPLY, SCREEN)",
+    {
+      nodeId: z
+        .string()
+        .describe("ID of the node whose blend-mode will change"),
+      blendMode: z
+        .enum([
+          "PASS_THROUGH",
+          "NORMAL",
+          "DARKEN",
+          "MULTIPLY",
+          "LINEAR_BURN",
+          "COLOR_BURN",
+          "LIGHTEN",
+          "SCREEN",
+          "LINEAR_DODGE",
+          "COLOR_DODGE",
+          "OVERLAY",
+          "SOFT_LIGHT",
+          "HARD_LIGHT",
+          "DIFFERENCE",
+          "EXCLUSION",
+          "HUE",
+          "SATURATION",
+          "COLOR",
+          "LUMINOSITY",
+        ])
+        .describe("Target blend-mode"),
+    },
+    async ({ nodeId, blendMode }) => {
+      try {
+        const result = await sendCommandToFigma("set_blend_mode", {
+          nodeId,
+          blendMode,
+        });
+        return createSuccessResponse({
+          messages: [`Set blend-mode of "${result.name}" → ${blendMode}`],
+          dataItem: result,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "set_blend_mode" });
+      }
+    }
+  );
 }

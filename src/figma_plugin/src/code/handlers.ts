@@ -56,6 +56,10 @@ export async function handleCommand(command: string, params: any) {
       return await CreationCommands.createPolygon(params);
     case 'create_line':
       return await CreationCommands.createLine(params);
+    case 'create_star':
+      return await CreationCommands.createStar(params);
+    case 'create_mask':
+      return await CreationCommands.createMask(params);
 
     case 'get_styles':
       return await StyleCommands.getStyles();
@@ -75,6 +79,8 @@ export async function handleCommand(command: string, params: any) {
       return await StyleCommands.setDropShadow(params);
     case 'set_inner_shadow':
       return await StyleCommands.setInnerShadow(params);
+    case 'set_blend_mode':
+      return await StyleCommands.setBlendMode(params);
 
     case 'get_text_node_info':
       return await TextCommands.getTextNodeInfo(params);

@@ -651,3 +651,46 @@ export async function createLine(params: {
     parentId: line.parent ? line.parent.id : undefined,
   };
 }
+
+export async function createMask(params: {
+  maskNodeId: string;
+  contentNodeIds: string[];
+  groupName?: string;
+}) {
+  const { maskNodeId, contentNodeIds, groupName } = params ?? {};
+  if (!maskNodeId) throw new Error('Missing maskNodeId');
+  if (!Array.isArray(contentNodeIds) || contentNodeIds.length === 0)
+    throw new Error('contentNodeIds must contain at least one ID');
+
+  // Fetch nodes
+  const maskNode = (await figma.getNodeByIdAsync(maskNodeId)) as SceneNode;
+  if (!maskNode) throw new Error(`Mask node not found: ${maskNodeId}`);
+
+  const contentNodes: SceneNode[] = [];
+  for (const id of contentNodeIds) {
+    const n = (await figma.getNodeByIdAsync(id)) as SceneNode | null;
+    if (!n) throw new Error(`Content node not found: ${id}`);
+    if (id === maskNodeId)
+      throw new Error('maskNodeId should not appear in contentNodeIds');
+    contentNodes.push(n);
+  }
+
+  /* 1 . Turn the node into a mask */
+  if ('isMask' in maskNode) (maskNode as any).isMask = true;
+  else throw new Error('Chosen mask node cannot act as a mask');
+
+  /* 2 . Group mask + content (mask goes first) */
+  const parent =
+    (maskNode.parent as (SceneNode & ChildrenMixin) | null) ??
+    figma.currentPage;
+  const grouped = figma.group([maskNode, ...contentNodes], parent);
+  grouped.name = groupName ?? 'Mask Group';
+
+  return {
+    id: grouped.id,
+    name: grouped.name,
+    maskNodeId,
+    contentNodeIds,
+    parentId: parent.id,
+  };
+}

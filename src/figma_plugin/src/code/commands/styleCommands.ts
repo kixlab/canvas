@@ -290,3 +290,20 @@ export async function copyStyle(params: {
     copied: props,
   };
 }
+
+export async function setBlendMode(params: {
+  nodeId: string;
+  blendMode: BlendMode;
+}) {
+  const { nodeId, blendMode } = params ?? {};
+  if (!nodeId) throw new Error('Missing nodeId parameter');
+
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error(`Node not found: ${nodeId}`);
+  if (!('blendMode' in node))
+    throw new Error(`Node does not support blendMode: ${nodeId}`);
+
+  node.blendMode = blendMode;
+
+  return { id: node.id, name: node.name, blendMode: node.blendMode };
+}
