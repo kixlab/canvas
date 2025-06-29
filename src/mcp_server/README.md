@@ -27,10 +27,10 @@ This document describes the modular structure of the MCP server for CanvasBench.
   - `get_page_info`, `get_selection_info`, `get_node_info`, `get_node_info_by_types`, `get_result_image`, `get_page_structure`
 
 - **[`creationTools.ts`](tools/creationTools.ts)** - Element creation tools
-  - `create_rectangle`, `create_frame`, `create_text`, `create_graphic`, `create_ellipse`, `create_polygon`, `create_star`, `create_line`
+  - `create_rectangle`, `create_frame`, `create_text`, `create_graphic`, `create_ellipse`, `create_polygon`, `create_star`, `create_line`, `create_mask`
 
 - **[`styleTools.ts`](tools/styleTools.ts)** - Styling and appearance tools
-  - `set_fill_color`, `set_corner_radius`, `get_styles`, `set_opacity`, `set_stroke`, `set_fill_gradient`, `set_drop_shadow`, `set_inner_shadow`, `copy_style`
+  - `set_fill_color`, `set_corner_radius`, `get_styles`, `set_opacity`, `set_stroke`, `set_fill_gradient`, `set_drop_shadow`, `set_inner_shadow`, `copy_style`, `set_blend_mode`
 
 - **[`layoutTools.ts`](tools/layoutTools.ts)** - Layout and auto-layout operations
   - `set_padding`, `set_axis_align`, `set_layout_sizing`, `set_item_spacing`, `set_layout_mode`
@@ -39,7 +39,7 @@ This document describes the modular structure of the MCP server for CanvasBench.
   - `set_text_content`, `get_text_node_info`, `set_text_properties`, `set_text_decoration`, `set_text_font`
 
 - **[`operationTools.ts`](tools/operationTools.ts)** - Node operations
-  - `move_node`, `clone_node`, `resize_node`, `delete_node`, `reorder_node`, `group_nodes`, `ungroup_nodes`, `rename_node`
+  - `move_node`, `clone_node`, `resize_node`, `delete_node`, `reorder_node`, `group_nodes`, `ungroup_nodes`, `rename_node`, `boolean_nodes`
 
 ## Usage
 
