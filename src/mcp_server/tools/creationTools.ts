@@ -564,22 +564,17 @@ export function registerCreationTools(server: McpServer) {
 
   server.tool(
     "create_line",
-    "Create a straight line in Figma",
+    "Create a straight line between two points",
     {
-      x: z.number().describe("X position"),
-      y: z.number().describe("Y position"),
-      length: z.number().positive().describe("Length of the line in pixels"),
-      name: z.string().describe("A semantic element name for the line"),
-      direction: z
-        .enum(["HORIZONTAL", "VERTICAL"])
-        .optional()
-        .describe("Orientation of the line (default: HORIZONTAL)"),
+      startX: z.number().describe("Start point – X"),
+      startY: z.number().describe("Start point – Y"),
+      endX: z.number().describe("End point – X"),
+      endY: z.number().describe("End point – Y"),
+      name: z.string().describe("Semantic name for the line"),
       parentId: z
         .string()
         .optional()
-        .describe(
-          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID"
-        ),
+        .describe("Optional parent node (FRAME / GROUP / PAGE)"),
       strokeColor: z
         .object({
           r: z.number().min(0).max(1),
@@ -587,59 +582,27 @@ export function registerCreationTools(server: McpServer) {
           b: z.number().min(0).max(1),
           a: z.number().min(0).max(1).optional(),
         })
-        .optional()
-        .describe("Stroke color in RGBA (0–1)"),
-      strokeWeight: z
-        .number()
-        .positive()
-        .optional()
-        .describe("Stroke weight in pixels"),
+        .optional(),
+      strokeWeight: z.number().positive().optional(),
       strokeCap: z
-        .enum(["NONE", "ROUND", "SQUARE", "ARROW_LINES", "TRIANGLE_WIRE"])
+        .enum(["NONE", "ROUND", "SQUARE"])
         .optional()
-        .describe("Line cap style"),
+        .describe("Line-end cap style: NONE, ROUND, or SQUARE"),
       dashPattern: z
         .array(z.number().positive())
-        .min(2)
-        .max(2)
+        .length(2)
         .optional()
-        .describe("Dash pattern expressed as [dash, gap]. E.g., [4, 2]."),
+        .describe("[dash, gap] in px. E.g., [4, 2] for a dashed line"),
     },
-    async ({
-      x,
-      y,
-      length,
-      direction,
-      name,
-      parentId,
-      strokeColor,
-      strokeWeight,
-      strokeCap,
-      dashPattern,
-    }) => {
+    async (args) => {
       try {
-        const result = await sendCommandToFigma("create_line", {
-          x,
-          y,
-          length,
-          direction,
-          name,
-          parentId,
-          strokeColor,
-          strokeWeight,
-          strokeCap,
-          dashPattern,
-        });
-        const typed = result as { name: string; id: string };
+        const result = await sendCommandToFigma("create_line", args);
         return createSuccessResponse({
-          messages: [`Created line "${typed.name}" with ID: ${typed.id}.`],
-          dataItem: typed,
+          messages: [`Created line “${result.name}” (${result.id}).`],
+          dataItem: result,
         });
-      } catch (err) {
-        return createErrorResponse({
-          error: err,
-          context: "creating line",
-        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "create_line" });
       }
     }
   );

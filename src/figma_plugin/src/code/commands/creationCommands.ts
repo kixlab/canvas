@@ -584,83 +584,70 @@ export async function createStar(params: {
 }
 
 export async function createLine(params: {
-  x: number;
-  y: number;
-  length: number;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
   name: string;
-  direction?: 'HORIZONTAL' | 'VERTICAL';
   parentId?: string;
   strokeColor?: RGB | RGBA;
   strokeWeight?: number;
-  strokeCap?: StrokeCap;
-  dashPattern?: readonly number[];
+  strokeCap?: StrokeCap; // NONE | ROUND | SQUARE
+  dashPattern?: readonly number[]; // [dash, gap]
 }) {
   const {
-    x,
-    y,
-    length,
+    startX,
+    startY,
+    endX,
+    endY,
     name,
-    direction = 'HORIZONTAL',
     parentId,
     strokeColor,
     strokeWeight = 1,
     strokeCap = 'NONE',
     dashPattern,
-  } = params || {};
+  } = params ?? {};
 
+  // Calculate geometry
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const length = Math.hypot(dx, dy);
+  const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+  // Create the node
   const line = figma.createLine();
-  line.x = x;
-  line.y = y;
-
-  if (direction === 'HORIZONTAL') {
-    line.resize(length, 0);
-  } else {
-    line.resize(0, length);
-  }
   line.name = name;
+  line.resize(length, 0); // horizontal baseline
+  line.rotation = angleDeg;
 
-  if (strokeColor && Object.keys(strokeColor).length > 0) {
-    line.strokes = [makeSolidPaint(strokeColor)];
-  }
+  // Style
+  if (strokeColor) line.strokes = [makeSolidPaint(strokeColor)];
   line.strokeWeight = strokeWeight;
   line.strokeCap = strokeCap;
-  if (dashPattern && Array.isArray(dashPattern) && dashPattern.length > 0) {
-    line.dashPattern = dashPattern;
-  }
+  if (dashPattern) line.dashPattern = dashPattern;
 
-  if (parentId) {
-    const parentNode = await figma.getNodeByIdAsync(parentId);
-    if (!parentNode)
-      throw new Error(`Parent node not found with ID: ${parentId}`);
-    if (hasAppendChild(parentNode)) {
-      parentNode.appendChild(line);
-      const [localX, localY] = getLocalPosition(
-        x,
-        y,
-        parentNode as BaseNode & ChildrenMixin
-      );
-      line.x = localX;
-      line.y = localY;
-    } else {
-      throw new Error(`Parent node does not support children: ${parentId}`);
-    }
-  } else {
-    figma.currentPage.appendChild(line);
-  }
+  // Parent / positioning
+  const parent = parentId
+    ? ((await figma.getNodeByIdAsync(parentId)) as SceneNode & ChildrenMixin)
+    : figma.currentPage;
 
-  const [newX, newY] = getAbsolutePosition(line as SceneNode);
+  if (parent && hasAppendChild(parent)) parent.appendChild(line);
+  const [localX, localY] = getLocalPosition(startX, startY, parent);
+  line.x = localX;
+  line.y = localY;
 
   return {
     id: line.id,
     name: line.name,
-    x: newX,
-    y: newY,
-    width: line.width,
-    height: line.height,
+    startX,
+    startY,
+    endX,
+    endY,
+    length,
+    angle: angleDeg,
     strokeWeight: line.strokeWeight,
     strokeCap: line.strokeCap,
     dashPattern: line.dashPattern,
-    strokes: line.strokes,
     parentId: line.parent ? line.parent.id : undefined,
   };
 }
