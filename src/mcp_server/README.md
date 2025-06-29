@@ -39,7 +39,7 @@ This document describes the modular structure of the MCP server for CanvasBench.
   - `set_text_content`, `get_text_node_info`, `set_text_properties`, `set_text_decoration`, `set_text_font`
 
 - **[`operationTools.ts`](tools/operationTools.ts)** - Node operations
-  - `move_node`, `clone_node`, `resize_node`, `delete_node`, `reorder_node`, `group_nodes`, `ungroup_nodes`, `rename_node`, `boolean_nodes`
+  - `move_node`, `clone_node`, `resize_node`, `delete_node`, `reorder_node`, `group_nodes`, `ungroup_nodes`, `rename_node`, `rotate_node` `boolean_nodes`
 
 ## Usage
 
