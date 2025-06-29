@@ -267,4 +267,80 @@ export function registerOperationTools(server: McpServer) {
       }
     }
   );
+
+  server.tool(
+    "rotate_node",
+    "Rotate a node in Figma",
+    {
+      nodeId: z.string().describe("The ID of the node to rotate"),
+      angle: z.number().describe("Absolute rotation angle in degrees"),
+    },
+    async ({ nodeId, angle }) => {
+      try {
+        const result = await sendCommandToFigma("rotate_node", {
+          nodeId,
+          angle,
+        });
+
+        const typed = result as {
+          id: string;
+          name: string;
+          oldAngle: number;
+          newAngle: number;
+          newX: number;
+          newY: number;
+        };
+
+        return createSuccessResponse({
+          messages: [
+            `Rotated “${typed.name}(id:${typed.id})” from ${typed.oldAngle}° to ${typed.newAngle}°. New position: (${typed.newX}, ${typed.newY}).`,
+          ],
+          dataItem: typed,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "rotate_node" });
+      }
+    }
+  );
+
+  server.tool(
+    "boolean_nodes",
+    "Combine two or more shape / vector nodes with a boolean operation (UNION, SUBTRACT, INTERSECT, EXCLUDE)",
+    {
+      nodeIds: z
+        .array(z.string())
+        .min(2)
+        .describe("IDs of the nodes to combine (≥2)"),
+      operation: z
+        .enum(["UNION", "SUBTRACT", "INTERSECT", "EXCLUDE"])
+        .describe(
+          "Boolean operation to apply: UNION, SUBTRACT, INTERSECT, EXCLUDE"
+        ),
+    },
+    async ({ nodeIds, operation }) => {
+      try {
+        const result = await sendCommandToFigma("boolean_nodes", {
+          nodeIds,
+          operation,
+        });
+
+        const typed = result as {
+          id: string;
+          name: string;
+          operation: string;
+          parentId: string;
+          containedIds: string[];
+        };
+
+        return createSuccessResponse({
+          messages: [
+            `Combined ${typed.containedIds.length} node(s) into a ${typed.operation} layer “${typed.name}” (id:${typed.id}).`,
+          ],
+          dataItem: typed,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "boolean_nodes" });
+      }
+    }
+  );
 }

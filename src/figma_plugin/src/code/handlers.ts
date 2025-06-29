@@ -37,6 +37,10 @@ export async function handleCommand(command: string, params: any) {
       return await OperationCommands.renameNode(params);
     case 'reorder_node':
       return await OperationCommands.reorderNode(params);
+    case 'rotate_node':
+      return await OperationCommands.rotateNode(params);
+    case 'boolean_nodes':
+      return await OperationCommands.booleanNodes(params);
 
     case 'create_rectangle':
       return await CreationCommands.createRectangle(params);

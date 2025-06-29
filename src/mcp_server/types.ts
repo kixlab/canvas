@@ -114,6 +114,8 @@ export type FigmaCommand =
   | "ungroup_nodes"
   | "rename_node"
   | "reorder_node"
+  | "rotate_node"
+  | "boolean_nodes"
   | "get_styles"
   | "set_corner_radius"
   | "set_fill_color"

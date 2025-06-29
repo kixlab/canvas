@@ -386,3 +386,94 @@ export async function renameNode(params: { nodeId: string; newName: string }) {
 
   return { id: node.id, oldName, newName };
 }
+
+export async function rotateNode(params: { nodeId: string; angle: number }) {
+  const { nodeId, angle } = params ?? {};
+
+  if (!nodeId) throw new Error('Missing nodeId parameter');
+  if (angle === undefined) throw new Error('Missing angle parameter');
+
+  const node = (await figma.getNodeByIdAsync(nodeId)) as SceneNode | null;
+  if (!node) throw new Error(`Node not found with ID: ${nodeId}`);
+  if (!('rotation' in node))
+    throw new Error(`Node does not support rotation: ${nodeId}`);
+  if (!('width' in node) || !('height' in node))
+    throw new Error(`Node has no width/height: ${nodeId}`);
+
+  const halfW = node.width / 2;
+  const halfH = node.height / 2;
+
+  const tOld = node.absoluteTransform;
+  const cxOld = tOld[0][0] * halfW + tOld[0][1] * halfH + tOld[0][2];
+  const cyOld = tOld[1][0] * halfW + tOld[1][1] * halfH + tOld[1][2];
+
+  node.rotation = angle;
+
+  const tNew = node.absoluteTransform;
+  const cxNew = tNew[0][0] * halfW + tNew[0][1] * halfH + tNew[0][2];
+  const cyNew = tNew[1][0] * halfW + tNew[1][1] * halfH + tNew[1][2];
+
+  /* ----------------- translate so centres match ---------------- */
+  node.x += cxOld - cxNew;
+  node.y += cyOld - cyNew;
+
+  return {
+    id: node.id,
+    name: node.name,
+    oldAngle: tOld ? (Math.atan2(tOld[0][1], tOld[0][0]) * 180) / Math.PI : 0,
+    newAngle: angle,
+    newX: node.x,
+    newY: node.y,
+  };
+}
+
+export async function booleanNodes(params: {
+  nodeIds: string[];
+  operation: 'UNION' | 'SUBTRACT' | 'INTERSECT' | 'EXCLUDE';
+  name?: string;
+}) {
+  const { nodeIds, operation, name } = params ?? {};
+
+  if (!Array.isArray(nodeIds) || nodeIds.length < 2)
+    throw new Error('nodeIds must contain at least two IDs');
+  if (!operation) throw new Error('Missing operation');
+
+  const targets: SceneNode[] = [];
+  for (const id of nodeIds) {
+    const n = (await figma.getNodeByIdAsync(id)) as SceneNode | null;
+    if (!n) throw new Error(`Node not found: ${id}`);
+    targets.push(n);
+  }
+
+  const parent =
+    (targets[0].parent as (SceneNode & ChildrenMixin) | null) ??
+    figma.currentPage;
+
+  let booleanNode: BooleanOperationNode;
+  switch (operation) {
+    case 'UNION':
+      booleanNode = figma.union(targets, parent);
+      break;
+    case 'SUBTRACT':
+      booleanNode = figma.subtract(targets, parent);
+      break;
+    case 'INTERSECT':
+      booleanNode = figma.intersect(targets, parent);
+      break;
+    case 'EXCLUDE':
+      booleanNode = figma.exclude(targets, parent);
+      break;
+    default:
+      throw new Error(`Unsupported operation: ${operation}`);
+  }
+
+  if (name) booleanNode.name = name;
+
+  return {
+    id: booleanNode.id,
+    name: booleanNode.name,
+    operation: booleanNode.booleanOperation, // "UNION", "SUBTRACT", …
+    parentId: parent.id,
+    containedIds: targets.map((n) => n.id),
+  };
+}
