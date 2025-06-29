@@ -29,6 +29,14 @@ export async function handleCommand(command: string, params: any) {
       return await OperationCommands.resizeNode(params);
     case 'delete_node':
       return await OperationCommands.deleteNode(params);
+    case 'group_nodes':
+      return await OperationCommands.groupNodes(params);
+    case 'ungroup_nodes':
+      return await OperationCommands.ungroupNodes(params);
+    case 'rename_node':
+      return await OperationCommands.renameNode(params);
+    case 'reorder_node':
+      return await OperationCommands.reorderNode(params);
 
     case 'create_rectangle':
       return await CreationCommands.createRectangle(params);

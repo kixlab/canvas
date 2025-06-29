@@ -280,3 +280,109 @@ export async function cloneNode(params: {
     throw error;
   }
 }
+
+export async function reorderNode(params: {
+  nodeId: string;
+  direction: 'TOP' | 'BOTTOM' | 'FORWARD' | 'BACKWARD';
+}) {
+  const { nodeId, direction } = params || {};
+  if (!nodeId) throw new Error('Missing nodeId');
+  if (!direction) throw new Error('Missing direction');
+
+  const node = (await figma.getNodeByIdAsync(nodeId)) as SceneNode | null;
+  if (!node) throw new Error(`Node not found: ${nodeId}`);
+  if (!node.parent) throw new Error('Node has no parent – cannot reorder');
+
+  const parent = node.parent as BaseNode & ChildrenMixin;
+  const siblings = parent.children;
+  const oldIndex = siblings.findIndex((n) => n.id === nodeId);
+  if (oldIndex === -1) throw new Error('Node not in parent.children');
+
+  let newIndex = 0;
+  switch (direction) {
+    case 'TOP':
+      newIndex = siblings.length;
+      break;
+    case 'BOTTOM':
+      newIndex = 0;
+      break;
+    case 'FORWARD':
+      newIndex = Math.min(oldIndex + 2, siblings.length); // insertChild will place before the index
+      break;
+    case 'BACKWARD':
+      newIndex = Math.max(oldIndex - 1, 0); // insertChild will move to the previous index
+      break;
+  }
+
+  if (newIndex !== oldIndex) parent.insertChild(newIndex, node);
+
+  return {
+    id: node.id,
+    name: node.name,
+    parentId: parent.id,
+    oldIndex,
+    newIndex,
+  };
+}
+
+export async function groupNodes(params: {
+  nodeIds: string[];
+  groupName?: string;
+}) {
+  const { nodeIds, groupName } = params || {};
+  if (!Array.isArray(nodeIds) || nodeIds.length < 2)
+    throw new Error('nodeIds must contain at least two IDs');
+
+  const nodes: SceneNode[] = [];
+  for (const id of nodeIds) {
+    const n = (await figma.getNodeByIdAsync(id)) as SceneNode | null;
+    if (!n) throw new Error(`Node not found: ${id}`);
+    nodes.push(n);
+  }
+
+  // Determine / coerce parent
+  let parent: ChildrenMixin & SceneNode = nodes[0].parent as ChildrenMixin &
+    SceneNode;
+
+  const group = figma.group(nodes, parent);
+  if (groupName) group.name = groupName;
+
+  return {
+    groupId: group.id,
+    name: group.name,
+    parentId: parent.id,
+    containedIds: nodes.map((n) => n.id),
+  };
+}
+
+export async function ungroupNodes(params: { groupId: string }) {
+  const { groupId } = params || {};
+  if (!groupId) throw new Error('Missing groupId');
+
+  const group = (await figma.getNodeByIdAsync(groupId)) as GroupNode | null;
+  if (!group || group.type !== 'GROUP')
+    throw new Error('Target node is not a GROUP');
+
+  const parent = group.parent as BaseNode | null;
+  const released = figma.ungroup(group);
+
+  return {
+    removedGroupId: groupId,
+    parentId: parent ? parent.id : null,
+    releasedIds: released.map((n) => n.id),
+  };
+}
+
+export async function renameNode(params: { nodeId: string; newName: string }) {
+  const { nodeId, newName } = params || {};
+  if (!nodeId) throw new Error('Missing nodeId');
+  if (newName === undefined) throw new Error('Missing newName');
+
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error(`Node not found: ${nodeId}`);
+
+  const oldName = node.name;
+  node.name = newName;
+
+  return { id: node.id, oldName, newName };
+}
