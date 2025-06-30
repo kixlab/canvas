@@ -12,6 +12,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 export enum MessageType {
   SYSTEM = "system",
   USER_REQUEST = "user_request",
+  USER_FEEDBACK = "user_feedback",
   AGENT_COMPLETION = "agent_completion",
   AGENT_REQUEST = "agent_request",
   TOOL_RESPONSE = "tool_response",
@@ -49,6 +50,11 @@ export interface UserRequestMessage extends BaseMessage {
   type: MessageType.USER_REQUEST;
 }
 
+export interface UserFeedbackMessage extends BaseMessage {
+  role: RoleType.USER;
+  type: MessageType.USER_FEEDBACK;
+}
+
 export interface AgentCompletionMessage extends BaseMessage {
   role: RoleType.ASSISTANT;
   type: MessageType.AGENT_COMPLETION;
@@ -70,6 +76,7 @@ export interface ToolResponseMessage extends BaseMessage {
 export type GenericMessage =
   | SystemMessage
   | UserRequestMessage
+  | UserFeedbackMessage
   | AgentCompletionMessage
   | AgentRequestMessage
   | ToolResponseMessage;
@@ -97,6 +104,7 @@ export interface ModelConfig {
 export enum AgentType {
   REACT = "react",
   VISUAL = "visual",
+  FEEDBACK = "feedback",
 }
 
 export interface ServerConfig {
