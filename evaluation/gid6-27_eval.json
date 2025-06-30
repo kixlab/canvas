@@ -1,13 +1,18 @@
 [
   {
     "id": "gid6-27",
-    "alignment_match": 0.7448,
-    "alignment_diff": 0.0529,
-    "semantic_match": 0.6421,
-    "canvas_fill_ratio": 0.508,
-    "element_count_ratio": 0.25,
-    "layout_overlap": 0.0,
+    "alignment_f1": 0.2056,
+    "precision": 1.0,
+    "recall": 0.1852,
+    "semantic_match": 0.427,
+    "gt_caption": "london leather - leather wallet app",
+    "gen_caption": "an open fashion payment card is shown on the app",
+    "canvas_fill_ratio": 0.4986,
+    "element_count_ratio": 0.1852,
+    "layout_overlap": 0.3125,
     "num_matched": 15,
+    "num_gt": 81,
+    "num_gen": 15,
     "pixel_fidelity": 0.598800003528595,
     "psnr": 9.2607,
     "tool_accuracy": null,
@@ -22,9 +27,6 @@
       "set_fill_color"
     ],
     "tool_efficiency": 0.0154,
-    "hierarchy_sim": 0.0,
-    "hierarchy_type_sim": 0.0,
-    "visual_completeness": 0.5830000042915344,
-    "struct_completeness": 0.2487
+    "visual_completeness": 0.5080999732017517
   }
 ]
