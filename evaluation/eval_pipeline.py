@@ -66,6 +66,7 @@ def run_generation_evaluation(
     variant: str = "image_only",
     out_path: Optional[str] = None,
     ids: Optional[List[str]] = None,
+    skip_blip: bool = False,
 ) -> List[Dict[str, any]]:
     """Run evaluation for generation task.
 
@@ -75,6 +76,7 @@ def run_generation_evaluation(
         variant: Variant name (sub-folder under model).
         out_path: Optional path to save aggregated results (JSON).
         ids: Optional list of specific GT ids (e.g., ["gid6-27"]) to evaluate. If None, evaluate all.
+        skip_blip: Whether to skip the BLIP semantic similarity metric.
     Returns:
         List of metric dictionaries.
     """
@@ -96,6 +98,9 @@ def run_generation_evaluation(
         _discover_metrics()
         auto_metrics_discovered = True
     metric_funcs = get_metrics()
+
+    if skip_blip:
+        metric_funcs.pop("semantic_match", None)
 
     pairs = _collect_generation_pairs(base_path, model, variant)
 
@@ -133,12 +138,12 @@ def run_generation_evaluation(
                 4,
             )
 
-        if all(k in metric for k in ("element_count_ratio", "layout_overlap", "alignment_match")):
+        if all(k in metric for k in ("element_count_ratio", "layout_overlap", "alignment_f1")):
             metric["struct_completeness"] = round(
                 (
                     metric["element_count_ratio"]
                     + metric["layout_overlap"]
-                    + metric["alignment_match"]
+                    + metric["alignment_f1"]
                 )
                 / 3,
                 3,
@@ -175,6 +180,7 @@ if __name__ == "__main__":
     parser.add_argument("--variant", type=str, default="image_only", help="Variant directory inside model results.")
     parser.add_argument("--out", type=str, default="evaluation_results.json", help="Path to save aggregated results (JSON).")
     parser.add_argument("--ids", type=str, default=None, help="Comma separated list of GT ids to evaluate (e.g., gid6-27,gid34-35).")
+    parser.add_argument("--skip_blip", action="store_true", help="Skip BLIP semantic similarity metric to speed up evaluation.")
 
     args = parser.parse_args()
 
@@ -186,4 +192,5 @@ if __name__ == "__main__":
         variant=args.variant,
         out_path=args.out,
         ids=ids_list,
+        skip_blip=args.skip_blip,
     ) 
