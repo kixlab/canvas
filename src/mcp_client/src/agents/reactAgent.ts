@@ -21,7 +21,7 @@ export class ReactAgent extends AgentInstance {
     maxTurns: number;
   }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
     // initialize the maxTurns
-    params.maxTurns = params.maxTurns || 10;
+    params.maxTurns = params.maxTurns || 100;
     params.metadata = params.metadata || {
       input_id: randomUUID(),
     };

@@ -1,10 +1,14 @@
-import { makeSolidPaint, safeParseFloat } from '../utils';
+import {
+  makeGradientPaint,
+  makeShadowEffect,
+  makeSolidPaint,
+  safeParseFloat,
+} from '../utils';
 
 export async function setFillColor(params: {
   nodeId: string;
   color: { r: number; g: number; b: number; a: number };
 }) {
-  console.log('setFillColor', params);
   const {
     nodeId,
     color: { r, g, b, a },
@@ -23,7 +27,6 @@ export async function setFillColor(params: {
     throw new Error(`Node does not support fills: ${nodeId}`);
   }
 
-  // Create RGBA color
   const rgbColor = {
     r: safeParseFloat(r),
     g: safeParseFloat(g),
@@ -31,10 +34,7 @@ export async function setFillColor(params: {
     a: safeParseFloat(a, 1),
   };
 
-  // Set fill
   const paintStyle = makeSolidPaint(rgbColor);
-
-  console.log('paintStyle', paintStyle);
 
   node.fills = [paintStyle];
 
@@ -42,56 +42,6 @@ export async function setFillColor(params: {
     id: node.id,
     name: node.name,
     fills: [paintStyle],
-  };
-}
-
-export async function setStrokeColor(params: {
-  nodeId: string;
-  color: { r: number; g: number; b: number; a: number };
-  weight?: number;
-}) {
-  const {
-    nodeId,
-    color: { r, g, b, a },
-    weight = 1,
-  } = params || {};
-
-  if (!nodeId) {
-    throw new Error('Missing nodeId parameter');
-  }
-
-  const node = await figma.getNodeByIdAsync(nodeId);
-  if (!node) {
-    throw new Error(`Node not found with ID: ${nodeId}`);
-  }
-
-  if (!('strokes' in node)) {
-    throw new Error(`Node does not support strokes: ${nodeId}`);
-  }
-
-  // Create RGBA color
-  const rgbColor = {
-    r: r !== undefined ? r : 0,
-    g: g !== undefined ? g : 0,
-    b: b !== undefined ? b : 0,
-    a: a !== undefined ? a : 1,
-  };
-
-  // Set stroke
-  const paintStyle = makeSolidPaint(rgbColor);
-
-  node.strokes = [paintStyle];
-
-  // Set stroke weight if available
-  if ('strokeWeight' in node) {
-    node.strokeWeight = weight;
-  }
-
-  return {
-    id: node.id,
-    name: node.name,
-    strokes: node.strokes,
-    strokeWeight: 'strokeWeight' in node ? node.strokeWeight : undefined,
   };
 }
 
@@ -193,4 +143,167 @@ export async function getStyles() {
       key: style.key,
     })),
   };
+}
+
+export async function setOpacity(params: { nodeId: string; opacity: number }) {
+  const { nodeId, opacity } = params;
+  if (!nodeId) throw new Error('Missing nodeId parameter');
+
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error(`Node not found with ID: ${nodeId}`);
+
+  if (!('opacity' in node)) throw new Error(`Node has no opacity property`);
+
+  node.opacity = Math.max(0, Math.min(1, opacity));
+
+  return { id: node.id, name: node.name, opacity: node.opacity };
+}
+
+export async function setStroke(params: {
+  nodeId: string;
+  color: { r: number; g: number; b: number; a: number };
+  weight?: number;
+  align?: 'CENTER' | 'INSIDE' | 'OUTSIDE';
+}) {
+  const { nodeId, color, weight, align = 'CENTER' } = params;
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error(`Node not found: ${nodeId}`);
+  if (!('strokes' in node)) throw new Error('Node does not support strokes');
+
+  node.strokes = [makeSolidPaint(color)];
+  if ('strokeWeight' in node && weight !== undefined)
+    node.strokeWeight = weight;
+  if ('strokeAlign' in node) node.strokeAlign = align;
+
+  return {
+    id: node.id,
+    name: node.name,
+    strokes: node.strokes,
+    strokeWeight: 'strokeWeight' in node ? node.strokeWeight : undefined,
+    strokeAlign: 'strokeAlign' in node ? node.strokeAlign : undefined,
+  };
+}
+
+export async function setFillGradient(params: {
+  nodeId: string;
+  gradientStops: {
+    r: number;
+    g: number;
+    b: number;
+    a?: number;
+    position: number;
+  }[];
+  gradientType?: GradientPaint['type'];
+  angle: number; // Only used for linear gradients
+}) {
+  const {
+    nodeId,
+    gradientStops,
+    gradientType = 'GRADIENT_LINEAR',
+    angle,
+  } = params;
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error(`Node not found: ${nodeId}`);
+  if (!('fills' in node)) throw new Error('Node does not support fills');
+
+  node.fills = [makeGradientPaint(gradientStops, gradientType, angle)];
+  return { id: node.id, name: node.name, fills: node.fills };
+}
+
+export async function setDropShadow(params: {
+  nodeId: string;
+  r: number;
+  g: number;
+  b: number;
+  a?: number;
+  offsetX: number;
+  offsetY: number;
+  radius: number;
+  spread?: number;
+}) {
+  const node = await figma.getNodeByIdAsync(params.nodeId);
+  if (!node) throw new Error(`Node not found: ${params.nodeId}`);
+  if (!('effects' in node)) throw new Error('Node does not support effects');
+
+  const shadow = makeShadowEffect(params, 'DROP_SHADOW');
+  node.effects = [
+    ...node.effects.filter((e) => e.type !== 'DROP_SHADOW'),
+    shadow,
+  ];
+
+  return { id: node.id, name: node.name, effects: node.effects };
+}
+
+export async function setInnerShadow(params: {
+  nodeId: string;
+  r: number;
+  g: number;
+  b: number;
+  a?: number;
+  offsetX: number;
+  offsetY: number;
+  radius: number;
+  spread?: number;
+}) {
+  const node = await figma.getNodeByIdAsync(params.nodeId);
+  if (!node) throw new Error(`Node not found: ${params.nodeId}`);
+  if (!('effects' in node)) throw new Error('Node does not support effects');
+
+  const shadow = makeShadowEffect(params, 'INNER_SHADOW');
+  node.effects = [
+    ...node.effects.filter((e) => e.type !== 'INNER_SHADOW'),
+    shadow,
+  ];
+
+  return { id: node.id, name: node.name, effects: node.effects };
+}
+
+export async function copyStyle(params: {
+  sourceNodeId: string;
+  targetNodeId: string;
+  properties?: ('fills' | 'strokes' | 'effects' | 'cornerRadius' | 'opacity')[];
+}) {
+  const { sourceNodeId, targetNodeId, properties } = params;
+  const src = await figma.getNodeByIdAsync(sourceNodeId);
+  const dst = await figma.getNodeByIdAsync(targetNodeId);
+
+  if (!src || !dst) throw new Error('Source or target node not found');
+
+  const props = properties ?? [
+    'fills',
+    'strokes',
+    'effects',
+    'cornerRadius',
+    'opacity',
+  ];
+
+  props.forEach((prop) => {
+    if (prop in src && prop in dst) {
+      // @ts-ignore – indexing dynamic property
+      dst[prop] = src[prop];
+    }
+  });
+
+  return {
+    sourceName: src.name,
+    targetName: dst.name,
+    copied: props,
+  };
+}
+
+export async function setBlendMode(params: {
+  nodeId: string;
+  blendMode: BlendMode;
+}) {
+  const { nodeId, blendMode } = params ?? {};
+  if (!nodeId) throw new Error('Missing nodeId parameter');
+
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error(`Node not found: ${nodeId}`);
+  if (!('blendMode' in node))
+    throw new Error(`Node does not support blendMode: ${nodeId}`);
+
+  node.blendMode = blendMode;
+
+  return { id: node.id, name: node.name, blendMode: node.blendMode };
 }

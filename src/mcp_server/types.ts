@@ -57,12 +57,11 @@ export interface AnnotationResult {
   }>;
 }
 
-export interface TextReplaceResult {
+export interface TextChangeResult {
   success: boolean;
-  nodeId: string;
-  replacementsApplied?: number;
-  replacementsFailed?: number;
-  totalReplacements?: number;
+  changesApplied?: number;
+  changesFailed?: number;
+  totalChanges?: number;
   completedInChunks?: number;
   results?: Array<{
     success: boolean;
@@ -96,42 +95,49 @@ export interface SetMultipleAnnotationsParams {
 }
 
 export type FigmaCommand =
-  | "get_document_info"
-  | "get_selection"
+  | "get_page_info"
+  | "get_page_structure"
+  | "get_selection_info"
   | "get_node_info"
-  | "get_nodes_info"
-  | "read_my_design"
   | "create_rectangle"
   | "create_frame"
   | "create_text"
-  | "set_fill_color"
-  | "set_stroke_color"
+  | "create_graphic"
+  | "create_ellipse"
+  | "create_polygon"
+  | "create_star"
+  | "create_line"
+  | "create_mask"
   | "move_node"
   | "resize_node"
   | "delete_node"
-  | "delete_multiple_nodes"
+  | "group_nodes"
+  | "ungroup_nodes"
+  | "rename_node"
+  | "reorder_node"
+  | "rotate_node"
+  | "boolean_nodes"
   | "get_styles"
-  | "get_local_components"
-  | "create_component_instance"
-  | "export_node_as_image"
   | "set_corner_radius"
+  | "set_fill_color"
+  | "set_opacity"
+  | "set_stroke"
+  | "set_fill_gradient"
+  | "set_drop_shadow"
+  | "set_inner_shadow"
+  | "set_blend_mode"
+  | "copy_style"
   | "clone_node"
+  | "get_text_node_info"
   | "set_text_content"
-  | "scan_text_nodes"
-  | "set_multiple_text_contents"
-  | "get_annotations"
-  | "set_annotation"
-  | "set_multiple_annotations"
-  | "scan_nodes_by_types"
+  | "set_text_properties"
+  | "set_text_decoration"
+  | "set_text_font"
+  | "get_node_info_by_types"
   | "set_layout_mode"
   | "set_padding"
   | "set_axis_align"
   | "set_layout_sizing"
   | "set_item_spacing"
   | "check_connection_status"
-  | "get_result_image"
-  | "create_vector_from_svg"
-  | "create_ellipse"
-  | "create_polygon"
-  | "create_star"
-  | "create_line";
+  | "get_result_image";

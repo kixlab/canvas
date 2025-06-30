@@ -82,95 +82,137 @@ can be possible.
 
 CanvasBench Tool Lists
 
+### Connection
+
+- `get_channels` - Get available Figma channels for communication
+- `select_channel` - Select a specific Figma channel for communication
+- `check_connection_status` - Check the connection status with Figma
+
 ### Inspection
 
-- `get_document_info` - Get information about the current Figma document
-- `get_selection` - Get information about the current selection
-- `read_my_design` - Get detailed node information about the current selection without parameters
-- `get_node_info` - Get detailed information about a specific node
-- `get_nodes_info` - Get detailed information about multiple nodes by providing an array of node IDs
-- `scan_nodes_by_types` - Scan for nodes with specific types (useful for finding annotation targets)
-
-### Operation
-
-- `move_node` - Move a node to a new position
-- `resize_node` - Resize a node with new dimensions
-- `delete_node` - Delete a node
-- `delete_multiple_nodes` - Delete multiple nodes at once efficiently
-- `clone_node` - Create a copy of an existing node with optional position offset
-
-### Annotation
-
-- `get_annotations` - Get all annotations in the current document or specific node
-- `set_annotation` - Create or update an annotation with markdown support
-- `set_multiple_annotations` - Batch create/update multiple annotations efficiently
+- `get_page_info` - Get the information of the current page in Figma
+- `get_selection_info` - Get detailed information about the current selection in Figma, including all node details
+- `get_node_info` - Get detailed information about multiple nodes
+- `get_node_info_by_types` - Get detailed information about nodes with specific types
+- `get_result_image` - Get image of the current figma page
+- `get_page_structure` - Get complete elements structure of the current page.
 
 ### Creation
 
 - `create_rectangle` - Create a new rectangle with position, size, and optional name
 - `create_frame` - Create a new frame with position, size, and optional name
-- `create_text` - Create a new text node with customizable font properties
+- `create_text` - Create a new text element with customizable font properties
+- `create_graphic` - Create vector graphics (e.g. icon) using SVG markup
+- `create_polygon` - Create a new polygon with specified number of sides
+- `create_star` - Create a new star with customizable points and inner radius
+- `create_line` - Create a straight line between two points
+- `create_mask` - Turn a node into a mask and group it with other nodes to apply the mask
+
+### Operation
+
+- `move_node` - Move a node to a new position
+- `clone_node` - Create a copy of an existing node with optional position offset
+- `resize_node` - Resize a node with new dimensions
+- `delete_node` - Delete nodes from Figma
+- `reorder_node` - Re-order a node within its parent's layer stack
+- `group_nodes` - Group multiple nodes into a single group
+- `ungroup_nodes` - Ungroup an existing GROUP node
+- `rename_node` - Rename a node
+- `rotate_node` - Rotate a node in Figma
+- `boolean_nodes` - Combine two or more shape/vector nodes with a boolean operation (UNION, SUBTRACT, INTERSECT, EXCLUDE)
 
 ### Text
 
-- `scan_text_nodes` - Scan text nodes with intelligent chunking for large designs
-- `set_text_content` - Set the text content of a single text node
-- `set_multiple_text_contents` - Batch update multiple text nodes efficiently
+- `set_text_content` - Set text content for text nodes
+- `get_text_node_info` - Collect all text nodes within a specified node
+- `set_text_properties` - Set common text properties (size, line-height, letter-spacing, align) on one text node
+- `set_text_decoration` - Set underline/strikethrough/casing on one text node
+- `set_text_font` - Set the font of one text node (family & style)
 
 ### Style
 
 - `set_fill_color` - Set the fill color of a node (RGBA)
-- `set_stroke_color` - Set the stroke color and weight of a node
 - `set_corner_radius` - Set the corner radius of a node with optional per-corner control
-- `get_styles` - Get information about local styles
+- `get_styles` - Get all styles from the current Figma document
+- `set_opacity` - Set the overall opacity of a node (0-1)
+- `set_stroke` - Set stroke color, weight and alignment of a node
+- `set_fill_gradient` - Apply a simple gradient fill
+- `set_drop_shadow` - Add a drop-shadow effect
+- `set_inner_shadow` - Add an inner-shadow effect
+- `copy_style` - Copy one node's visual style to another
+- `set_blend_mode` - Set the blend-mode of a node (e.g. MULTIPLY, SCREEN)
 
 ### Layout
 
-- `set_padding` - Set padding (top, right, bottom, left) for auto-layout frames
+- `set_padding` - Set padding values for an auto-layout frame
 - `set_axis_align` - Set primary and counter axis alignment for auto-layout frames
 - `set_layout_sizing` - Set horizontal and vertical layout sizing (FIXED, HUG, FILL) for auto-layout frames
-- `set_item_spacing` - Set spacing between items in auto-layout frames
-- `set_layout_mode` - Set the layout mode (NONE, HORIZONTAL, VERTICAL) and wrap behavior for auto-layout frames
-
-### Component
-
-- `get_local_components` - Get information about local components
-- `create_component_instance` - Create an instance of a component
-
-### Miscellaneous
-
-- `export_node_as_image` - Export a node as an image (PNG, JPG, SVG, or PDF) - limited support on image currently returning base64 as text
+- `set_item_spacing` - Set distance between children in an auto-layout frame
+- `set_layout_mode` - Set the layout mode and wrap behavior of a frame
 
 ## Best Practices
 
 When working with the Figma MCP:
 
-1. Always join a channel before sending commands
-2. Get document overview using `get_document_info` first
-3. Check current selection with `get_selection` before modifications
-4. Use appropriate creation tools based on needs:
-   - `create_frame` for containers
-   - `create_rectangle` for basic shapes
-   - `create_text` for text elements
-5. Verify changes using `get_node_info`
-6. Use component instances when possible for consistency
-7. Handle errors appropriately as all commands can throw exceptions
-8. For large designs:
-   - Use chunking parameters in `scan_text_nodes`
-   - Monitor progress through WebSocket updates
-   - Implement appropriate error handling
-9. For text operations:
-   - Use batch operations when possible
-   - Consider structural relationships
-   - Verify changes with targeted exports
-10. For converting legacy annotations:
-    - Scan text nodes to identify numbered markers and descriptions
-    - Use `scan_nodes_by_types` to find UI elements that annotations refer to
-    - Match markers with their target elements using path, name, or proximity
-    - Categorize annotations appropriately with `get_annotations`
-    - Create native annotations with `set_multiple_annotations` in batches
-    - Verify all annotations are properly linked to their targets
-    - Delete legacy annotation nodes after successful conversion
+1. **Connection Setup**:
+   - Get available channels using `get_channels` first
+   - Select a channel using `select_channel` before sending commands
+   - Check connection status with `check_connection_status` if needed
+
+2. **Design Inspection**:
+   - Get page overview using `get_page_info` first
+   - Check current selection with `get_selection_info` before modifications
+   - Use `get_node_info` for detailed single node information
+   - Use `get_nodes_info` for batch node information retrieval
+
+3. **Node Creation**:
+   - Use appropriate creation tools based on needs:
+     - `create_frame` for containers
+     - `create_rectangle` for basic shapes
+     - `create_text` for text elements
+     - `create_graphic` for SVG-based vector graphics
+     - `create_polygon` and `create_star` for geometric shapes
+     - `create_line` for connecting elements
+
+4. **Node Operations**:
+   - Use `move_node` for repositioning
+   - Use `clone_node` for duplicating elements
+   - Use `resize_node` for dimension changes
+   - Use `group_nodes` and `ungroup_nodes` for organizing elements
+   - Use `boolean_nodes` for combining shapes
+
+5. **Text Handling**:
+   - Use `get_text_node_info` to scan for text nodes
+   - Use `set_text_content` for content updates
+   - Use `set_text_properties` for styling (font size, alignment, etc.)
+   - Use `set_text_decoration` for underline/strikethrough effects
+   - Use `set_text_font` for font family changes
+
+6. **Styling**:
+   - Use `set_fill_color` for solid colors
+   - Use `set_fill_gradient` for gradient effects
+   - Use `set_stroke` for borders and outlines
+   - Use `set_corner_radius` for rounded corners
+   - Use `copy_style` to replicate styling across nodes
+   - Use `set_opacity` and `set_blend_mode` for visual effects
+   - Use `set_drop_shadow` and `set_inner_shadow` for depth
+
+7. **Layout Management**:
+   - Use `set_layout_mode` to enable auto-layout
+   - Use `set_padding` for internal spacing
+   - Use `set_axis_align` for alignment control
+   - Use `set_item_spacing` for spacing between elements
+   - Use `set_layout_sizing` for responsive behavior
+
+8. **Error Handling and Validation**:
+   - Verify changes using appropriate inspection tools
+   - Handle errors appropriately as all commands can throw exceptions
+   - Use `rename_node` for better organization and identification
+
+9. **Performance Considerations**:
+   - Use batch operations when available
+   - Monitor WebSocket connection status
+   - Implement appropriate error handling and retries
 
 ## License
 

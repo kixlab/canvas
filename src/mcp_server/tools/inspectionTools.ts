@@ -1,51 +1,32 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { sendCommandToFigma } from "../common/websocket.js";
-import {
-  createErrorResponse,
-  createSuccessResponse,
-  filterFigmaNode,
-} from "../common/utils.js";
+import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
+import { logger } from "../config.js";
 
 export function registerInspectionTools(server: McpServer) {
-  // Document Info Tool
+  // Page Info Tool
   server.tool(
-    "get_document_info",
-    "Get image of the current page in Figma",
+    "get_page_info",
+    "Get the information of the current page in Figma",
     {},
     async () => {
       try {
-        const result = await sendCommandToFigma("get_document_info");
+        const result = await sendCommandToFigma("get_page_info");
+        const responseMessage = `Found ${
+          result.childrenCount
+        } children nodes in the document. List of frame is ${result["frame"]
+          .map((n: any) => `'${n.name}(ID: ${n.id})'`)
+          .join(", ")}`;
 
         return createSuccessResponse({
-          messages: [JSON.stringify(result)],
+          messages: [responseMessage],
           dataItem: result,
         });
       } catch (error) {
         return createErrorResponse({
           error,
-          context: "getting document info",
-        });
-      }
-    }
-  );
-
-  // Selection Tool
-  server.tool(
-    "get_selection",
-    "Get information about the current selection in Figma",
-    {},
-    async () => {
-      try {
-        const result = await sendCommandToFigma("get_selection");
-        return createSuccessResponse({
-          messages: [JSON.stringify(result)],
-          dataItem: { selection: result },
-        });
-      } catch (error) {
-        return createErrorResponse({
-          error,
-          context: "getting selection",
+          context: "get_page_info",
         });
       }
     }
@@ -53,40 +34,69 @@ export function registerInspectionTools(server: McpServer) {
 
   // Read My Design Tool
   server.tool(
-    "read_my_design",
+    "get_selection_info",
     "Get detailed information about the current selection in Figma, including all node details",
     {},
     async () => {
       try {
-        const result = await sendCommandToFigma("read_my_design", {});
+        const result = (await sendCommandToFigma("get_selection_info", {})) as {
+          nodeList: Array<{
+            nodeId: string;
+            nodeInfo: any;
+          }>;
+        };
+
         return createSuccessResponse({
-          messages: [JSON.stringify(result)],
+          messages: [
+            `Find ${
+              result.nodeList.length
+            } nodes in selection. Node IDs: ${result.nodeList
+              .map((n) => `'${n.nodeId}'`)
+              .join(", ")}`,
+          ],
           dataItem: result,
         });
       } catch (error) {
         return createErrorResponse({
           error,
-          context: "read_my_design",
+          context: "get_selection_info",
         });
       }
     }
   );
 
-  // Node Info Tool
+  // Nodes Info Tool
   server.tool(
     "get_node_info",
-    "Get detailed information about a specific node in Figma",
+    "Get detailed information about the list of nodes in Figma",
     {
-      nodeId: z
-        .string()
-        .describe("The ID of the node to get information about"),
+      nodeIds: z
+        .array(z.string())
+        .describe("Array of node IDs to get information about"),
     },
-    async ({ nodeId }) => {
+    async (input) => {
+      const { nodeIds } = input;
       try {
-        const result = await sendCommandToFigma("get_node_info", { nodeId });
+        const result = (await sendCommandToFigma("get_node_info", {
+          nodeIds,
+        })) as {
+          nodeList: Array<{
+            nodeId: string;
+            nodeInfo: any;
+          }>;
+        };
+
         return createSuccessResponse({
-          messages: [JSON.stringify(filterFigmaNode(result))],
-          dataItem: result,
+          messages: [
+            `Got information for ${
+              result.nodeList.length
+            } nodes. Node IDs: ${result.nodeList
+              .map((n) => `'${n.nodeId}'`)
+              .join(", ")}`,
+          ],
+          dataItem: {
+            results: result.nodeList,
+          },
         });
       } catch (error) {
         return createErrorResponse({
@@ -97,47 +107,9 @@ export function registerInspectionTools(server: McpServer) {
     }
   );
 
-  // Nodes Info Tool
+  // Get Node Summary by Types Tool
   server.tool(
-    "get_nodes_info",
-    "Get detailed information about multiple nodes in Figma",
-    {
-      nodeIds: z
-        .array(z.string())
-        .describe("Array of node IDs to get information about"),
-    },
-    async ({ nodeIds }) => {
-      try {
-        const results = await Promise.all(
-          nodeIds.map(async (nodeId) => {
-            const result = await sendCommandToFigma("get_node_info", {
-              nodeId,
-            });
-            return { nodeId, info: result };
-          })
-        );
-        return createSuccessResponse({
-          messages: [
-            JSON.stringify(
-              results.map((result) => filterFigmaNode(result.info))
-            ),
-          ],
-          dataItem: {
-            results: results.map((result) => filterFigmaNode(result.info)),
-          },
-        });
-      } catch (error) {
-        return createErrorResponse({
-          error,
-          context: "get_nodes_info",
-        });
-      }
-    }
-  );
-
-  // Scan Nodes by Types Tool
-  server.tool(
-    "scan_nodes_by_types",
+    "get_node_info_by_types",
     "Scan and collect nodes of specific types within a specified node",
     {
       nodeId: z.string().describe("The ID of the node to scan"),
@@ -149,18 +121,33 @@ export function registerInspectionTools(server: McpServer) {
     },
     async ({ nodeId, types }) => {
       try {
-        const result = await sendCommandToFigma("scan_nodes_by_types", {
+        const result = (await sendCommandToFigma("get_node_info_by_types", {
           nodeId,
           types,
-        });
+        })) as {
+          success: boolean;
+          message: string;
+          count: number;
+          matchingNodes: Array<{
+            nodeId: string;
+            nodeInfo: any;
+          }>;
+          searchedTypes: string[];
+        };
         return createSuccessResponse({
-          messages: [JSON.stringify(result)],
+          messages: [
+            `Found ${
+              result.count
+            } matching nodes. Node IDs: ${result.matchingNodes
+              .map((n) => `'${n.nodeId}'`)
+              .join(", ")}`,
+          ],
           dataItem: result,
         });
       } catch (error) {
         return createErrorResponse({
           error,
-          context: "scan_nodes_by_types",
+          context: "get_node_info_by_types",
         });
       }
     }
@@ -202,6 +189,42 @@ export function registerInspectionTools(server: McpServer) {
           error,
           context: "get_result_image",
         });
+      }
+    }
+  );
+
+  // Page layer-tree inspection Tool
+  server.tool(
+    "get_page_structure",
+    "Get complete elements structure of the current page (name, id, type, absolute position).",
+    {},
+    async () => {
+      try {
+        const data = await sendCommandToFigma("get_page_structure");
+
+        const toLines = (nodes: any[], indent = ""): string =>
+          nodes
+            .map((n) => {
+              const pos = `(${Math.round(n.position.x)}, ${Math.round(
+                n.position.y
+              )})`;
+              const line = `${indent}${n.name}: {id: "${n.id}", type: "${n.type}", position: ${pos}}`;
+              return n.children && n.children.length
+                ? line + "\n" + toLines(n.children, indent + "- ")
+                : line;
+            })
+            .join("\n");
+
+        const treeString = toLines(data.structureTree);
+        const description =
+          "The structure of the current page is as follows:\n" + treeString;
+
+        return createSuccessResponse({
+          messages: [description],
+          dataItem: data,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "get_page_structure" });
       }
     }
   );
