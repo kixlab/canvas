@@ -12,11 +12,8 @@ import {
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
 import { AgentInstance } from "./baseAgent";
-import { raw } from "express";
 import {
-  AudioContent,
   CallToolResult,
-  EmbeddedResource,
   ImageContent,
   TextContent,
 } from "@modelcontextprotocol/sdk/types";

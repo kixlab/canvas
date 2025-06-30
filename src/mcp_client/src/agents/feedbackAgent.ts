@@ -1,5 +1,5 @@
 // feedbackAgent.ts – two-stage Improvement / Feedback agent
-// See https://arxiv.org/pdf/2401.13919
+// Refer to https://arxiv.org/pdf/2410.16232
 import { randomUUID } from "crypto";
 import {
   UserRequestMessage,
@@ -9,7 +9,6 @@ import {
   MessageType,
   ContentType,
   ToolResponseMessage,
-  SystemMessage,
   UserFeedbackMessage,
 } from "../types";
 import { ModelInstance } from "../models/baseModel";
@@ -335,7 +334,6 @@ export class FeedbackAgent extends AgentInstance {
     };
   }
 
-  /** Collect TEXT parts from a mixed content array. */
   private extractTextFromContent(
     contentArr: (TextContent | ImageContent | AudioContent | EmbeddedResource)[]
   ): string {
