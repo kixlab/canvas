@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node dist/app.js",
     "dev": "nodemon --exec ts-node --transpile-only src/app.ts",
-    "build": "tsc && cp -r public dist/ && cp -r config dist/"
+    "build": "tsc && cp -r src/public dist/ && cp -r config dist/"
   },
   "keywords": [],
   "author": "",
@@ -29,5 +29,6 @@
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
-  }
+  },
+  "build": "tsc && cp -r public dist/ && cp -r config dist/"
 }
