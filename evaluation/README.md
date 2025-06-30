@@ -8,7 +8,7 @@
 - Structural Completeness
     - Element Count Ratio
     - Layout Overlap (IoU)
-    - Alignment Match (Grid Alignment)
+    - Alignment Match (Group Alignment)
 - Tool Metrics
     - Usage Stats
     - Efficiency Score
@@ -19,13 +19,13 @@
 #### Visual Completeness
 
 - **Canvas Fill Ratio**
-  - **Definition:** Measures how much of the GT (ground truth) canvas area is filled by the generated design.
+  - **Definition:** Proportion of the generated canvas (root frame) occupied by foreground elements.
   - **Implementation Summary:**
-    - Parses bounding boxes from both GT and generated JSON files.
-    - Calculates the minimum bounding rectangle (canvas) that covers all GT boxes.
-    - Sums the area of all generated bounding boxes.
-    - Computes the ratio: (total generated area) / (GT canvas area), clipped to 1.0.
-    - Returns this ratio as the metric.
+    - Parses bounding boxes from the generated JSON only.
+    - Detects the root frame (depth==1) or falls back to the largest box as the canvas.
+    - Unions all visible non-canvas boxes that do not match the full canvas size.
+    - Computes `(union area) / (canvas area)` and clips the value to 1.0.
+    - Returns this value as the metric.
   - **Purpose:** Detects if the generated result is too small or leaves excessive empty space compared to GT.
 
 - **Pixel Fidelity (SSIM)**
@@ -45,6 +45,7 @@
     - Computes cosine similarity between the two caption embeddings.
     - Returns this similarity as the BLIP score.
   - **Purpose:** Goes beyond visual similarity to assess whether the generated image conveys similar meaning/content as the GT.
+  - **Note:** This metric can be skipped with the `--skip_blip` flag in `eval_pipeline.py`.
 
 #### Structural Completeness
 
@@ -66,15 +67,16 @@
     - Optionally saves visualizations and a detailed JSON report for interpretability.
   - **Purpose:** Evaluates structural similarity, object placement accuracy, and detects missing/extra objects.
 
-- **Alignment Match (Grid Alignment)**
-  - **Definition:** Measures how well the generated objects are aligned (left/center/right, top/center/bottom) compared to GT.
+- **Alignment Match (Group Alignment)**
+  - **Definition:** Measures how well the generated objects are aligned (left/center/right, top/center/bottom) compared to GT using a tolerance-based grouping approach.
   - **Implementation Summary:**
-    - Extracts bounding boxes and computes their center positions.
-    - Uses KMeans clustering to group objects into columns and rows (number of clusters is adaptive to object count).
-    - For each cluster/group, calculates alignment errors for left/center/right (x-axis) and top/center/bottom (y-axis).
-    - Normalizes errors by median object size and converts to a score (higher is better).
-    - Aggregates scores across all clusters and groups for a global alignment score.
-  - **Purpose:** Assesses visual order, grid structure, and alignment consistency in the layout.
+    - Extracts bounding boxes and computes their positions.
+    - Groups objects based on their alignment (left, center, right for x-axis; top, center, bottom for y-axis) using a small tolerance to account for minor deviations.
+    - For each alignment group, calculates the bounding box and checks alignment type consistency between GT and generated groups.
+    - Uses Hungarian matching to find the optimal alignment between GT and generated groups.
+    - Calculates precision, recall, and F1 score for alignment consistency.
+    - Optionally saves visualizations and a detailed JSON report for interpretability.
+  - **Purpose:** Assesses visual order, grid structure, and alignment consistency in the layout using a more flexible grouping method.
 
 #### Tool Metrics
 
@@ -115,7 +117,8 @@ python eval_pipeline.py \
   --model gpt-4o \
   --variant image_only \
   --ids gid6-27 \
-  --out gid6-27_eval.json
+  --out gid6-27_eval.json \
+  --skip_blip
 ```
 
 ### For multiple sample (dir level)
@@ -127,5 +130,6 @@ python eval_pipeline.py \
   --base_dir dataset_sample \
   --model gpt-4o \
   --variant image_only \
-  --out evaluation_results.json
+  --out evaluation_results.json \
+  --skip_blip
 ```

@@ -1,5 +1,5 @@
 from evaluation.metrics import register_metric
-from evaluation.alignment.grid_alignment import compute_alignment_score
+from evaluation.alignment.group_alignment import compute_alignment_score
 
 
 @register_metric("alignment")

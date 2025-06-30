@@ -15,15 +15,15 @@ MIN_ELEMENTS_PER_GROUP = 2
 AlignmentGroup = Dict[str, Any]
 
 
-# --------------------------- Alignment Group 탐색 --------------------------- #
+# --------------------------- Alignment group detection --------------------------- #
 
 def _round_coord(coord: float, tol: float) -> int:
-    """주어진 좌표를 tol 기반 버킷 인덱스로 변환 (정수 key)."""
+    """Convert a coordinate to an integer bucket index based on tolerance."""
     return int(round(coord / tol))
 
 
 def _union_bbox(boxes: Sequence[Dict]) -> Tuple[float, float, float, float]:
-    """여러 박스의 union BBox (x, y, w, h) 반환. 입력/출력 모두 정규화 좌표."""
+    """Return the union bounding box (x, y, w, h) of multiple boxes (normalized)."""
     min_x = min(b["x"] for b in boxes)
     min_y = min(b["y"] for b in boxes)
     max_x = max(b["x"] + b["width"] for b in boxes)
@@ -32,7 +32,7 @@ def _union_bbox(boxes: Sequence[Dict]) -> Tuple[float, float, float, float]:
 
 
 def build_alignment_groups(json_path: str, tol: float = TOLERANCE) -> List[AlignmentGroup]:
-    """Figma JSON 에서 Alignment 그룹 리스트 추출."""
+    """Extract alignment groups from a Figma JSON file."""
     boxes, _frame = load_boxes_from_json(json_path)  # 정규화 좌표 (0-1)
 
     buckets: DefaultDict[Tuple[str, int], List[Dict]] = defaultdict(list)
@@ -57,7 +57,7 @@ def build_alignment_groups(json_path: str, tol: float = TOLERANCE) -> List[Align
     groups: List[AlignmentGroup] = []
     for (atype, _), members in buckets.items():
         if len(members) < MIN_ELEMENTS_PER_GROUP:
-            continue  # 소수 요소는 스킵
+            continue  # skip tiny groups
         x, y, w, h = _union_bbox(members)
         groups.append({
             "alignment_type": atype,  # e.g., "x_left", "y_center"
@@ -71,7 +71,7 @@ def build_alignment_groups(json_path: str, tol: float = TOLERANCE) -> List[Align
     return groups
 
 
-# ------------------------- Hungarian 매칭 & 평가 -------------------------- #
+# ------------------------- Hungarian matching & evaluation -------------------------- #
 
 def _bbox_iou(a: AlignmentGroup, b: AlignmentGroup) -> float:
     return compute_iou(a, b)  # type: ignore[arg-type]
@@ -106,7 +106,7 @@ def compute_alignment_score(
     gt_img_path: str | None = None,
     gen_img_path: str | None = None,
 ) -> Dict[str, Any]:
-    """GT-Gen Alignment 평가 지표(Precision, Recall, F1)를 계산."""
+    """Compute Precision, Recall, F1 for alignment between GT and generated layouts."""
 
     gt_groups = build_alignment_groups(gt_json_path, tol)
     gen_groups = build_alignment_groups(gen_json_path, tol) if gen_json_path else []
@@ -124,25 +124,25 @@ def compute_alignment_score(
     recall = correct / len(gt_groups) if gt_groups else 1.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
-    # -------------------- 시각화 (옵션) -------------------- #
+    # -------------------- Visualization (optional) -------------------- #
     if out_dir:
         os.makedirs(os.path.join(out_dir, case_id), exist_ok=True)
 
         def _group_to_box(g: AlignmentGroup):
             return {"x": g["x"], "y": g["y"], "width": g["width"], "height": g["height"], "name": g["alignment_type"], "type": "ALIGN"}
 
-        # GT 시각화
+        # GT visualization
         if gt_img_path and os.path.exists(gt_img_path):
             img = draw_boxes_on_image_gt(gt_img_path, [_group_to_box(g) for g in gt_groups], (0, 255, 0), label_prefix="GT_")
             if img is not None:
                 cv2.imwrite(os.path.join(out_dir, case_id, "gt_alignment_groups.jpg"), img)
-        # Gen 시각화
+        # Gen visualization
         if gen_img_path and os.path.exists(gen_img_path):
             img = draw_boxes_on_image_gen(gen_img_path, [_group_to_box(g) for g in gen_groups], (255, 0, 0), label_prefix="GEN_")
             if img is not None:
                 cv2.imwrite(os.path.join(out_dir, case_id, "gen_alignment_groups.jpg"), img)
 
-        # 매칭 결과 JSON 저장
+        # Save matching report
         summary = {
             "gt_num_groups": len(gt_groups),
             "gen_num_groups": len(gen_groups),
