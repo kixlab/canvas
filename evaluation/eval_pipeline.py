@@ -9,6 +9,8 @@ import importlib
 from evaluation.metrics import get_metrics
 
 
+PREVIOUS_RESULTS_FILE = "evaluation_results.json"
+
 def _discover_metrics():
     """Dynamically import all submodules under evaluation.metrics to register metrics."""
     import evaluation.metrics as _met_pkg
@@ -16,6 +18,19 @@ def _discover_metrics():
         importlib.import_module(f"{_met_pkg.__name__}.{info.name}")
 
 auto_metrics_discovered = False
+
+
+def _load_previous_results(out_path: str) -> List[Dict[str, any]]:
+    """Load previous BLIP scores and captions from the evaluation results JSON file."""
+    results_path = Path(out_path).expanduser()
+    print(f"Loading previous results from: {results_path}")  # Debugging statement
+    if results_path.exists():
+        with results_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+            print(f"Loaded previous results: {len(data)} entries")  # Debugging statement
+            return data
+    print("No previous results found.")  # Debugging statement
+    return []
 
 
 def _collect_generation_pairs(base_dir: Path, model: str = "gpt-4o", variant: str = "image_only") -> List[Tuple[str, Path, Path, Path, Path]]:
@@ -99,8 +114,10 @@ def run_generation_evaluation(
         auto_metrics_discovered = True
     metric_funcs = get_metrics()
 
-    if skip_blip:
-        metric_funcs.pop("semantic_match", None)
+    if out_path:
+        previous_results = _load_previous_results(out_path)
+    else:
+        previous_results = []
 
     pairs = _collect_generation_pairs(base_path, model, variant)
 
@@ -115,16 +132,37 @@ def run_generation_evaluation(
     output_vis_dir = Path(base_path) / "eval_outputs"
     output_vis_dir.mkdir(parents=True, exist_ok=True)
 
+    # Print the number of entries and their IDs for debugging
+    print(f"Previous results count: {len(previous_results)}")  # Debugging statement
+    print(f"Previous results IDs: {[entry['id'] for entry in previous_results]}")  # Debugging statement
+
     for gt_id, gt_img, gen_img, gt_json, gen_json in pairs:
         metric: Dict[str, any] = {"id": gt_id}
+        gt_id = gt_id.strip()
 
-        case_id = gt_id
         for name, func in metric_funcs.items():
             try:
-                metric.update(func(
-                    str(gt_img), str(gen_img), str(gt_json), str(gen_json),
-                    out_dir=str(output_vis_dir), case_id=case_id,
-                ))
+                if skip_blip and name == "semantic_match":
+                    previous_result = {}
+                    for entry in previous_results:
+                        if entry.get("id", "").strip() == gt_id:
+                            previous_result = entry
+                            break
+                    if "semantic_match" in previous_result and "gt_caption" in previous_result and "gen_caption" in previous_result:
+                        metric["semantic_match"] = previous_result["semantic_match"]
+                        metric["gt_caption"] = previous_result["gt_caption"]
+                        metric["gen_caption"] = previous_result["gen_caption"]
+                        continue  # skip metric computation for semantic_match
+                    else:
+                        print(f"[Warning] semantic_match not found for {gt_id} in previous results.")
+                        continue  # skip this metric
+                else:
+                    # Calculate other metrics as usual
+                    result = func(
+                        str(gt_img), str(gen_img), str(gt_json), str(gen_json),
+                        out_dir=str(output_vis_dir), case_id=gt_id,
+                    )
+                    metric.update(result)
             except TypeError:
                 metric.update(func(str(gt_img), str(gen_img), str(gt_json), str(gen_json)))
             except Exception as e:

@@ -29,9 +29,9 @@ def _layout_iou(
     return {
         "layout_overlap": round(f1, 4),  # 
         "element_count_ratio": round(element_count_ratio, 4),
-        "num_matched": res.get("num_matched", 0),
-        "num_gt": res.get("num_gt", 0),
-        "num_gen": res.get("num_gen", 0),
-        "precision": round(precision, 4),
-        "recall": round(recall, 4),
+        "layout_num_matched": res.get("num_matched", 0),
+        "layout_num_gt": res.get("num_gt", 0),
+        "layout_num_gen": res.get("num_gen", 0),
+        "layout_precision": round(precision, 4),
+        "layout_recall": round(recall, 4),
     }

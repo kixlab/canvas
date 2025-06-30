@@ -18,6 +18,6 @@ def _alignment(
     )
     return {
         "alignment_f1": round(res.get("f1", 0.0), 4),
-        "precision": round(res.get("precision", 0.0), 4),
-        "recall": round(res.get("recall", 0.0), 4),
+        "alignment_precision": round(res.get("precision", 0.0), 4),
+        "alignment_recall": round(res.get("recall", 0.0), 4),
     } 
