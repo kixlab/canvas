@@ -15,13 +15,23 @@ def _layout_iou(
         out_dir=out_dir, case_id=case_id,
         gt_img_path=gt_img, gen_img_path=gen_img
     )
+
+    precision = res.get("precision", 0.0)
+    recall = res.get("recall", 0.0)
+
+    if precision + recall > 0:
+        f1 = 2 * precision * recall / (precision + recall)
+    else:
+        f1 = 0.0
+
     element_count_ratio = min(1.0, res.get("num_gen", 0) / res.get("num_gt", 1))
+
     return {
-        "layout_overlap": round(res.get("mean_iou", 0.0), 4),
+        "layout_overlap": round(f1, 4),  # 
         "element_count_ratio": round(element_count_ratio, 4),
         "num_matched": res.get("num_matched", 0),
         "num_gt": res.get("num_gt", 0),
         "num_gen": res.get("num_gen", 0),
-        "precision": round(res.get("precision", 0.0), 4),
-        "recall": round(res.get("recall", 0.0), 4),
+        "precision": round(precision, 4),
+        "recall": round(recall, 4),
     }

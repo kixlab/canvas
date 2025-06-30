@@ -6,7 +6,7 @@ from typing import List, Dict, Tuple
 from scipy.optimize import linear_sum_assignment
 
 # ---------- Helper: Visualization ----------
-def draw_boxes_on_image(img_path, boxes, color=(0,255,0), label_prefix=""):
+def draw_boxes_on_image_gt(img_path, boxes, color=(0,255,0), label_prefix=""):
     if not os.path.exists(img_path):
         return None
     img = cv2.imread(img_path)
@@ -22,13 +22,44 @@ def draw_boxes_on_image(img_path, boxes, color=(0,255,0), label_prefix=""):
         cv2.putText(img, f"{label_prefix}{name}:{typ}", (x1, max(10,y1-4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
     return img
 
+
+def draw_boxes_on_image_gen(img_path, boxes, color=(0,255,0), label_prefix=""):
+    if not os.path.exists(img_path):
+        return None
+    img = cv2.imread(img_path)
+    if img is None:
+        return None
+    h, w = img.shape[:2]
+
+    for b in boxes:
+        if "render_x" in b and "render_width" in b:
+            # If render_x exists, use absolute pixel values (for generated boxes)
+            x1 = int(b["render_x"])
+            y1 = int(b["render_y"])
+            x2 = int(b["render_x"] + b["render_width"])
+            y2 = int(b["render_y"] + b["render_height"])
+        else:
+            # Otherwise, treat x/y as normalized (for GT)
+            x1 = int(b["x"] * w)
+            y1 = int(b["y"] * h)
+            x2 = int((b["x"] + b["width"]) * w)
+            y2 = int((b["y"] + b["height"]) * h)
+
+        cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+        name = b.get('name', '')
+        typ = b.get('type', '')
+        cv2.putText(img, f"{label_prefix}{name}:{typ}", (x1, max(10,y1-4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+
+    return img
+
 # ---------- Robust BBox Extraction ----------
 def extract_boxes_from_node(node: Dict, results: List[Dict], depth=0):
     visible = node.get("visible", True)
     opacity = node.get("opacity", 1.0)
     if visible and opacity > 0.01 and "absoluteBoundingBox" in node:
         box = node["absoluteBoundingBox"]
-        results.append({
+        render_box = node.get("absoluteRenderBounds", None)
+        result = {
             "id": node.get("id"),
             "name": node.get("name", "unknown"),
             "type": node.get("type", "unknown"),
@@ -37,7 +68,15 @@ def extract_boxes_from_node(node: Dict, results: List[Dict], depth=0):
             "width": box["width"],
             "height": box["height"],
             "depth": depth
-        })
+        }
+        if render_box:
+            result.update({
+                "render_x": render_box["x"],
+                "render_y": render_box["y"],
+                "render_width": render_box["width"],
+                "render_height": render_box["height"]
+            })
+        results.append(result)
     for child in node.get("children", []):
         extract_boxes_from_node(child, results, depth+1)
 
@@ -53,27 +92,31 @@ def find_root_frame(node: Dict) -> Dict:
 def load_boxes_from_json(json_path: str) -> Tuple[List[Dict], Dict]:
     with open(json_path, "r") as f:
         data = json.load(f)
+
     if "document" in data:
         root = data["document"]
     elif "nodes" in data:
         root = list(data["nodes"].values())[0]["document"]
     else:
         raise ValueError("Unsupported JSON structure.")
+
     frame = find_root_frame(root)
     if not frame:
         raise ValueError("No frame with absoluteBoundingBox found in root.")
+
     results = []
     extract_boxes_from_node(root, results, 0)
+
     for r in results:
-        before_x, before_y = r["x"], r["y"]
+        # Normalize bounding box (design coordinate) by root frame
         r["x"] = (r["x"] - frame["x"]) / frame["width"] if frame["width"] else 0.0
         r["y"] = (r["y"] - frame["y"]) / frame["height"] if frame["height"] else 0.0
         r["width"] = r["width"] / frame["width"] if frame["width"] else 0.0
         r["height"] = r["height"] / frame["height"] if frame["height"] else 0.0
 
-        # if not (0.0 <= r["x"] <= 1.0 and 0.0 <= r["y"] <= 1.0):
-        #     print(f"Warning: Normalized x/y out of bounds | id={r.get('id')} name={r.get('name')} "
-        #           f"before=({before_x},{before_y}) after=({r['x']},{r['y']}) frame=({frame['x']},{frame['y']})")
+        # DO NOT normalize render_x/y — they are absolute w.r.t. full image
+        # So we skip modifying render_x, render_y, etc.
+
     return results, frame
 
 # ---------- IoU Matching Only ----------
@@ -142,12 +185,12 @@ def compute_layout_iou(
         # Draw GT + Gen with matched/unmatched
         if gt_img_path and os.path.exists(gt_img_path):
             gt_img_boxes = [gt_boxes[i] for i, _, _ in matched_pairs] + unmatched_gt
-            img = draw_boxes_on_image(gt_img_path, gt_img_boxes, (0,255,0), label_prefix="GT_")
+            img = draw_boxes_on_image_gt(gt_img_path, gt_img_boxes, (0,255,0), label_prefix="GT_")
             if img is not None:
                 cv2.imwrite(os.path.join(out_dir, case_id, f"gt_boxes.jpg"), img)
         if gen_img_path and os.path.exists(gen_img_path):
             gen_img_boxes = [gen_boxes[j] for _, j, _ in matched_pairs] + unmatched_gen
-            img = draw_boxes_on_image(gen_img_path, gen_img_boxes, (255,0,0), label_prefix="GEN_")
+            img = draw_boxes_on_image_gen(gen_img_path, gen_img_boxes, (255,0,0), label_prefix="GEN_")
             if img is not None:
                 cv2.imwrite(os.path.join(out_dir, case_id, f"gen_boxes.jpg"), img)
 
