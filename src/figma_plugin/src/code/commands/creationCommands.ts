@@ -1,22 +1,19 @@
-import { makeSolidPaint } from '../utils';
+import {
+  getAbsolutePosition,
+  getLocalPosition,
+  makeSolidPaint,
+} from '../utils';
 import { hasAppendChild } from '../figma-api';
 
 export async function createRectangle(params: {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  name?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  name: string;
   parentId?: string;
 }) {
-  const {
-    x = 0,
-    y = 0,
-    width = 100,
-    height = 100,
-    name = 'Rectangle',
-    parentId,
-  } = params || {};
+  const { x, y, width, height, name, parentId } = params || {};
 
   const rect = figma.createRectangle();
   rect.x = x;
@@ -32,6 +29,14 @@ export async function createRectangle(params: {
     }
     if (hasAppendChild(parentNode)) {
       parentNode.appendChild(rect);
+      // set the rectangle's position relative to the parent
+      const [localX, localY] = getLocalPosition(
+        x,
+        y,
+        parentNode as BaseNode & ChildrenMixin
+      );
+      rect.x = localX;
+      rect.y = localY;
     } else {
       throw new Error(`Parent node does not support children: ${parentId}`);
     }
@@ -39,11 +44,13 @@ export async function createRectangle(params: {
     figma.currentPage.appendChild(rect);
   }
 
+  const [newX, newY] = getAbsolutePosition(rect as SceneNode);
+
   return {
     id: rect.id,
     name: rect.name,
-    x: rect.x,
-    y: rect.y,
+    x: newX,
+    y: newY,
     width: rect.width,
     height: rect.height,
     parentId: rect.parent ? rect.parent.id : undefined,
@@ -51,11 +58,11 @@ export async function createRectangle(params: {
 }
 
 export async function createFrame(params: {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  name?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  name: string;
   parentId?: string;
   fillColor?: any;
   strokeColor?: any;
@@ -73,11 +80,11 @@ export async function createFrame(params: {
   itemSpacing?: number;
 }) {
   const {
-    x = 0,
-    y = 0,
-    width = 100,
-    height = 100,
-    name = 'Frame',
+    x,
+    y,
+    width,
+    height,
+    name,
     parentId,
     fillColor,
     strokeColor,
@@ -149,6 +156,13 @@ export async function createFrame(params: {
     }
     if (hasAppendChild(parentNode)) {
       parentNode.appendChild(frame);
+      const [localX, localY] = getLocalPosition(
+        x,
+        y,
+        parentNode as BaseNode & ChildrenMixin
+      );
+      frame.x = localX;
+      frame.y = localY;
     } else {
       throw new Error(`Parent node does not support children: ${parentId}`);
     }
@@ -156,11 +170,13 @@ export async function createFrame(params: {
     figma.currentPage.appendChild(frame);
   }
 
+  const [newX, newY] = getAbsolutePosition(frame as SceneNode);
+
   return {
     id: frame.id,
     name: frame.name,
-    x: frame.x,
-    y: frame.y,
+    x: newX,
+    y: newY,
     width: frame.width,
     height: frame.height,
     fills: frame.fills,
@@ -173,23 +189,23 @@ export async function createFrame(params: {
 }
 
 export async function createText(params: {
-  x?: number;
-  y?: number;
-  text?: string;
+  x: number;
+  y: number;
+  text: string;
+  name: string;
   fontSize?: number;
   fontWeight?: number;
   fontColor?: any;
-  name?: string;
   parentId?: string;
 }) {
   const {
-    x = 0,
-    y = 0,
-    text = 'Text',
+    x,
+    y,
+    text,
+    name,
     fontSize = 14,
     fontWeight = 400,
     fontColor = { r: 0, g: 0, b: 0, a: 1 }, // Default to black
-    name = '',
     parentId,
   } = params || {};
 
@@ -248,6 +264,13 @@ export async function createText(params: {
     }
     if (hasAppendChild(parentNode)) {
       parentNode.appendChild(textNode);
+      const [localX, localY] = getLocalPosition(
+        x,
+        y,
+        parentNode as BaseNode & ChildrenMixin
+      );
+      textNode.x = localX;
+      textNode.y = localY;
     } else {
       throw new Error(`Parent node does not support children: ${parentId}`);
     }
@@ -255,11 +278,13 @@ export async function createText(params: {
     figma.currentPage.appendChild(textNode);
   }
 
+  const [newX, newY] = getAbsolutePosition(textNode as SceneNode);
+
   return {
     id: textNode.id,
     name: textNode.name,
-    x: textNode.x,
-    y: textNode.y,
+    x: newX,
+    y: newY,
     width: textNode.width,
     height: textNode.height,
     characters: textNode.characters,
@@ -272,14 +297,14 @@ export async function createText(params: {
   };
 }
 
-export async function createVectorFromSVG(params: {
+export async function createGraphic(params: {
   svg: string;
-  name?: string;
-  x?: number;
-  y?: number;
+  name: string;
+  x: number;
+  y: number;
   parentId?: string;
 }) {
-  const { svg, name, x = 0, y = 0, parentId } = params || {};
+  const { svg, name, x, y, parentId } = params || {};
 
   if (!svg) {
     throw new Error('An SVG string must be provided.');
@@ -289,6 +314,7 @@ export async function createVectorFromSVG(params: {
 
   node.x = x;
   node.y = y;
+  node.name = name;
 
   let returnNode: SceneNode = node;
 
@@ -298,6 +324,13 @@ export async function createVectorFromSVG(params: {
       const parent = await figma.getNodeByIdAsync(parentId);
       if (parent && 'appendChild' in parent) {
         (parent as BaseNode & ChildrenMixin).appendChild(child);
+        const [localX, localY] = getLocalPosition(
+          x,
+          y,
+          parent as BaseNode & ChildrenMixin
+        );
+        child.x = localX;
+        child.y = localY;
       }
     } else {
       figma.currentPage.appendChild(child);
@@ -315,15 +348,13 @@ export async function createVectorFromSVG(params: {
     }
   }
 
-  if (name) {
-    returnNode.name = name;
-  }
+  const [newX, newY] = getAbsolutePosition(returnNode as SceneNode);
 
   return {
     id: returnNode.id,
     name: returnNode.name,
-    x: returnNode.x,
-    y: returnNode.y,
+    x: newX,
+    y: newY,
     width: returnNode.width,
     height: returnNode.height,
     parentId: returnNode.parent ? returnNode.parent.id : undefined,
@@ -331,22 +362,22 @@ export async function createVectorFromSVG(params: {
 }
 
 export async function createEllipse(params: {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  name?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  name: string;
   parentId?: string;
   fillColor?: RGB | RGBA;
   strokeColor?: RGB | RGBA;
   strokeWeight?: number;
 }) {
   const {
-    x = 0,
-    y = 0,
-    width = 100,
-    height = 100,
-    name = 'Ellipse',
+    x,
+    y,
+    width,
+    height,
+    name,
     parentId,
     fillColor,
     strokeColor,
@@ -376,6 +407,13 @@ export async function createEllipse(params: {
     }
     if (hasAppendChild(parentNode)) {
       parentNode.appendChild(ellipse);
+      const [localX, localY] = getLocalPosition(
+        x,
+        y,
+        parentNode as BaseNode & ChildrenMixin
+      );
+      ellipse.x = localX;
+      ellipse.y = localY;
     } else {
       throw new Error(`Parent node does not support children: ${parentId}`);
     }
@@ -383,11 +421,13 @@ export async function createEllipse(params: {
     figma.currentPage.appendChild(ellipse);
   }
 
+  const [newX, newY] = getAbsolutePosition(ellipse as SceneNode);
+
   return {
     id: ellipse.id,
     name: ellipse.name,
-    x: ellipse.x,
-    y: ellipse.y,
+    x: newX,
+    y: newY,
     width: ellipse.width,
     height: ellipse.height,
     fills: ellipse.fills,
@@ -398,24 +438,24 @@ export async function createEllipse(params: {
 }
 
 export async function createPolygon(params: {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  pointCount?: number;
-  name?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pointCount: number;
+  name: string;
   parentId?: string;
   fillColor?: any;
   strokeColor?: any;
   strokeWeight?: number;
 }) {
   const {
-    x = 0,
-    y = 0,
-    width = 100,
-    height = 100,
-    pointCount = 5,
-    name = 'Polygon',
+    x,
+    y,
+    width,
+    height,
+    pointCount,
+    name,
     parentId,
     fillColor,
     strokeColor,
@@ -437,17 +477,28 @@ export async function createPolygon(params: {
     const parentNode = await figma.getNodeByIdAsync(parentId);
     if (!parentNode)
       throw new Error(`Parent node not found with ID: ${parentId}`);
-    if (hasAppendChild(parentNode)) parentNode.appendChild(polygon);
-    else throw new Error(`Parent node does not support children: ${parentId}`);
+    if (hasAppendChild(parentNode)) {
+      parentNode.appendChild(polygon);
+      const [localX, localY] = getLocalPosition(
+        x,
+        y,
+        parentNode as BaseNode & ChildrenMixin
+      );
+      polygon.x = localX;
+      polygon.y = localY;
+    } else
+      throw new Error(`Parent node does not support children: ${parentId}`);
   } else {
     figma.currentPage.appendChild(polygon);
   }
 
+  const [newX, newY] = getAbsolutePosition(polygon as SceneNode);
+
   return {
     id: polygon.id,
     name: polygon.name,
-    x: polygon.x,
-    y: polygon.y,
+    x: newX,
+    y: newY,
     width: polygon.width,
     height: polygon.height,
     pointCount: polygon.pointCount,
@@ -459,26 +510,26 @@ export async function createPolygon(params: {
 }
 
 export async function createStar(params: {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  pointCount?: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  name: string;
+  pointCount: number;
   innerRadius?: number;
-  name?: string;
   parentId?: string;
   fillColor?: RGB | RGBA;
   strokeColor?: RGB | RGBA;
   strokeWeight?: number;
 }) {
   const {
-    x = 0,
-    y = 0,
-    width = 100,
-    height = 100,
-    pointCount = 5,
+    x,
+    y,
+    width,
+    height,
+    name,
+    pointCount,
     innerRadius = 50,
-    name = 'Star',
     parentId,
     fillColor,
     strokeColor,
@@ -501,8 +552,17 @@ export async function createStar(params: {
     const parentNode = await figma.getNodeByIdAsync(parentId);
     if (!parentNode)
       throw new Error(`Parent node not found with ID: ${parentId}`);
-    if (hasAppendChild(parentNode)) parentNode.appendChild(star);
-    else throw new Error(`Parent node does not support children: ${parentId}`);
+    if (hasAppendChild(parentNode)) {
+      parentNode.appendChild(star);
+      const [localX, localY] = getLocalPosition(
+        x,
+        y,
+        parentNode as BaseNode & ChildrenMixin
+      );
+      star.x = localX;
+      star.y = localY;
+    } else
+      throw new Error(`Parent node does not support children: ${parentId}`);
   } else {
     figma.currentPage.appendChild(star);
   }
@@ -524,67 +584,113 @@ export async function createStar(params: {
 }
 
 export async function createLine(params: {
-  x?: number;
-  y?: number;
-  length?: number;
-  direction?: 'HORIZONTAL' | 'VERTICAL';
-  name?: string;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  name: string;
   parentId?: string;
   strokeColor?: RGB | RGBA;
   strokeWeight?: number;
-  strokeCap?: StrokeCap;
-  dashPattern?: readonly number[];
+  strokeCap?: StrokeCap; // NONE | ROUND | SQUARE
+  dashPattern?: readonly number[]; // [dash, gap]
 }) {
   const {
-    x = 0,
-    y = 0,
-    length = 100,
-    direction = 'HORIZONTAL',
-    name = 'Line',
+    startX,
+    startY,
+    endX,
+    endY,
+    name,
     parentId,
     strokeColor,
     strokeWeight = 1,
     strokeCap = 'NONE',
     dashPattern,
-  } = params || {};
+  } = params ?? {};
 
+  // Calculate geometry
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const length = Math.hypot(dx, dy);
+  const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+  // Create the node
   const line = figma.createLine();
-  line.x = x;
-  line.y = y;
-
-  if (direction === 'HORIZONTAL') {
-    line.resize(length, 0);
-  } else {
-    line.resize(0, length);
-  }
   line.name = name;
+  line.resize(length, 0); // horizontal baseline
+  line.rotation = angleDeg;
 
+  // Style
   if (strokeColor) line.strokes = [makeSolidPaint(strokeColor)];
   line.strokeWeight = strokeWeight;
   line.strokeCap = strokeCap;
   if (dashPattern) line.dashPattern = dashPattern;
 
-  if (parentId) {
-    const parentNode = await figma.getNodeByIdAsync(parentId);
-    if (!parentNode)
-      throw new Error(`Parent node not found with ID: ${parentId}`);
-    if (hasAppendChild(parentNode)) parentNode.appendChild(line);
-    else throw new Error(`Parent node does not support children: ${parentId}`);
-  } else {
-    figma.currentPage.appendChild(line);
-  }
+  // Parent / positioning
+  const parent = parentId
+    ? ((await figma.getNodeByIdAsync(parentId)) as SceneNode & ChildrenMixin)
+    : figma.currentPage;
+
+  if (parent && hasAppendChild(parent)) parent.appendChild(line);
+  const [localX, localY] = getLocalPosition(startX, startY, parent);
+  line.x = localX;
+  line.y = localY;
 
   return {
     id: line.id,
     name: line.name,
-    x: line.x,
-    y: line.y,
-    width: line.width,
-    height: line.height,
+    startX,
+    startY,
+    endX,
+    endY,
+    length,
+    angle: angleDeg,
     strokeWeight: line.strokeWeight,
     strokeCap: line.strokeCap,
     dashPattern: line.dashPattern,
-    strokes: line.strokes,
     parentId: line.parent ? line.parent.id : undefined,
+  };
+}
+
+export async function createMask(params: {
+  maskNodeId: string;
+  contentNodeIds: string[];
+  groupName?: string;
+}) {
+  const { maskNodeId, contentNodeIds, groupName } = params ?? {};
+  if (!maskNodeId) throw new Error('Missing maskNodeId');
+  if (!Array.isArray(contentNodeIds) || contentNodeIds.length === 0)
+    throw new Error('contentNodeIds must contain at least one ID');
+
+  // Fetch nodes
+  const maskNode = (await figma.getNodeByIdAsync(maskNodeId)) as SceneNode;
+  if (!maskNode) throw new Error(`Mask node not found: ${maskNodeId}`);
+
+  const contentNodes: SceneNode[] = [];
+  for (const id of contentNodeIds) {
+    const n = (await figma.getNodeByIdAsync(id)) as SceneNode | null;
+    if (!n) throw new Error(`Content node not found: ${id}`);
+    if (id === maskNodeId)
+      throw new Error('maskNodeId should not appear in contentNodeIds');
+    contentNodes.push(n);
+  }
+
+  /* 1 . Turn the node into a mask */
+  if ('isMask' in maskNode) (maskNode as any).isMask = true;
+  else throw new Error('Chosen mask node cannot act as a mask');
+
+  /* 2 . Group mask + content (mask goes first) */
+  const parent =
+    (maskNode.parent as (SceneNode & ChildrenMixin) | null) ??
+    figma.currentPage;
+  const grouped = figma.group([maskNode, ...contentNodes], parent);
+  grouped.name = groupName ?? 'Mask Group';
+
+  return {
+    id: grouped.id,
+    name: grouped.name,
+    maskNodeId,
+    contentNodeIds,
+    parentId: parent.id,
   };
 }

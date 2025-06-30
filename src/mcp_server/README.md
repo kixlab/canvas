@@ -24,31 +24,22 @@ This document describes the modular structure of the MCP server for CanvasBench.
   - `get_channels`, `select_channel`, `check_connection_status`
 
 - **[`inspectionTools.ts`](tools/inspectionTools.ts)** - Document and selection operations
-  - `get_document_info`, `get_selection`, `read_my_design`, `get_node_info`, `get_nodes_info`, `get_styles`, `get_local_components`, `scan_text_nodes`, `scan_nodes_by_types`
+  - `get_page_info`, `get_selection_info`, `get_node_info`, `get_node_info_by_types`, `get_result_image`, `get_page_structure`
 
 - **[`creationTools.ts`](tools/creationTools.ts)** - Element creation tools
-  - `create_rectangle`, `create_frame`, `create_text`, `create_component_instance`
+  - `create_rectangle`, `create_frame`, `create_text`, `create_graphic`, `create_ellipse`, `create_polygon`, `create_star`, `create_line`, `create_mask`
 
 - **[`styleTools.ts`](tools/styleTools.ts)** - Styling and appearance tools
-  - `set_fill_color`, `set_stroke_color`, `set_corner_radius`
+  - `set_fill_color`, `set_corner_radius`, `get_styles`, `set_opacity`, `set_stroke`, `set_fill_gradient`, `set_drop_shadow`, `set_inner_shadow`, `copy_style`, `set_blend_mode`
 
 - **[`layoutTools.ts`](tools/layoutTools.ts)** - Layout and auto-layout operations
-  - `set_layout_mode`, `set_padding`, `set_axis_align`, `set_layout_sizing`, `set_item_spacing`
+  - `set_padding`, `set_axis_align`, `set_layout_sizing`, `set_item_spacing`, `set_layout_mode`
 
 - **[`textTools.ts`](tools/textTools.ts)** - Text manipulation tools
-  - `set_text_content`, `set_multiple_text_contents`
+  - `set_text_content`, `get_text_node_info`, `set_text_properties`, `set_text_decoration`, `set_text_font`
 
 - **[`operationTools.ts`](tools/operationTools.ts)** - Node operations
-  - `move_node`, `clone_node`, `resize_node`, `delete_node`, `delete_multiple_nodes`, `export_node_as_image`
-
-- **[`componentTools.ts`](tools/componentTools.ts)** - Component management tools
-  - Component-related operations and management
-
-- **[`annotationTools.ts`](tools/annotationTools.ts)** - Annotation management
-  - `get_annotations`, `set_annotation`, `set_multiple_annotations`
-
-- **[`miscellaneousTools.ts`](tools/miscellaneousTools.ts)** - Additional utility tools
-  - Various helper tools and operations
+  - `move_node`, `clone_node`, `resize_node`, `delete_node`, `reorder_node`, `group_nodes`, `ungroup_nodes`, `rename_node`, `rotate_node` `boolean_nodes`
 
 ## Usage
 
@@ -68,6 +59,12 @@ For debuging, run following comand:
 
 ```bash
 npx @modelcontextprotocol/inspector node dist/server.js
+```
+
+Alternatively, you can also call following command
+
+```bash
+npm run debug
 ```
 
 ## Adding New Tools

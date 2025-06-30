@@ -2,131 +2,90 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { sendCommandToFigma } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
-import { TextReplaceResult } from "../types.js";
+import { TextChangeResult } from "../types.js";
 
 export function registerTextTools(server: McpServer) {
-  // Set Multiple Text Contents Tool
+  // Set Text Contents Tool
   server.tool(
-    "set_multiple_text_contents",
-    "Set text content for multiple text nodes in a parent node",
+    "set_text_content",
+    "Set text content for text nodes",
     {
-      nodeId: z
-        .string()
-        .describe("The ID of the parent node containing the text nodes"),
-      text: z
+      changes: z
         .array(
           z.object({
             nodeId: z.string().describe("The ID of the text node to modify"),
             text: z.string().describe("New text content"),
           })
         )
-        .describe("Array of text replacements to apply"),
+        .describe("Array of text changes to apply"),
     },
-    async ({ nodeId, text }, extra) => {
+    async ({ changes }) => {
       try {
-        if (!text || text.length === 0) {
+        if (!changes || changes.length === 0) {
           return createErrorResponse({
-            error: new Error("No text replacements provided"),
-            context: "setting_multiple_text_contents",
+            error: new Error("No text changes provided"),
+            context: "set_text_content",
           });
         }
 
-        // Initial response to indicate we're starting the process
-        const initialStatus = {
-          type: "text" as const,
-          text: `Starting text replacement for ${text.length} nodes. This will be processed in batches of 5...`,
-        };
+        const totalToProcess = changes.length;
 
-        // Track overall progress
-        let totalProcessed = 0;
-        const totalToProcess = text.length;
-
-        // Use the plugin's set_multiple_text_contents function with chunking
-        const result = await sendCommandToFigma("set_multiple_text_contents", {
-          nodeId,
-          text,
+        // Use the plugin's set_text_content function with chunking
+        const result = await sendCommandToFigma("set_text_content", {
+          changes,
         });
 
-        const typedResult = result as TextReplaceResult;
+        const typedResult = result as TextChangeResult;
 
-        // Format the results for display
         const success =
-          typedResult.replacementsApplied &&
-          typedResult.replacementsApplied > 0;
-        const progressText = `
-        Text replacement completed:
-        - ${
-          typedResult.replacementsApplied || 0
-        } of ${totalToProcess} successfully updated
-        - ${typedResult.replacementsFailed || 0} failed
-        - Processed in ${typedResult.completedInChunks || 1} batches
-        `;
+          typedResult.changesApplied && typedResult.changesApplied > 0;
 
-        // Detailed results
-        const detailedResults = typedResult.results || [];
-        const failedResults = detailedResults.filter((item) => !item.success);
-
-        // Create the detailed part of the response
-        let detailedResponse = "";
-        if (failedResults.length > 0) {
-          detailedResponse = `\n\nNodes that failed:\n${failedResults
-            .map((item) => `- ${item.nodeId}: ${item.error || "Unknown error"}`)
-            .join("\n")}`;
+        if (!success) {
+          throw new Error(
+            `No text changes were applied. Changes applied: ${
+              typedResult.changesApplied || 0
+            }, Changes failed: ${typedResult.changesFailed || 0}`
+          );
         }
 
+        const message = `Text changes: ${
+          typedResult.changesApplied || 0
+        }/${totalToProcess} applied, ${
+          typedResult.changesFailed || 0
+        } failed \n ${
+          (typedResult.changesFailed || 0) > 0
+            ? `. Errors: ${(typedResult.results || [])
+                .filter((r) => !r.success)
+                .map((r) => `${r.nodeId}(${r.error || "unknown"})`)
+                .join(", ")}`
+            : ""
+        }`;
+
         return createSuccessResponse({
-          messages: [progressText + detailedResponse],
+          messages: [message],
           dataItem: result,
         });
       } catch (error) {
         return createErrorResponse({
           error,
-          context: "setting_multiple_text_contents",
+          context: "set_text_content",
         });
       }
     }
   );
 
-  // Set Text Content Tool
+  // Get Text Node Info Tool
   server.tool(
-    "set_text_content",
-    "Set the text content of an existing text node in Figma",
-    {
-      nodeId: z.string().describe("The ID of the text node to modify"),
-      text: z.string().describe("New text content"),
-    },
-    async ({ nodeId, text }) => {
-      try {
-        const result = await sendCommandToFigma("set_text_content", {
-          nodeId,
-          text,
-        });
-        const typedResult = result as { name: string };
-        return createSuccessResponse({
-          messages: [
-            `Updated text content of node "${typedResult.name}" to "${text}"`,
-          ],
-          dataItem: typedResult,
-        });
-      } catch (error) {
-        return createErrorResponse({
-          error,
-          context: "setting_text_content",
-        });
-      }
-    }
-  );
-
-  // Scan Text Nodes Tool
-  server.tool(
-    "scan_text_nodes",
-    "Scan and collect all text nodes within a specified node",
+    "get_text_node_info",
+    "Collect all text nodes within a specified node",
     {
       nodeId: z.string().describe("The ID of the node to scan for text nodes"),
     },
     async ({ nodeId }) => {
       try {
-        const result = await sendCommandToFigma("scan_text_nodes", { nodeId });
+        const result = await sendCommandToFigma("get_text_node_info", {
+          nodeId,
+        });
         return createSuccessResponse({
           messages: [JSON.stringify(result)],
           dataItem: result,
@@ -134,8 +93,137 @@ export function registerTextTools(server: McpServer) {
       } catch (error) {
         return createErrorResponse({
           error,
-          context: "scanning_text_nodes",
+          context: "get_text_node_info",
         });
+      }
+    }
+  );
+
+  server.tool(
+    "set_text_properties",
+    "Set common text properties (size, line-height, letter-spacing, align) on one text node",
+    {
+      nodeId: z.string().describe("ID of the text node to modify"),
+      fontSize: z.number().positive().optional().describe("Font-size in px"),
+      lineHeight: z
+        .number()
+        .nonnegative()
+        .optional()
+        .describe("Line-height in px (optional)"),
+      letterSpacing: z
+        .number()
+        .optional()
+        .describe("Letter-spacing in px (optional)"),
+      textAlignHorizontal: z
+        .enum(["LEFT", "CENTER", "RIGHT", "JUSTIFIED"])
+        .optional()
+        .describe(
+          "Horizontal text-alignment (optional): LEFT / CENTER / RIGHT / JUSTIFIED"
+        ),
+      textAlignVertical: z
+        .enum(["TOP", "CENTER", "BOTTOM"])
+        .optional()
+        .describe("Vertical text-alignment (optional): TOP / CENTER / BOTTOM"),
+    },
+    async ({ nodeId, ...props }) => {
+      try {
+        if (Object.keys(props).length === 0) {
+          return createErrorResponse({
+            error: new Error("No properties provided"),
+            context: "set_text_properties",
+          });
+        }
+        const result = await sendCommandToFigma("set_text_properties", {
+          nodeId,
+          ...props,
+        });
+        return createSuccessResponse({
+          messages: [`Updated properties for node ${nodeId}`],
+          dataItem: result,
+        });
+      } catch (error) {
+        return createErrorResponse({
+          error,
+          context: "set_text_properties",
+        });
+      }
+    }
+  );
+
+  server.tool(
+    "set_text_decoration",
+    "Set underline / strikethrough / casing on one text node",
+    {
+      nodeId: z.string().describe("ID of the text node to modify"),
+      textDecoration: z
+        .enum(["NONE", "UNDERLINE", "STRIKETHROUGH"])
+        .optional()
+        .describe(
+          "Decoration style (optional): NONE / UNDERLINE / STRIKETHROUGH"
+        ),
+      textCase: z
+        .enum([
+          "ORIGINAL",
+          "UPPER",
+          "LOWER",
+          "TITLE",
+          "SMALL_CAPS",
+          "SMALL_CAPS_FORCED",
+        ])
+        .optional()
+        .describe(
+          "Text casing style (optional): ORIGINAL / UPPER / LOWER / TITLE / SMALL_CAPS / SMALL_CAPS_FORCED"
+        ),
+    },
+    async ({ nodeId, ...props }) => {
+      try {
+        if (Object.keys(props).length === 0) {
+          return createErrorResponse({
+            error: new Error("No decoration parameters provided"),
+            context: "set_text_decoration",
+          });
+        }
+        const result = await sendCommandToFigma("set_text_decoration", {
+          nodeId,
+          ...props,
+        });
+        return createSuccessResponse({
+          messages: [`Updated decoration for node ${nodeId}`],
+          dataItem: result,
+        });
+      } catch (error) {
+        return createErrorResponse({
+          error,
+          context: "set_text_decoration",
+        });
+      }
+    }
+  );
+
+  server.tool(
+    "set_text_font",
+    "Set the font of one text node (family & style)",
+    {
+      nodeId: z.string().describe("ID of the text node to modify"),
+      font: z
+        .object({
+          family: z.string().describe('Font family (e.g. "Inter")'),
+          style: z.string().describe('Font style  (e.g. "Bold")'),
+        })
+        .describe("Target font"),
+    },
+    async ({ nodeId, font }) => {
+      try {
+        const result = await sendCommandToFigma("set_text_font", {
+          nodeId,
+          font,
+        });
+        return createSuccessResponse({
+          messages: [`Changed font on node ${nodeId}`],
+          dataItem: result,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "set_text_font" });
       }
     }
   );

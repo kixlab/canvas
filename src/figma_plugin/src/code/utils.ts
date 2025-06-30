@@ -475,6 +475,7 @@ export async function findTextNodes(
           if ('style' in node.fontName) fontStyle = node.fontName.style;
         }
       }
+      const [absX, absY] = getAbsolutePosition(node);
 
       const safeTextNode = {
         id: node.id,
@@ -484,34 +485,13 @@ export async function findTextNodes(
         fontSize: typeof node.fontSize === 'number' ? node.fontSize : 0,
         fontFamily: fontFamily,
         fontStyle: fontStyle,
-        x: typeof node.x === 'number' ? node.x : 0,
-        y: typeof node.y === 'number' ? node.y : 0,
+        x: absX,
+        y: absY,
         width: typeof node.width === 'number' ? node.width : 0,
         height: typeof node.height === 'number' ? node.height : 0,
         path: nodePath.join(' > '),
         depth: depth,
       };
-
-      try {
-        const originalFills = JSON.parse(JSON.stringify(node.fills));
-        node.fills = [
-          {
-            type: 'SOLID',
-            color: { r: 1, g: 0.5, b: 0 },
-            opacity: 0.3,
-          },
-        ];
-
-        await delay(500);
-
-        try {
-          node.fills = originalFills;
-        } catch (err) {
-          console.error('Error resetting fills:', err);
-        }
-      } catch (highlightErr) {
-        console.error('Error highlighting text node:', highlightErr);
-      }
 
       textNodes.push(safeTextNode);
     } catch (nodeErr) {
@@ -552,24 +532,14 @@ export async function collectNodesToProcess(
 export async function findNodesByTypes(
   node: SceneNode | BaseNode,
   types: string[],
-  matchingNodes: MinimalNodeMatch[] = []
+  matchingNodes: any[] = []
 ): Promise<void> {
   if ('visible' in node && node.visible === false) return;
 
   if (types.includes(node.type)) {
-    matchingNodes.push({
-      id: node.id,
-      name: node.name || `Unnamed ${node.type}`,
-      type: node.type,
-      bbox: {
-        x: typeof (node as any).x === 'number' ? (node as any).x : 0,
-        y: typeof (node as any).y === 'number' ? (node as any).y : 0,
-        width:
-          typeof (node as any).width === 'number' ? (node as any).width : 0,
-        height:
-          typeof (node as any).height === 'number' ? (node as any).height : 0,
-      },
-    });
+    const nodeInfo = distillNodeInfo(node);
+
+    matchingNodes.push(nodeInfo);
   }
 
   if ('children' in node) {
@@ -633,7 +603,7 @@ export function customBase64Encode(bytes: Uint8Array): string {
   return base64;
 }
 
-export function filterFigmaNode(node: any): any {
+export function distillNodeInfo(node: any): any {
   if (node.type === 'VECTOR') {
     return null;
   }
@@ -643,6 +613,7 @@ export function filterFigmaNode(node: any): any {
     name: node.name,
     type: node.type,
   };
+
   if ('fills' in node && Array.isArray(node.fills) && node.fills.length > 0) {
     filtered.fills = node.fills.map((fill: any) => {
       const processedFill = { ...fill };
@@ -684,8 +655,17 @@ export function filterFigmaNode(node: any): any {
   if ('cornerRadius' in node) {
     filtered.cornerRadius = node.cornerRadius;
   }
+
+  // Stick to absoluteBoundingBox for position and size
   if ('absoluteBoundingBox' in node) {
-    filtered.absoluteBoundingBox = node.absoluteBoundingBox;
+    filtered.position = {
+      x: node.absoluteBoundingBox.x || 0,
+      y: node.absoluteBoundingBox.y || 0,
+    };
+    filtered.size = {
+      width: node.absoluteBoundingBox.width || 0,
+      height: node.absoluteBoundingBox.height || 0,
+    };
   }
   if ('characters' in node) {
     filtered.characters = node.characters;
@@ -701,11 +681,104 @@ export function filterFigmaNode(node: any): any {
       lineHeightPx: node.style.lineHeightPx,
     };
   }
+  if ('visible' in node) filtered.visible = node.visible;
   if ('children' in node && Array.isArray(node.children)) {
-    filtered.children = node.children
-      .map((child: any) => filterFigmaNode(child))
-      .filter((child: any) => child !== null);
+    filtered.children = node.children.map((child: any) => {
+      return {
+        id: child.id || 'Unknown ID',
+        name: child.name || 'Unknown Name',
+        type: child.type || 'Unknown Type',
+      };
+    });
   }
 
+  if ('parent' in node) {
+    filtered.parent = {
+      id: node.parent.id || 'Unknown ID',
+      name: node.parent.name || 'Unknown Name',
+      type: node.parent.type || 'Unknown Type',
+    };
+  }
   return filtered;
+}
+
+export function getLocalPosition(
+  x: number,
+  y: number,
+  parent: BaseNode | null = null
+): [number, number] {
+  if (!parent) {
+    return [x, y];
+  }
+  const [parentX, parentY] = getAbsolutePosition(parent);
+  const localPosition = {
+    x: x - parentX,
+    y: y - parentY,
+  };
+
+  return [localPosition.x, localPosition.y];
+}
+
+export function getAbsolutePosition(node: BaseNode): [number, number] {
+  if (node.type === 'PAGE' || node.type === 'DOCUMENT') {
+    return [0, 0];
+  }
+  if ('absoluteBoundingBox' in node && node.absoluteBoundingBox) {
+    const x = node.absoluteBoundingBox.x;
+    const y = node.absoluteBoundingBox.y;
+    return [x, y];
+  }
+  if ('x' in node && 'y' in node) {
+    return [node.x, node.y];
+  }
+  throw new Error(
+    `Node ${node['id']} does not have absolute position or position properties.`
+  );
+}
+
+export function makeGradientPaint(
+  stops: { r: number; g: number; b: number; a?: number; position: number }[],
+  type: GradientPaint['type'] = 'GRADIENT_LINEAR',
+  angle: number = 0
+): GradientPaint {
+  return {
+    type,
+    gradientStops: stops.map(({ r, g, b, a = 1, position }) => ({
+      color: { r, g, b, a },
+      position,
+    })),
+    gradientTransform: [
+      [Math.cos((angle * Math.PI) / 180), Math.sin((angle * Math.PI) / 180), 0],
+      [
+        -Math.sin((angle * Math.PI) / 180),
+        Math.cos((angle * Math.PI) / 180),
+        0,
+      ],
+    ],
+  };
+}
+
+export function makeShadowEffect(
+  params: {
+    r: number;
+    g: number;
+    b: number;
+    a?: number;
+    offsetX: number;
+    offsetY: number;
+    radius: number;
+    spread?: number;
+  },
+  type: 'DROP_SHADOW' | 'INNER_SHADOW'
+): Effect {
+  const { r, g, b, a = 1, offsetX, offsetY, radius, spread = 0 } = params;
+  return {
+    type,
+    color: { r, g, b, a },
+    offset: { x: offsetX, y: offsetY },
+    radius,
+    spread,
+    visible: true,
+    blendMode: 'NORMAL',
+  };
 }

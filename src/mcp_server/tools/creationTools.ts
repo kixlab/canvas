@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { sendCommandToFigma } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
+import { logger } from "../config.js";
 
 export function registerCreationTools(server: McpServer) {
   // Create Rectangle Tool
@@ -13,7 +14,7 @@ export function registerCreationTools(server: McpServer) {
       y: z.number().describe("Y position"),
       width: z.number().describe("Width of the rectangle"),
       height: z.number().describe("Height of the rectangle"),
-      name: z.string().optional().describe("Optional name for the rectangle"),
+      name: z.string().describe("Name for the rectangle"),
       parentId: z
         .string()
         .optional()
@@ -53,7 +54,7 @@ export function registerCreationTools(server: McpServer) {
       y: z.number().describe("Y position"),
       width: z.number().describe("Width of the frame"),
       height: z.number().describe("Height of the frame"),
-      name: z.string().optional().describe("Optional name for the frame"),
+      name: z.string().describe("Name for the frame"),
       parentId: z
         .string()
         .optional()
@@ -207,6 +208,7 @@ export function registerCreationTools(server: McpServer) {
       x: z.number().describe("X position"),
       y: z.number().describe("Y position"),
       text: z.string().describe("Text content"),
+      name: z.string().describe("Semantic element name for the text node"),
       fontSize: z.number().optional().describe("Font size (default: 14)"),
       fontWeight: z
         .number()
@@ -226,10 +228,6 @@ export function registerCreationTools(server: McpServer) {
         })
         .optional()
         .describe("Font color in RGBA format"),
-      name: z
-        .string()
-        .optional()
-        .describe("Semantic layer name for the text node"),
       parentId: z
         .string()
         .optional()
@@ -267,17 +265,17 @@ export function registerCreationTools(server: McpServer) {
 
   // create SVG tool
   server.tool(
-    "create_vector_from_svg",
-    "Create a vector layer containing vector shapes extracted from an SVG string in Figma",
+    "create_graphic",
+    "Create vector graphics (e.g. icon) using a SVG markup",
     {
       svg: z
         .string()
         .describe(
-          "The raw SVG code as a string. Must contain at least one <path> element with a 'd' attribute"
+          "The raw SVG markup as a string. Must contain at least one <path> element with a 'd' attribute"
         ),
+      name: z.string().describe("A name for the new vector layer"),
       x: z.number().describe("X position for the new vector layer"),
       y: z.number().describe("Y position for the new vector layer"),
-      name: z.string().describe("A name for the new vector layer"),
       parentId: z
         .string()
         .optional()
@@ -287,7 +285,7 @@ export function registerCreationTools(server: McpServer) {
     },
     async ({ svg, x, y, name, parentId }) => {
       try {
-        const result = await sendCommandToFigma("create_vector_from_svg", {
+        const result = await sendCommandToFigma("create_graphic", {
           svg,
           x,
           y,
@@ -297,7 +295,7 @@ export function registerCreationTools(server: McpServer) {
         const typedResult = result as { name: string; id: string };
         return createSuccessResponse({
           messages: [
-            `Created vector "${typedResult.name}" with ID: ${typedResult.id}.`
+            `Created vector graphic "${typedResult.name}" with ID: ${typedResult.id}.`,
           ],
           dataItem: typedResult,
         });
@@ -318,7 +316,7 @@ export function registerCreationTools(server: McpServer) {
       y: z.number().describe("Y position"),
       width: z.number().describe("Width of the ellipse"),
       height: z.number().describe("Height of the ellipse"),
-      name: z.string().optional().describe("Optional name for the ellipse"),
+      name: z.string().describe("A semantic element name for the ellipse"),
       parentId: z
         .string()
         .optional()
@@ -374,9 +372,7 @@ export function registerCreationTools(server: McpServer) {
         });
         const typed = result as { name: string; id: string };
         return createSuccessResponse({
-          messages: [
-            `Created ellipse "${typed.name}" with ID: ${typed.id}.`
-          ],
+          messages: [`Created ellipse "${typed.name}" with ID: ${typed.id}.`],
           dataItem: typed,
         });
       } catch (err) {
@@ -401,7 +397,7 @@ export function registerCreationTools(server: McpServer) {
         .int()
         .min(3)
         .describe("Number of sides (integer ≥ 3)"),
-      name: z.string().optional().describe("Optional name for the polygon"),
+      name: z.string().describe("A semantic element name for the polygon"),
       parentId: z
         .string()
         .optional()
@@ -459,9 +455,7 @@ export function registerCreationTools(server: McpServer) {
         });
         const typed = result as { name: string; id: string };
         return createSuccessResponse({
-          messages: [
-            `Created polygon "${typed.name}" with ID: ${typed.id}.`
-          ],
+          messages: [`Created polygon "${typed.name}" with ID: ${typed.id}.`],
           dataItem: typed,
         });
       } catch (err) {
@@ -481,6 +475,10 @@ export function registerCreationTools(server: McpServer) {
       y: z.number().describe("Y position"),
       width: z.number().describe("Width of the star"),
       height: z.number().describe("Height of the star"),
+      name: z
+        .string()
+        .optional()
+        .describe("A semantic element name for the star"),
       pointCount: z
         .number()
         .int()
@@ -493,7 +491,6 @@ export function registerCreationTools(server: McpServer) {
         .max(100)
         .optional()
         .describe("Inner radius as % of diameter (0–100)"),
-      name: z.string().optional().describe("Optional layer name"),
       parentId: z
         .string()
         .optional()
@@ -545,7 +542,7 @@ export function registerCreationTools(server: McpServer) {
           height,
           pointCount,
           innerRadius,
-          name: name || "Star",
+          name: name,
           parentId,
           fillColor,
           strokeColor,
@@ -553,9 +550,7 @@ export function registerCreationTools(server: McpServer) {
         });
         const typed = result as { name: string; id: string };
         return createSuccessResponse({
-          messages: [
-            `Created star "${typed.name}" with ID: ${typed.id}.`
-          ],
+          messages: [`Created star "${typed.name}" with ID: ${typed.id}.`],
           dataItem: typed,
         });
       } catch (err) {
@@ -569,22 +564,17 @@ export function registerCreationTools(server: McpServer) {
 
   server.tool(
     "create_line",
-    "Create a straight line in Figma",
+    "Create a straight line between two points",
     {
-      x: z.number().describe("X position"),
-      y: z.number().describe("Y position"),
-      length: z.number().positive().describe("Length of the line in pixels"),
-      direction: z
-        .enum(["HORIZONTAL", "VERTICAL"])
-        .optional()
-        .describe("Orientation of the line (default: HORIZONTAL)"),
-      name: z.string().optional().describe("Optional name for the line"),
+      startX: z.number().describe("Start point – X"),
+      startY: z.number().describe("Start point – Y"),
+      endX: z.number().describe("End point – X"),
+      endY: z.number().describe("End point – Y"),
+      name: z.string().describe("Semantic name for the line"),
       parentId: z
         .string()
         .optional()
-        .describe(
-          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID"
-        ),
+        .describe("Optional parent node (FRAME / GROUP / PAGE)"),
       strokeColor: z
         .object({
           r: z.number().min(0).max(1),
@@ -592,61 +582,57 @@ export function registerCreationTools(server: McpServer) {
           b: z.number().min(0).max(1),
           a: z.number().min(0).max(1).optional(),
         })
-        .optional()
-        .describe("Stroke color in RGBA (0–1)"),
-      strokeWeight: z
-        .number()
-        .positive()
-        .optional()
-        .describe("Stroke weight in pixels"),
+        .optional(),
+      strokeWeight: z.number().positive().optional(),
       strokeCap: z
-        .enum(["NONE", "ROUND", "SQUARE", "ARROW_LINES", "TRIANGLE_WIRE"])
+        .enum(["NONE", "ROUND", "SQUARE"])
         .optional()
-        .describe("Line cap style"),
+        .describe("Line-end cap style: NONE, ROUND, or SQUARE"),
       dashPattern: z
         .array(z.number().positive())
-        .min(2)
-        .max(2)
+        .length(2)
         .optional()
-        .describe("Dash pattern, e.g. [4,2]"),
+        .describe("[dash, gap] in px. E.g., [4, 2] for a dashed line"),
     },
-    async ({
-      x,
-      y,
-      length,
-      direction,
-      name,
-      parentId,
-      strokeColor,
-      strokeWeight,
-      strokeCap,
-      dashPattern,
-    }) => {
+    async (args) => {
       try {
-        const result = await sendCommandToFigma("create_line", {
-          x,
-          y,
-          length,
-          direction,
-          name: name || "Line",
-          parentId,
-          strokeColor,
-          strokeWeight,
-          strokeCap,
-          dashPattern,
+        const result = await sendCommandToFigma("create_line", args);
+        return createSuccessResponse({
+          messages: [`Created line “${result.name}” (${result.id}).`],
+          dataItem: result,
         });
-        const typed = result as { name: string; id: string };
+      } catch (error) {
+        return createErrorResponse({ error, context: "create_line" });
+      }
+    }
+  );
+
+  server.tool(
+    "create_mask",
+    "Turn a node into a mask and group it with other nodes to apply the mask",
+    {
+      maskNodeId: z.string().describe("ID of the node to be used as mask"),
+      contentNodeIds: z
+        .array(z.string())
+        .min(1)
+        .describe("IDs of nodes to be masked by the mask node (M"),
+      groupName: z.string().optional().describe("Name for the resulting group"),
+    },
+    async ({ maskNodeId, contentNodeIds, groupName }) => {
+      try {
+        const result = await sendCommandToFigma("create_mask", {
+          maskNodeId,
+          contentNodeIds,
+          groupName,
+        });
         return createSuccessResponse({
           messages: [
-            `Created line "${typed.name}" with ID: ${typed.id}.`
+            `Created mask group “${result.name}” with mask ${maskNodeId} covering ${contentNodeIds.length} node(s).`,
           ],
-          dataItem: typed,
+          dataItem: result,
         });
-      } catch (err) {
-        return createErrorResponse({
-          error: err,
-          context: "creating line",
-        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "create_mask" });
       }
     }
   );

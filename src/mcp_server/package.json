@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node --loader ts-node/esm server.ts",
     "start:modular": "node --loader ts-node/esm server-modular.ts",
+    "debug": "DANGEROUSLY_OMIT_AUTH=true npx @modelcontextprotocol/inspector dist/server.js",
     "build": "tsc",
     "dev": "node --loader ts-node/esm --watch server.ts",
     "dev:modular": "node --loader ts-node/esm --watch server-modular.ts"

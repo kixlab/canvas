@@ -6,13 +6,10 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { logger, SERVER_CONFIG } from "./config.js";
 import { connectToFigma } from "./common/websocket.js";
 
-import { registerAnnotationTools } from "./tools/annotationTools.js";
-import { registerComponentTools } from "./tools/componentTools.js";
 import { registerConnectionTools } from "./tools/connectionTools.js";
 import { registerCreationTools } from "./tools/creationTools.js";
 import { registerInspectionTools } from "./tools/inspectionTools.js";
 import { registerLayoutTools } from "./tools/layoutTools.js";
-import { registerMiscellaneousTools } from "./tools/miscellaneousTools.js";
 import { registerOperationTools } from "./tools/operationTools.js";
 import { registerStyleTools } from "./tools/styleTools.js";
 import { registerTextTools } from "./tools/textTools.js";
@@ -23,13 +20,10 @@ const server = new McpServer({
   version: SERVER_CONFIG.version,
 });
 
-registerAnnotationTools(server);
-registerComponentTools(server);
 registerConnectionTools(server);
 registerInspectionTools(server);
 registerCreationTools(server);
 registerLayoutTools(server);
-registerMiscellaneousTools(server);
 registerOperationTools(server);
 registerStyleTools(server);
 registerTextTools(server);
