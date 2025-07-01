@@ -9,7 +9,6 @@ import {
   MessageType,
   ContentType,
   ToolResponseMessage,
-  IntermediateRequestMessage,
 } from "../types";
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
@@ -21,6 +20,7 @@ import {
   ImageContent,
   TextContent,
 } from "@modelcontextprotocol/sdk/types";
+import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
 import {
   combineFeedbackInstruction,
   getFeedbackPrompt,
@@ -50,7 +50,7 @@ export class FeedbackAgent extends AgentInstance {
     let currentRequestMessage: UserRequestMessage = params.requestMessage;
 
     /* --- Feedback Loop --------------------------------- */
-    for (let iteration = 0; iteration < params.model.max_turns; iteration++) {
+    for (let iteration = 0; iteration < params.model.max_retries; iteration++) {
       // (1) Run design
       const designResult = await this.runDesignPhase({
         requestMessage: currentRequestMessage,
@@ -240,35 +240,131 @@ export class FeedbackAgent extends AgentInstance {
   private async getCurrentDesignSnapshot(
     tools: Tools,
     model: ModelInstance
-  ): Promise<{ imageContent: ImageContent; pageStructureText: string }> {
-    /* ----- image ---------------------------------------------------- */
+  ): Promise<{
+    imageContent: ImageContent; // original screenshot
+    pageStructureText: string; // original plain-text tree
+    labeledImageContent: ImageContent; // NEW – annotated PNG
+  }> {
+    /* ---------- image ------------------------------------------------ */
     const imgCall = tools.createToolCall("get_result_image", randomUUID());
     const imgRes = await tools.callTool(imgCall);
-    if (!imgRes?.structuredContent) {
+
+    if (!imgRes?.structuredContent)
       throw new Error("get_result_image returned no structured content");
-    }
 
     const mimeType =
       (imgRes.structuredContent.mimeType as string) || "image/png";
-    const rawImage = imgRes.structuredContent.imageData as string;
-    const imageContent: ImageContent = {
-      type: ContentType.IMAGE,
-      data: model.formatImageData(rawImage, mimeType),
-      mimeType,
-    };
+    const rawImage = imgRes.structuredContent.imageData as string; // base-64
 
-    /* ----- page structure ------------------------------------------ */
+    /* ---------- page structure -------------------------------------- */
     const structCall = tools.createToolCall("get_page_structure", randomUUID());
     const structRes = await tools.callTool(structCall);
 
-    if (!structRes?.content || structRes.content.length === 0) {
-      throw new Error("get_page_structure returned no content");
-    }
+    if (
+      !structRes ||
+      !structRes.structuredContent ||
+      !structRes.structuredContent.structureTree
+    )
+      throw new Error("get_page_structure returned no structuredTree");
+
+    const pageStructureTree = structRes.structuredContent.structureTree;
+    if (!Array.isArray(pageStructureTree) || !pageStructureTree.length)
+      throw new Error("get_page_structure returned an empty structureTree");
 
     const pageStructureText =
-      structRes?.content?.map((c: any) => c.text).join("\n") || "";
+      structRes.content?.map((c: any) => c.text).join("\n") || "";
 
-    return { imageContent, pageStructureText };
+    /* ---------- annotate screenshot --------------------------------- */
+    const labeledImageContent = await this.drawBoundingBoxes(
+      rawImage,
+      mimeType,
+      pageStructureTree, // ← see Response Structure
+      model
+    );
+
+    return {
+      imageContent: this.toImageContent(rawImage, mimeType, model),
+      pageStructureText,
+      labeledImageContent,
+    };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* helpers                                                            */
+  /* ------------------------------------------------------------------ */
+
+  /** wrap base-64 → ImageContent so we don’t repeat ourselves */
+  private toImageContent(
+    base64: string,
+    mime: string,
+    model: ModelInstance
+  ): ImageContent {
+    return {
+      type: ContentType.IMAGE,
+      data: model.formatImageData(base64, mime),
+      mimeType: mime,
+    };
+  }
+
+  private async drawBoundingBoxes(
+    base64: string,
+    mime: string,
+    tree: any[], // ResponseStructure.structureTree
+    model: ModelInstance
+  ): Promise<ImageContent> {
+    const buffer = Buffer.from(base64, "base64");
+    const img = await loadImage(buffer); // ⬅ @napi-rs/canvas
+    // const img = await loadImage(buffer, { mimeType: mime }); // ⬅ @napi-rs/canvas
+
+    const canvas = createCanvas(img.width, img.height);
+    const ctx = canvas.getContext("2d");
+
+    /* background image */
+    ctx.drawImage(img, 0, 0);
+
+    /* drawing style */
+    ctx.strokeStyle = "rgba(255, 0, 255, 0.8)";
+    ctx.lineWidth = 2;
+    ctx.font = "10px Arial";
+    ctx.textBaseline = "top";
+
+    const TAG_HEIGHT = 12;
+    const TAG_PAD = 4;
+
+    function visit(node: any) {
+      const {
+        position: { x, y },
+        size: { width, height },
+        id,
+        name,
+        children = [],
+      } = node;
+
+      /* rectangle */
+      ctx.strokeRect(x, y, width, height);
+
+      /* label background (small black strip) */
+      const label = `${name} (${id})`;
+      const { width: textW } = ctx.measureText(label);
+      ctx.fillStyle = "rgba(255, 165, 255, 0.8)";
+      ctx.fillRect(x, y, textW + TAG_PAD * 2, TAG_HEIGHT);
+
+      /* label text */
+      ctx.fillStyle = "#000";
+      ctx.fillText(label, x + TAG_PAD, y + 2);
+
+      /* recurse */
+      children.forEach(visit);
+    }
+    tree.forEach(visit);
+
+    const annotatedBuf = await canvas.encode("png");
+
+    return this.toImageContent(
+      annotatedBuf.toString("base64"),
+      "image/png",
+      model
+    );
   }
 
   private buildFeedbackRequestMessage({

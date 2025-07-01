@@ -4,7 +4,7 @@ import {
   generateCommandId,
   delay,
   getLocalPosition,
-  getAbsolutePosition,
+  getAbsoluteGeometry,
 } from '../utils';
 import { hasClone } from '../figma-api';
 
@@ -31,7 +31,7 @@ export async function moveNode(params: {
   if (!('x' in node) || !('y' in node)) {
     throw new Error(`Node does not support position: ${nodeId}`);
   }
-  const [oldX, oldY] = getAbsolutePosition(node);
+  const [oldX, oldY] = getAbsoluteGeometry(node);
 
   // Set Parent if provided
   if (newParentId && node.parent?.id !== newParentId) {
@@ -245,7 +245,7 @@ export async function cloneNode(params: {
       (clone as SceneNode).y = localY;
     }
 
-    const [newX, newY] = getAbsolutePosition(clone as SceneNode);
+    const [newX, newY] = getAbsoluteGeometry(clone as SceneNode);
 
     sendProgressUpdate(
       commandId,

@@ -5,7 +5,7 @@ import {
   findNodesByTypes,
   distillNodeInfo,
   customBase64Encode,
-  getAbsolutePosition,
+  getAbsoluteGeometry,
 } from '../utils';
 import { MinimalNodeMatch, ImageFormat } from '../types';
 
@@ -212,19 +212,21 @@ interface StructureInfo {
   name: string;
   type: string;
   position: { x: number; y: number };
+  size: { width: number; height: number };
   children?: StructureInfo[];
 }
 export async function getPageStructure() {
   await figma.currentPage.loadAsync();
 
   function buildLayerInfo(node: SceneNode): StructureInfo {
-    const [x, y] = getAbsolutePosition(node);
+    const [x, y, width, height] = getAbsoluteGeometry(node);
 
     const info: StructureInfo = {
       id: node.id,
       name: node.name,
       type: node.type,
       position: { x, y },
+      size: { width, height },
     };
 
     if ('children' in node && node.children.length) {

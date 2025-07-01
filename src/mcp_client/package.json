@@ -16,16 +16,17 @@
     "@google-cloud/vertexai": "^1.10.0",
     "@google/genai": "^1.5.0",
     "@modelcontextprotocol/sdk": "^1.12.2",
-    "express": "^5.1.0",
-    "openai": "^5.3.0",
-    "multer": "^1.4.5-lts.1",
+    "@napi-rs/canvas": "^0.1.73",
     "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "multer": "^1.4.5-lts.1",
+    "openai": "^5.3.0",
     "yaml": "^2.6.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
-    "@types/node": "^24.0.1",
     "@types/multer": "^1.4.12",
+    "@types/node": "^24.0.1",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"

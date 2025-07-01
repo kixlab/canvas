@@ -1,5 +1,5 @@
 import {
-  getAbsolutePosition,
+  getAbsoluteGeometry,
   getLocalPosition,
   makeSolidPaint,
 } from '../utils';
@@ -44,7 +44,7 @@ export async function createRectangle(params: {
     figma.currentPage.appendChild(rect);
   }
 
-  const [newX, newY] = getAbsolutePosition(rect as SceneNode);
+  const [newX, newY] = getAbsoluteGeometry(rect as SceneNode);
 
   return {
     id: rect.id,
@@ -170,7 +170,7 @@ export async function createFrame(params: {
     figma.currentPage.appendChild(frame);
   }
 
-  const [newX, newY] = getAbsolutePosition(frame as SceneNode);
+  const [newX, newY] = getAbsoluteGeometry(frame as SceneNode);
 
   return {
     id: frame.id,
@@ -278,7 +278,7 @@ export async function createText(params: {
     figma.currentPage.appendChild(textNode);
   }
 
-  const [newX, newY] = getAbsolutePosition(textNode as SceneNode);
+  const [newX, newY] = getAbsoluteGeometry(textNode as SceneNode);
 
   return {
     id: textNode.id,
@@ -348,7 +348,7 @@ export async function createGraphic(params: {
     }
   }
 
-  const [newX, newY] = getAbsolutePosition(returnNode as SceneNode);
+  const [newX, newY] = getAbsoluteGeometry(returnNode as SceneNode);
 
   return {
     id: returnNode.id,
@@ -421,7 +421,7 @@ export async function createEllipse(params: {
     figma.currentPage.appendChild(ellipse);
   }
 
-  const [newX, newY] = getAbsolutePosition(ellipse as SceneNode);
+  const [newX, newY] = getAbsoluteGeometry(ellipse as SceneNode);
 
   return {
     id: ellipse.id,
@@ -492,7 +492,7 @@ export async function createPolygon(params: {
     figma.currentPage.appendChild(polygon);
   }
 
-  const [newX, newY] = getAbsolutePosition(polygon as SceneNode);
+  const [newX, newY] = getAbsoluteGeometry(polygon as SceneNode);
 
   return {
     id: polygon.id,
