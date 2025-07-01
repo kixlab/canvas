@@ -1,5 +1,7 @@
 // Prompts for the MCP client - TypeScript version of Python prompts
 
+import { ImageContent } from "@modelcontextprotocol/sdk/types";
+
 export function getTextBasedGenerationPrompt(instruction: string): string {
   return `
 [CONTEXT]
@@ -123,4 +125,77 @@ You have access to perfect canvas information including all element properties a
 Please analyze the provided screen image with perfect canvas information and modify the UI according to the following instruction:
 ${instruction}
 `;
+}
+
+export function getFeedbackPrompt({
+  originalTargetText,
+  originalTargetImage,
+  pageStructureText,
+}: {
+  originalTargetText?: string;
+  originalTargetImage?: ImageContent;
+  pageStructureText?: string;
+}): string {
+  let prompts = `
+** Instruction **
+You are a feedback agent tasked with evaluating the user interface design.
+You will receive a screenshot of the current design.
+Based on the **Original Instruction**, provide concise feedback on how to improve the design to match the original instruction.
+Precisely, refer to **Page Structure** to understand the current design layout.
+In your instruction, when referring to existing elements, mention their names and IDs.
+`;
+
+  if (originalTargetImage) {
+    prompts += `The target image screenshot is provided as a second image.`;
+  }
+
+  if (pageStructureText) {
+    prompts += `
+** Page Structure **
+${pageStructureText}
+`;
+  }
+
+  if (originalTargetText) {
+    prompts += `
+** Original Instruction **
+  """
+  ${originalTargetText}
+  """
+`;
+  }
+
+  return prompts;
+}
+
+export function combineFeedbackInstruction({
+  feedbackInstruction,
+  pageStructureText,
+  originalTargetText,
+}: {
+  feedbackInstruction: string;
+  pageStructureText: string;
+  originalTargetText?: string;
+}) {
+  const combinedInstruction = `
+
+Follow the ** Feedback Instruction ** below to update the design.
+Refer to the ** Original Instruction ** for context.
+
+** Original Instruction **
+  """ 
+  ${originalTargetText || ""}
+  """
+
+** Feedback Instruction **
+  """
+  ${feedbackInstruction.trim()}
+  """
+
+** Page Structure **
+"""
+${pageStructureText || ""}
+"""
+`;
+  return combinedInstruction;
 }

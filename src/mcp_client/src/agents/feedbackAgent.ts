@@ -9,7 +9,6 @@ import {
   MessageType,
   ContentType,
   ToolResponseMessage,
-  UserFeedbackMessage,
   IntermediateRequestMessage,
 } from "../types";
 import { ModelInstance } from "../models/baseModel";
@@ -22,6 +21,10 @@ import {
   ImageContent,
   TextContent,
 } from "@modelcontextprotocol/sdk/types";
+import {
+  combineFeedbackInstruction,
+  getFeedbackPrompt,
+} from "../utils/prompts";
 
 // [TODO] Integrate the max turns for design phase to the pipeline
 const MAX_DESIGN_TURNS = 3;
@@ -62,7 +65,7 @@ export class FeedbackAgent extends AgentInstance {
       });
 
       console.log(
-        `[ALERT] A design completed - turn ${iteration} | cost: ${totalCost}`
+        `[FeedbackAgent] A design completed - turn ${iteration} | cost: ${totalCost}`
       );
 
       overallHistory.push(...designResult.history);
@@ -85,24 +88,19 @@ export class FeedbackAgent extends AgentInstance {
       overallHistory.push(...feedbackResult.history);
       overallRawResponses.push(feedbackResult.rawResponse);
       totalCost += feedbackResult.cost / 1000; // Convert to USD
-      const instructionText = feedbackResult.instructionText.trim();
+      const feedbackInstruction = feedbackResult.instructionText.trim();
 
       console.log(
-        `[ALERT] A feedback completed - turn ${iteration}: ${instructionText} | cost: ${totalCost}`
+        `[FeedbackAgent] A feedback completed - turn ${iteration}: ${feedbackInstruction} | cost: ${totalCost}`
       );
 
-      // Early exit if feedback agent declares design finished
-      if (/^DESIGN_COMPLETE$/i.test(instructionText)) {
-        break;
-      }
-
       // (4) Prepare for next iteration
-      currentRequestMessage = this.buildNewRequestMessage({
-        instruction: instructionText,
+      currentRequestMessage = this.buildFeedbackRequestMessage({
+        feedbackInstruction: feedbackInstruction,
         originalTargetText: originalTargetText ?? undefined,
         originalTargetImage: originalTargetImage ?? undefined,
+        pageStructureText: pageStructureText ?? undefined,
       });
-      overallHistory.push(currentRequestMessage);
     }
 
     return {
@@ -189,37 +187,18 @@ export class FeedbackAgent extends AgentInstance {
     } = args;
 
     const formattedCtx: GenericMessage[] = [];
-    const rawResponses: any[] = [];
     let cost = 0;
 
-    const feedbackPromptArray = [
-      `You are a feedback agent tasked with evaluating the design of a user interface. `,
-      `You will receive a screenshot of the current design and a target description. `,
-      `Your job is to compare the two and provide concise feedback on how to improve the design. `,
-      `If the design already matches the target, simply reply with "DESIGN_COMPLETE". `,
-      `Otherwise, provide specific instructions on what needs to change. `,
-    ];
-
-    if (originalTargetText) {
-      feedbackPromptArray.push(
-        `Target description:\n${originalTargetText}\n\n`
-      );
-    }
-
-    feedbackPromptArray.push(
-      `Current page structure:\n${pageStructureText}\n\n`
-    );
-
-    if (originalTargetImage) {
-      feedbackPromptArray.push(
-        `The target image screenshot is provided as a second image.\n\n`
-      );
-    }
+    const feedbackPrompt = getFeedbackPrompt({
+      originalTargetText,
+      originalTargetImage,
+      pageStructureText,
+    });
 
     const content = [
       {
         type: ContentType.TEXT,
-        text: feedbackPromptArray.join("\n"),
+        text: feedbackPrompt,
       } as TextContent,
       currentImage,
     ];
@@ -244,9 +223,8 @@ export class FeedbackAgent extends AgentInstance {
 
     const formattedFeedbackInput = model.formatRequest([feedbackInstruction]);
     const feedbackResp = await model.generateResponse(formattedFeedbackInput);
-    rawResponses.push(feedbackResp);
-    cost += model.getCostFromResponse(feedbackResp);
 
+    cost += model.getCostFromResponse(feedbackResp);
     model.addToFormattedMessageContext(feedbackResp, formattedCtx);
 
     // grab the assistant’s plain-text reply
@@ -298,19 +276,23 @@ export class FeedbackAgent extends AgentInstance {
     return { imageContent, pageStructureText };
   }
 
-  private buildNewRequestMessage({
-    instruction,
+  private buildFeedbackRequestMessage({
+    feedbackInstruction,
     originalTargetText,
     originalTargetImage,
+    pageStructureText,
   }: {
-    instruction: string;
+    feedbackInstruction: string;
+    pageStructureText: string;
     originalTargetText?: string;
     originalTargetImage?: ImageContent;
   }): UserRequestMessage {
-    const combinedInstruction = `${
-      originalTargetText ?? ""
-    }\n\n[ADDITIONAL INSTRUCTION]\nPlease update the design as follows:\n${instruction}
-    `;
+    const combinedInstruction = combineFeedbackInstruction({
+      feedbackInstruction: feedbackInstruction,
+      originalTargetText: originalTargetText ?? undefined,
+      pageStructureText: pageStructureText,
+    });
+
     const content: (TextContent | ImageContent)[] = [
       {
         type: ContentType.TEXT,

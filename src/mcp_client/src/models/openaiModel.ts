@@ -30,6 +30,9 @@ export class OpenAIModel implements ModelInstance {
     this.inputCost = config.input_cost;
     this.outputCost = config.output_cost;
   }
+  formatResponse(response: any[]): GenericMessage[] {
+    throw new Error("Method not implemented.");
+  }
 
   async generateResponse(
     input: OpenAIResponseType.ResponseInput,
@@ -72,6 +75,7 @@ export class OpenAIModel implements ModelInstance {
     return await this.client.responses.create(params);
   }
 
+  // Generic Message -> OpenAI Response Input
   formatRequest(
     messages: GenericMessage[]
   ): OpenAIResponseType.EasyInputMessage[] {
@@ -104,6 +108,7 @@ export class OpenAIModel implements ModelInstance {
     });
   }
 
+  // OpenAI Response -> Call Tool Request
   formatCallToolRequest(
     messages: OpenAIResponseType.Responses.Response
   ): CallToolRequestParams[] {
@@ -128,6 +133,7 @@ export class OpenAIModel implements ModelInstance {
       }));
   }
 
+  // Call Tool Result -> OpenAI Response Item
   formatToolResponse(
     result: CallToolResult
   ): OpenAIResponseType.ResponseInputItem {
