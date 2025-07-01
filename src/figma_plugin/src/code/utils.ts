@@ -723,9 +723,8 @@ export function getAbsoluteGeometry(
   node: BaseNode
 ): [number, number, number, number] {
   if (node.type === 'DOCUMENT' || node.type === 'PAGE') {
-    throw new Error(
-      'Cannot get absolute geometry for DOCUMENT/PAGE node type.'
-    );
+    const { width, height } = handlePageGeometry(node);
+    return [0, 0, width, height];
   }
   if ('absoluteBoundingBox' in node && node.absoluteBoundingBox) {
     const x = node.absoluteBoundingBox.x;
@@ -740,6 +739,28 @@ export function getAbsoluteGeometry(
   throw new Error(
     `Node ${node['id']} does not have absolute position or position properties.`
   );
+}
+
+export function handlePageGeometry(node: BaseNode) {
+  if (node.type !== 'DOCUMENT' && node.type !== 'PAGE') {
+    throw new Error(
+      `handlePageGeometry expects a DOCUMENT or PAGE node (got: ${node.type}).`
+    );
+  }
+
+  let maxX = 0;
+  let maxY = 0;
+
+  const walk = (n: BaseNode): void => {
+    const [x, y, w, h] = getAbsoluteGeometry(n);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
+    if ('children' in n && Array.isArray(n.children)) {
+      n.children.forEach(walk);
+    }
+  };
+  node.children.forEach(walk);
+  return { width: maxX, height: maxY };
 }
 
 export function makeGradientPaint(

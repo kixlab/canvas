@@ -20,7 +20,7 @@ import {
   ImageContent,
   TextContent,
 } from "@modelcontextprotocol/sdk/types";
-import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 import {
   combineFeedbackInstruction,
   getFeedbackPrompt,
@@ -293,7 +293,6 @@ export class FeedbackAgent extends AgentInstance {
   /* helpers                                                            */
   /* ------------------------------------------------------------------ */
 
-  /** wrap base-64 → ImageContent so we don’t repeat ourselves */
   private toImageContent(
     base64: string,
     mime: string,
@@ -308,13 +307,12 @@ export class FeedbackAgent extends AgentInstance {
 
   private async drawBoundingBoxes(
     base64: string,
-    mime: string,
-    tree: any[], // ResponseStructure.structureTree
+    mime: string = "image/png",
+    tree: any[],
     model: ModelInstance
   ): Promise<ImageContent> {
     const buffer = Buffer.from(base64, "base64");
-    const img = await loadImage(buffer); // ⬅ @napi-rs/canvas
-    // const img = await loadImage(buffer, { mimeType: mime }); // ⬅ @napi-rs/canvas
+    const img = await loadImage(buffer);
 
     const canvas = createCanvas(img.width, img.height);
     const ctx = canvas.getContext("2d");
@@ -353,18 +351,13 @@ export class FeedbackAgent extends AgentInstance {
       ctx.fillStyle = "#000";
       ctx.fillText(label, x + TAG_PAD, y + 2);
 
-      /* recurse */
       children.forEach(visit);
     }
     tree.forEach(visit);
 
     const annotatedBuf = await canvas.encode("png");
 
-    return this.toImageContent(
-      annotatedBuf.toString("base64"),
-      "image/png",
-      model
-    );
+    return this.toImageContent(annotatedBuf.toString("base64"), mime, model);
   }
 
   private buildFeedbackRequestMessage({
