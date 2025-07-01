@@ -982,7 +982,7 @@
                                 // format tool response and add it to the workflow
                                 const resultContent = msg.results?.map(r => {
                                     if (r.content) {
-                                        return r.content.map(c => {
+                                        let content = r.content.map(c => {
                                             if (c.type === 'text') return c.text;
                                             if (c.type === 'image') {
                                                 return `<div class="inline-image-container" style="margin: 8px 0;">
@@ -991,6 +991,17 @@
                                             }
                                             return JSON.stringify(c);
                                         }).join('\n');
+                                        
+                                        // Add expandable section for structured content if it exists
+                                        if (r.structuredContent) {
+                                            content += `
+                                                <details style="margin-top: 8px;">
+                                                    <summary style="cursor: pointer; color: var(--color-fg-muted); font-size: 12px;">Show structured content</summary>
+                                                    <div class="message-metadata" style="margin-top: 4px;">${JSON.stringify(r.structuredContent, null, 2)}</div>
+                                                </details>`;
+                                        }
+                                        
+                                        return content;
                                     }
                                     return '';
                                 }).join('\n');
@@ -1114,28 +1125,28 @@
             if (!content || !Array.isArray(content)) return '';
             
             return content.map(c => {
-                if (c.type === 'text') {
-                    return c.text;
-                } else if (c.type === 'image') {
-                    return `<div class="inline-image-container">
-                        <img src="${c.data}" alt="Message image">
-                        ${c.mimeType ? `<div class="content-type-indicator">${c.mimeType}</div>` : ''}
-                    </div>`;
-                } else if (c.type === 'audio') {
-                    return `<div class="inline-audio-container">
-                        <audio controls>
-                            <source src="${c.data}" type="${c.mimeType || 'audio/wav'}">
-                            Your browser does not support the audio element.
-                        </audio>
-                        ${c.mimeType ? `<div class="content-type-indicator">${c.mimeType}</div>` : ''}
-                    </div>`;
-                } else if (c.type === 'resource') {
-                    return `<div class="inline-resource-container">
-                        <strong>Resource:</strong> ${c.resource?.uri || 'Unknown resource'}
-                        ${c.resource?.text ? `<pre>${c.resource.text}</pre>` : ''}
-                    </div>`;
-                }
-                return JSON.stringify(c);
+            if (c.type === 'text') {
+                return c.text.replace(/\n/g, '<br>');
+            } else if (c.type === 'image') {
+                return `<div class="inline-image-container">
+                <img src="${c.data}" alt="Message image">
+                ${c.mimeType ? `<div class="content-type-indicator">${c.mimeType}</div>` : ''}
+                </div>`;
+            } else if (c.type === 'audio') {
+                return `<div class="inline-audio-container">
+                <audio controls>
+                    <source src="${c.data}" type="${c.mimeType || 'audio/wav'}">
+                    Your browser does not support the audio element.
+                </audio>
+                ${c.mimeType ? `<div class="content-type-indicator">${c.mimeType}</div>` : ''}
+                </div>`;
+            } else if (c.type === 'resource') {
+                return `<div class="inline-resource-container">
+                <strong>Resource:</strong> ${c.resource?.uri || 'Unknown resource'}
+                ${c.resource?.text ? `<pre>${c.resource.text}</pre>` : ''}
+                </div>`;
+            }
+            return JSON.stringify(c);
             }).join('');
         }
         
