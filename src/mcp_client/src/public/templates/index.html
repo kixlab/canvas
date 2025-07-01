@@ -494,6 +494,180 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* Message content formatting */
+        .inline-image-container {
+            margin: 8px 0;
+            text-align: center;
+        }
+
+        .inline-image-container img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid var(--color-border-default);
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .inline-audio-container {
+            margin: 8px 0;
+        }
+
+        .inline-audio-container audio {
+            max-width: 100%;
+            width: 300px;
+        }
+
+        .inline-resource-container {
+            margin: 8px 0;
+            padding: 8px;
+            background-color: var(--color-canvas-subtle);
+            border-radius: 4px;
+            border: 1px solid var(--color-border-muted);
+        }
+
+        .inline-resource-container pre {
+            margin: 4px 0 0 0;
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--color-fg-muted);
+            background-color: var(--color-canvas-default);
+            padding: 4px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+
+        /* User feedback and request styling */
+        .user-feedback, .user-request {
+            background-color: var(--color-canvas-subtle);
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border-muted);
+        }
+
+        .user-feedback {
+            border-left: 3px solid #8250df; /* Purple for feedback */
+        }
+
+        .user-request {
+            border-left: 3px solid var(--color-accent-emphasis); /* Blue for requests */
+        }
+
+        .feedback-content, .request-content {
+            margin-top: 4px;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+
+        /* Conversation workflow styling */
+        .conversation-workflow {
+            margin-bottom: 16px;
+        }
+
+        .conversation-workflow h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-fg-muted);
+            border-bottom: 1px solid var(--color-border-muted);
+            padding-bottom: 4px;
+        }
+
+        /* Enhanced tool workflow styling */
+        .tool-workflow-item {
+            margin-bottom: 12px;
+            border-left: 2px solid var(--color-border-muted);
+            padding-left: 12px;
+            position: relative;
+        }
+
+        .tool-workflow-item::before {
+            content: '';
+            position: absolute;
+            left: -4px;
+            top: 8px;
+            width: 6px;
+            height: 6px;
+            background-color: var(--color-border-muted);
+            border-radius: 50%;
+        }
+
+        .tool-call, .tool-response, .user-feedback, .user-request {
+            margin: 6px 0;
+            border-radius: 6px;
+        }
+
+        .tool-call {
+            background-color: rgba(9, 105, 218, 0.08);
+            border: 1px solid rgba(9, 105, 218, 0.2);
+            padding: 8px 10px;
+        }
+
+        .tool-response {
+            background-color: rgba(26, 127, 55, 0.08);
+            border: 1px solid rgba(26, 127, 55, 0.2);
+            margin-left: 16px;
+            padding: 8px 10px;
+        }
+
+        .tool-call-label, .tool-response-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .tool-icon {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .tool-call-content, .tool-response-content {
+            font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+            font-size: 12px;
+            background-color: var(--color-canvas-default);
+            padding: 8px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid var(--color-border-default);
+        }
+
+        .tool-response-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            margin: 4px 0;
+        }
+
+        /* Content type indicators */
+        .content-type-indicator {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 6px;
+            background-color: var(--color-canvas-subtle);
+            color: var(--color-fg-muted);
+            border-radius: 3px;
+            margin-top: 4px;
+            font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+        }
+
+        /* Responsive image gallery enhancements */
+        @media (max-width: 768px) {
+            .inline-image-container img {
+                max-width: 100%;
+            }
+            
+            .gallery-image {
+                width: 100% !important;
+            }
+            
+            .tool-response {
+                margin-left: 8px;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -801,34 +975,69 @@
                                                 <div class="tool-call-content">
                                                     <pre>${JSON.stringify(call.arguments, null, 2)}</pre>
                                                 </div>
-                                            </div>`;
-                                    
-                                    // Find corresponding tool response
-                                    const nextMsg = history[index + 1];
-                                    if (nextMsg && nextMsg.role === 'tool' && nextMsg.type === 'tool_response') {
-                                        const result = nextMsg.results?.find(r => r.callId === call.id);
-                                        if (result) {
-                                            let resultContent = "";
-                                            if (result.content) {
-                                                resultContent = result.content.map(c => {
-                                                    if (c.type === 'text') return c.text;
-                                                    return JSON.stringify(c);
-                                                }).join('\n');
-                                            }
-                                            
-                                            toolWorkflow += `
-                                                <div class="tool-response">
-                                                    <div class="tool-response-label">
-                                                        <span class="tool-icon">✓</span>
-                                                        <strong>Result:</strong>
-                                                    </div>
-                                                    <div class="tool-response-content">${resultContent}</div>
-                                                </div>`;
-                                        }
-                                    }
-                                    
-                                    toolWorkflow += '</div>';
+                                            </div>
+                                        </div>`;                                    
                                 });
+                            } else if (msg.role === 'tool' && msg.type === 'tool_response') {
+                                // format tool response and add it to the workflow
+                                const resultContent = msg.results?.map(r => {
+                                    if (r.content) {
+                                        return r.content.map(c => {
+                                            if (c.type === 'text') return c.text;
+                                            if (c.type === 'image') {
+                                                return `<div class="inline-image-container" style="margin: 8px 0;">
+                                                    <img src="${c.data}" alt="Tool response image" style="max-width: 100%; height: auto; border: 1px solid var(--color-border-default); border-radius: 4px;">
+                                                </div>`;
+                                            }
+                                            return JSON.stringify(c);
+                                        }).join('\n');
+                                    }
+                                    return '';
+                                }).join('\n');
+                                if (resultContent) {
+                                    toolWorkflow += `
+                                        <div class="tool-workflow-item">
+                                            <div class="tool-response">
+                                                <div class="tool-response-label">
+                                                    <span class="tool-icon">✓</span>
+                                                    <strong>${msg.name || 'Tool Response'}</strong>
+                                                </div>
+                                                <div class="tool-response-content">${resultContent}</div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+
+                            } else if (msg.role === 'user' && msg.type === 'user_feedback') {
+                                const resultContent = formatMessageContent(msg.content);
+                                // User feedback, not part of the workflow
+                                toolWorkflow += `
+                                    <div class="tool-workflow-item">
+                                        <div class="user-feedback">
+                                            <strong>User Feedback:</strong> 
+                                            <div class="feedback-content">${resultContent || 'No feedback provided'}</div>
+                                        </div>
+                                    </div>`;
+                            } else if (msg.role === 'user' && msg.type === 'intermediate_request') {
+                                const resultContent = formatMessageContent(msg.content);
+                                // Intermediate user request, not part of the workflow
+                                toolWorkflow += `
+                                    <div class="tool-workflow-item">
+                                        <div class="user-request">
+                                            <strong>Intermediate Request:</strong> 
+                                            <div class="request-content">${resultContent || 'No request provided'}</div>
+                                        </div>
+                                    </div>`;
+                            } else if (msg.role === 'user' && msg.type === 'user_request') {
+                                const resultContent = formatMessageContent(msg.content);
+                                // User request, not part of the workflow
+                                toolWorkflow += `
+                                    <div class="tool-workflow-item">
+                                        <div class="user-request">
+                                            <strong>User Request:</strong> 
+                                            <div class="request-content">${resultContent || 'No request provided'}</div>
+                                        </div>
+                                    </div>`;
                             } else if (msg.role === 'assistant' && msg.type === 'agent_completion') {
                                 // Final assistant message
                                 if (msg.content && msg.content.length > 0) {
@@ -900,6 +1109,35 @@
                     </details>`;
             }
         }
+
+        function formatMessageContent(content) {
+            if (!content || !Array.isArray(content)) return '';
+            
+            return content.map(c => {
+                if (c.type === 'text') {
+                    return c.text;
+                } else if (c.type === 'image') {
+                    return `<div class="inline-image-container">
+                        <img src="${c.data}" alt="Message image">
+                        ${c.mimeType ? `<div class="content-type-indicator">${c.mimeType}</div>` : ''}
+                    </div>`;
+                } else if (c.type === 'audio') {
+                    return `<div class="inline-audio-container">
+                        <audio controls>
+                            <source src="${c.data}" type="${c.mimeType || 'audio/wav'}">
+                            Your browser does not support the audio element.
+                        </audio>
+                        ${c.mimeType ? `<div class="content-type-indicator">${c.mimeType}</div>` : ''}
+                    </div>`;
+                } else if (c.type === 'resource') {
+                    return `<div class="inline-resource-container">
+                        <strong>Resource:</strong> ${c.resource?.uri || 'Unknown resource'}
+                        ${c.resource?.text ? `<pre>${c.resource.text}</pre>` : ''}
+                    </div>`;
+                }
+                return JSON.stringify(c);
+            }).join('');
+        }
         
         function addImageToGallery(imageData) {
             if (!imageData) return;
@@ -928,13 +1166,33 @@
             messageElement.className = 'message ai-message';
             
             const now = new Date();
+            let messageContent = formatResponseMessage(response);
+
+            // Check if response contains SVG content and escape it
+            if (typeof response === 'string' && response.trim().startsWith('<svg')) {
+                messageContent = `
+                    <div class="message-content" style="white-space: pre-wrap; font-family: SFMono-Regular, Consolas, monospace;">
+                        ${response.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                    <details>
+                        <summary>Show details</summary>
+                        <div class="message-metadata">${response.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                    </details>
+                `;
+            } else if (messageContent && messageContent.includes('<svg')) {
+                // Also escape any SVG content in the formatted message content
+                messageContent = messageContent.replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, function(match) {
+                    return `<div class="message-content" style="white-space: pre-wrap; font-family: SFMono-Regular, Consolas, monospace;">${match.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
+                });
+            }
+
             const messageHTML = `
                 <div class="message-header">
                     <span class="message-author">System</span>
                     <span class="message-time">${formatDate(now)}</span>
                 </div>
                 <div class="message-content-container">
-                    ${formatResponseMessage(response)}
+                    ${messageContent}
                 </div>`;
             
             messageElement.innerHTML = messageHTML;

@@ -10,6 +10,7 @@ import {
   ContentType,
   ToolResponseMessage,
   UserFeedbackMessage,
+  IntermediateRequestMessage,
 } from "../types";
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
@@ -23,7 +24,7 @@ import {
 } from "@modelcontextprotocol/sdk/types";
 
 // [TODO] Integrate the max turns for design phase to the pipeline
-const MAX_DESIGN_TURNS = 5;
+const MAX_DESIGN_TURNS = 3;
 
 export class FeedbackAgent extends AgentInstance {
   async run(params: {
@@ -231,11 +232,11 @@ export class FeedbackAgent extends AgentInstance {
       } as ImageContent);
     }
 
-    const feedbackInstruction: UserFeedbackMessage = {
+    const feedbackInstruction: IntermediateRequestMessage = {
       id: randomUUID(),
       timestamp: Date.now(),
       role: RoleType.USER,
-      type: MessageType.USER_FEEDBACK,
+      type: MessageType.INTERMEDIATE_REQUEST,
       content: content,
     };
 

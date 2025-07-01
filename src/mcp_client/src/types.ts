@@ -13,6 +13,7 @@ export enum MessageType {
   SYSTEM = "system",
   USER_REQUEST = "user_request",
   USER_FEEDBACK = "user_feedback",
+  INTERMEDIATE_REQUEST = "intermediate_request",
   AGENT_COMPLETION = "agent_completion",
   AGENT_REQUEST = "agent_request",
   TOOL_RESPONSE = "tool_response",
@@ -67,6 +68,11 @@ export interface AgentRequestMessage extends BaseMessage {
   calls: CallToolRequestParams[];
 }
 
+export interface IntermediateRequestMessage extends BaseMessage {
+  role: RoleType.USER;
+  type: MessageType.INTERMEDIATE_REQUEST;
+}
+
 export interface ToolResponseMessage extends BaseMessage {
   role: RoleType.TOOL;
   type: MessageType.TOOL_RESPONSE;
@@ -79,7 +85,8 @@ export type GenericMessage =
   | UserFeedbackMessage
   | AgentCompletionMessage
   | AgentRequestMessage
-  | ToolResponseMessage;
+  | ToolResponseMessage
+  | IntermediateRequestMessage;
 
 export enum ToolResponseFormat {
   TEXT = "text",
