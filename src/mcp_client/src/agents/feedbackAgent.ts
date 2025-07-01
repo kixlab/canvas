@@ -26,18 +26,13 @@ import {
   getFeedbackPrompt,
 } from "../utils/prompts";
 
-// [TODO] Integrate the max turns for design phase to the pipeline
-const MAX_DESIGN_TURNS = 3;
-
 export class FeedbackAgent extends AgentInstance {
   async run(params: {
     requestMessage: UserRequestMessage;
     tools: Tools;
     model: ModelInstance;
     metadata: AgentMetadata;
-    maxTurns: number;
   }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
-    params.maxTurns = params.maxTurns || 3;
     params.metadata = params.metadata || { input_id: randomUUID() };
 
     const overallHistory: GenericMessage[] = [];
@@ -54,14 +49,14 @@ export class FeedbackAgent extends AgentInstance {
     // Initial user request message
     let currentRequestMessage: UserRequestMessage = params.requestMessage;
 
-    /* --- Feedback Loop ------------------------------------------------ */
-    for (let iteration = 0; iteration < params.maxTurns; iteration++) {
+    /* --- Feedback Loop --------------------------------- */
+    for (let iteration = 0; iteration < params.model.max_turns; iteration++) {
       // (1) Run design
       const designResult = await this.runDesignPhase({
         requestMessage: currentRequestMessage,
         tools: params.tools,
         model: params.model,
-        maxDesignTurns: MAX_DESIGN_TURNS,
+        maxDesignTurns: params.model.max_turns,
       });
 
       console.log(

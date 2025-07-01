@@ -14,6 +14,8 @@ export interface ModelInstance {
   provider: ModelProvider;
   inputCost: number;
   outputCost: number;
+  max_turns: number;
+  max_retries: number;
 
   // Core methods
   generateResponse(messages: any[], options?: any): Promise<any>;

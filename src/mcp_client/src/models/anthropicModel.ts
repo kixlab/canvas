@@ -20,6 +20,8 @@ export class AnthropicModel implements ModelInstance {
   public provider: ModelProvider;
   public inputCost: number;
   public outputCost: number;
+  public max_turns: number;
+  public max_retries: number;
 
   constructor(config: ModelConfig) {
     this.client = new AnthropicBedrock({
@@ -31,6 +33,8 @@ export class AnthropicModel implements ModelInstance {
     this.provider = config.provider;
     this.inputCost = config.input_cost;
     this.outputCost = config.output_cost;
+    this.max_turns = config.max_turns || 100;
+    this.max_retries = config.max_retries || 3;
   }
 
   async generateResponse(

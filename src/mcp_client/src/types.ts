@@ -106,6 +106,8 @@ export interface ModelConfig {
   output_cost: number;
   temperature?: number;
   max_tokens?: number;
+  max_turns?: number;
+  max_retries?: number;
 }
 
 export enum AgentType {

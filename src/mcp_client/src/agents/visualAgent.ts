@@ -46,7 +46,7 @@ export class VisualAgent extends AgentInstance {
     let cost = 0;
 
     // ReAct Loop: Reason -> Act -> Observe
-    while (turn < params.maxTurns) {
+    while (turn < params.model.max_turns) {
       // Reason: Generate response with tools
       const modelResponse = await params.model.generateResponseWithTool(
         apiMessageContext,

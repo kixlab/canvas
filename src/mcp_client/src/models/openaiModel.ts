@@ -21,6 +21,8 @@ export class OpenAIModel implements ModelInstance {
   public provider: ModelProvider;
   public inputCost: number;
   public outputCost: number;
+  public max_turns: number;
+  public max_retries: number;
 
   constructor(config: ModelConfig) {
     this.client = new OpenAI({
@@ -30,6 +32,8 @@ export class OpenAIModel implements ModelInstance {
     this.provider = config.provider;
     this.inputCost = config.input_cost;
     this.outputCost = config.output_cost;
+    this.max_turns = config.max_turns || 100;
+    this.max_retries = config.max_retries || 3;
   }
   formatResponse(response: any[]): GenericMessage[] {
     throw new Error("Method not implemented.");

@@ -92,6 +92,8 @@ export function loadServerConfig(
             max_tokens: 32768,
             input_cost: 0.002,
             output_cost: 0.008,
+            max_turns: 100,
+            max_retries: 3,
           },
         ],
         agent_type: agentType,
