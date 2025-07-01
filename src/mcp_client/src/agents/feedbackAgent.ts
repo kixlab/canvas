@@ -211,25 +211,25 @@ export class FeedbackAgent extends AgentInstance {
       } as ImageContent);
     }
 
-    const feedbackInstruction: IntermediateRequestMessage = {
+    const feedbackRequestMessage: UserRequestMessage = {
       id: randomUUID(),
       timestamp: Date.now(),
       role: RoleType.USER,
-      type: MessageType.INTERMEDIATE_REQUEST,
+      type: MessageType.USER_REQUEST,
       content: content,
     };
 
-    formattedCtx.push(feedbackInstruction);
+    formattedCtx.push(feedbackRequestMessage);
 
-    const formattedFeedbackInput = model.formatRequest([feedbackInstruction]);
-    const feedbackResp = await model.generateResponse(formattedFeedbackInput);
-
+    const feedbackRequestInput = model.formatRequest([feedbackRequestMessage]);
+    const feedbackResp = await model.generateResponse(feedbackRequestInput);
+    const feedbackMessage =
+      model.formatResponseToIntermediateRequestMessage(feedbackResp);
     cost += model.getCostFromResponse(feedbackResp);
-    model.addToFormattedMessageContext(feedbackResp, formattedCtx);
-
-    // grab the assistant’s plain-text reply
-    const lastMsg = formattedCtx[formattedCtx.length - 1];
-    const instructionText = this.extractTextFromContent(lastMsg.content);
+    const instructionText = this.extractTextFromContent(
+      feedbackMessage.content
+    );
+    formattedCtx.push(feedbackMessage);
 
     return {
       history: formattedCtx,

@@ -31,6 +31,8 @@ export interface ModelInstance {
   ): any[];
   formatToolResponse(response: CallToolResult): any;
   formatImageData(imageData: string, mimeType?: string): string;
+  formatResponseToAgentRequestMessage(response: any): GenericMessage;
+  formatResponseToIntermediateRequestMessage(response: any): GenericMessage;
 
   // Context management
   createMessageContext(): any[];

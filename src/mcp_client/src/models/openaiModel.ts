@@ -11,6 +11,7 @@ import {
   AgentRequestMessage,
   RoleType,
   MessageType,
+  IntermediateRequestMessage,
 } from "../types";
 import { ModelInstance } from "./baseModel";
 
@@ -174,6 +175,37 @@ export class OpenAIModel implements ModelInstance {
           strict: false,
         } as OpenAIResponseType.Tool)
     );
+  }
+
+  formatResponseToAgentRequestMessage(
+    response: OpenAIResponseType.Responses.Response
+  ): GenericMessage {
+    const toolRequests = this.formatCallToolRequest(response);
+
+    return {
+      id: response.id,
+      timestamp: response.created_at,
+      type: MessageType.AGENT_REQUEST,
+      role: RoleType.ASSISTANT,
+      content: [
+        { type: ContentType.TEXT, text: (response as any).output_text },
+      ],
+      calls: toolRequests,
+    } as AgentRequestMessage;
+  }
+
+  formatResponseToIntermediateRequestMessage(
+    response: OpenAIResponseType.Responses.Response
+  ): GenericMessage {
+    return {
+      id: response.id,
+      timestamp: response.created_at,
+      type: MessageType.INTERMEDIATE_REQUEST,
+      role: RoleType.USER,
+      content: [
+        { type: ContentType.TEXT, text: (response as any).output_text },
+      ],
+    } as IntermediateRequestMessage;
   }
 
   createMessageContext(): OpenAIResponseType.ResponseInput {
