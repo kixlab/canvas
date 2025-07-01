@@ -11,6 +11,7 @@ import {
   AgentRequestMessage,
   RoleType,
   MessageType,
+  IntermediateRequestMessage,
 } from "../types";
 import { ModelInstance } from "./baseModel";
 
@@ -20,6 +21,8 @@ export class OpenAIModel implements ModelInstance {
   public provider: ModelProvider;
   public inputCost: number;
   public outputCost: number;
+  public max_turns: number;
+  public max_retries: number;
 
   constructor(config: ModelConfig) {
     this.client = new OpenAI({
@@ -29,6 +32,11 @@ export class OpenAIModel implements ModelInstance {
     this.provider = config.provider;
     this.inputCost = config.input_cost;
     this.outputCost = config.output_cost;
+    this.max_turns = config.max_turns || 100;
+    this.max_retries = config.max_retries || 3;
+  }
+  formatResponse(response: any[]): GenericMessage[] {
+    throw new Error("Method not implemented.");
   }
 
   async generateResponse(
@@ -72,6 +80,7 @@ export class OpenAIModel implements ModelInstance {
     return await this.client.responses.create(params);
   }
 
+  // Generic Message -> OpenAI Response Input
   formatRequest(
     messages: GenericMessage[]
   ): OpenAIResponseType.EasyInputMessage[] {
@@ -104,6 +113,7 @@ export class OpenAIModel implements ModelInstance {
     });
   }
 
+  // OpenAI Response -> Call Tool Request
   formatCallToolRequest(
     messages: OpenAIResponseType.Responses.Response
   ): CallToolRequestParams[] {
@@ -128,6 +138,7 @@ export class OpenAIModel implements ModelInstance {
       }));
   }
 
+  // Call Tool Result -> OpenAI Response Item
   formatToolResponse(
     result: CallToolResult
   ): OpenAIResponseType.ResponseInputItem {
@@ -168,6 +179,37 @@ export class OpenAIModel implements ModelInstance {
           strict: false,
         } as OpenAIResponseType.Tool)
     );
+  }
+
+  formatResponseToAgentRequestMessage(
+    response: OpenAIResponseType.Responses.Response
+  ): GenericMessage {
+    const toolRequests = this.formatCallToolRequest(response);
+
+    return {
+      id: response.id,
+      timestamp: response.created_at,
+      type: MessageType.AGENT_REQUEST,
+      role: RoleType.ASSISTANT,
+      content: [
+        { type: ContentType.TEXT, text: (response as any).output_text },
+      ],
+      calls: toolRequests,
+    } as AgentRequestMessage;
+  }
+
+  formatResponseToIntermediateRequestMessage(
+    response: OpenAIResponseType.Responses.Response
+  ): GenericMessage {
+    return {
+      id: response.id,
+      timestamp: response.created_at,
+      type: MessageType.INTERMEDIATE_REQUEST,
+      role: RoleType.USER,
+      content: [
+        { type: ContentType.TEXT, text: (response as any).output_text },
+      ],
+    } as IntermediateRequestMessage;
   }
 
   createMessageContext(): OpenAIResponseType.ResponseInput {

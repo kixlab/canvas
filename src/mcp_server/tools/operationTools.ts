@@ -48,7 +48,7 @@ export function registerOperationTools(server: McpServer) {
       } catch (error) {
         return createErrorResponse({
           error,
-          context: "moving_node",
+          context: "move_node",
         });
       }
     }

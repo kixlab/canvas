@@ -475,7 +475,7 @@ export async function findTextNodes(
           if ('style' in node.fontName) fontStyle = node.fontName.style;
         }
       }
-      const [absX, absY] = getAbsolutePosition(node);
+      const [absX, absY] = getAbsoluteGeometry(node);
 
       const safeTextNode = {
         id: node.id,
@@ -710,7 +710,7 @@ export function getLocalPosition(
   if (!parent) {
     return [x, y];
   }
-  const [parentX, parentY] = getAbsolutePosition(parent);
+  const [parentX, parentY] = getAbsoluteGeometry(parent);
   const localPosition = {
     x: x - parentX,
     y: y - parentY,
@@ -719,21 +719,48 @@ export function getLocalPosition(
   return [localPosition.x, localPosition.y];
 }
 
-export function getAbsolutePosition(node: BaseNode): [number, number] {
-  if (node.type === 'PAGE' || node.type === 'DOCUMENT') {
-    return [0, 0];
+export function getAbsoluteGeometry(
+  node: BaseNode
+): [number, number, number, number] {
+  if (node.type === 'DOCUMENT' || node.type === 'PAGE') {
+    const { width, height } = handlePageGeometry(node);
+    return [0, 0, width, height];
   }
   if ('absoluteBoundingBox' in node && node.absoluteBoundingBox) {
     const x = node.absoluteBoundingBox.x;
     const y = node.absoluteBoundingBox.y;
-    return [x, y];
+    const width = node.absoluteBoundingBox.width;
+    const height = node.absoluteBoundingBox.height;
+    return [x, y, width, height];
   }
-  if ('x' in node && 'y' in node) {
-    return [node.x, node.y];
+  if ('x' in node && 'y' in node && 'width' in node && 'height' in node) {
+    return [node.x, node.y, node.width || 0, node.height || 0];
   }
   throw new Error(
     `Node ${node['id']} does not have absolute position or position properties.`
   );
+}
+
+export function handlePageGeometry(node: BaseNode) {
+  if (node.type !== 'DOCUMENT' && node.type !== 'PAGE') {
+    throw new Error(
+      `handlePageGeometry expects a DOCUMENT or PAGE node (got: ${node.type}).`
+    );
+  }
+
+  let maxX = 0;
+  let maxY = 0;
+
+  const walk = (n: BaseNode): void => {
+    const [x, y, w, h] = getAbsoluteGeometry(n);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
+    if ('children' in n && Array.isArray(n.children)) {
+      n.children.forEach(walk);
+    }
+  };
+  node.children.forEach(walk);
+  return { width: maxX, height: maxY };
 }
 
 export function makeGradientPaint(

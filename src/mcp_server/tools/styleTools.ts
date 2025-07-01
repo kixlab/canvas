@@ -335,7 +335,6 @@ export function registerStyleTools(server: McpServer) {
     }
   );
 
-  /* ────────────  NEW:  set_blend_mode  ──────────── */
   server.tool(
     "set_blend_mode",
     "Set the blend-mode of a node (e.g. MULTIPLY, SCREEN)",

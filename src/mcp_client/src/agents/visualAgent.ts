@@ -12,11 +12,8 @@ import {
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
 import { AgentInstance } from "./baseAgent";
-import { raw } from "express";
 import {
-  AudioContent,
   CallToolResult,
-  EmbeddedResource,
   ImageContent,
   TextContent,
 } from "@modelcontextprotocol/sdk/types";
@@ -49,7 +46,7 @@ export class VisualAgent extends AgentInstance {
     let cost = 0;
 
     // ReAct Loop: Reason -> Act -> Observe
-    while (turn < params.maxTurns) {
+    while (turn < params.model.max_turns) {
       // Reason: Generate response with tools
       const modelResponse = await params.model.generateResponseWithTool(
         apiMessageContext,

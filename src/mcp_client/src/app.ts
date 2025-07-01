@@ -12,7 +12,9 @@ const PORT = process.env.PORT || 3000;
 // Parse CLI arguments
 const args = process.argv.slice(2);
 const agentTypeArg = args.find((arg) => arg.startsWith("--agent_type="));
-const AGENT_TYPE = agentTypeArg ? agentTypeArg.split("=")[1] : AgentType.REACT;
+const AGENT_TYPE = agentTypeArg
+  ? agentTypeArg.split("=")[1]
+  : AgentType.FEEDBACK;
 
 // Validate agent type
 if (!Object.values(AgentType).includes(AGENT_TYPE as any)) {
@@ -62,9 +64,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static files setup
-const publicDir = path.join(__dirname, "../public");
+const publicDir = path.join(__dirname, "./public");
 const staticDir = path.join(publicDir, "static");
 const templatesDir = path.join(publicDir, "templates");
+
+console.log("dirname: ", __dirname);
+console.log(`Public directory: ${publicDir}`);
 
 // Ensure directories exist
 fs.mkdirSync(staticDir, { recursive: true });

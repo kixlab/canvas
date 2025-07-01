@@ -20,6 +20,8 @@ export class AnthropicModel implements ModelInstance {
   public provider: ModelProvider;
   public inputCost: number;
   public outputCost: number;
+  public max_turns: number;
+  public max_retries: number;
 
   constructor(config: ModelConfig) {
     this.client = new AnthropicBedrock({
@@ -31,6 +33,8 @@ export class AnthropicModel implements ModelInstance {
     this.provider = config.provider;
     this.inputCost = config.input_cost;
     this.outputCost = config.output_cost;
+    this.max_turns = config.max_turns || 100;
+    this.max_retries = config.max_retries || 3;
   }
 
   async generateResponse(
@@ -156,6 +160,46 @@ export class AnthropicModel implements ModelInstance {
         required: [],
       },
     }));
+  }
+
+  formatResponseToAgentRequestMessage(response: any): GenericMessage {
+    if (!response || !response.content) {
+      throw new Error("Invalid response format");
+    }
+
+    const textContent = response.content
+      .filter((c: any) => c.type === "text")
+      .map((c: any) => c.text)
+      .join("\n");
+
+    return {
+      id: response.id,
+      timestamp: Date.now(),
+      type: MessageType.AGENT_REQUEST,
+      role: RoleType.ASSISTANT,
+      content: [{ type: ContentType.TEXT, text: textContent }],
+      calls: this.formatCallToolRequest(response),
+    } as AgentRequestMessage;
+  }
+
+  formatResponseToIntermediateRequestMessage(
+    response: AnthropicMessageType.Messages.Message
+  ): GenericMessage {
+    if (!response || !response.content) {
+      throw new Error("Invalid response format");
+    }
+    const textContent = response.content
+      .filter((c: any) => c.type === "text")
+      .map((c: any) => c.text)
+      .join("\n");
+
+    return {
+      id: response.id,
+      timestamp: Date.now(),
+      type: MessageType.INTERMEDIATE_REQUEST,
+      role: RoleType.USER,
+      content: [{ type: ContentType.TEXT, text: textContent }],
+    } as GenericMessage;
   }
 
   createMessageContext(): AnthropicMessageType.MessageParam[] {

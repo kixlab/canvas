@@ -21,7 +21,6 @@ export class ReactAgent extends AgentInstance {
     maxTurns: number;
   }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
     // initialize the maxTurns
-    params.maxTurns = params.maxTurns || 100;
     params.metadata = params.metadata || {
       input_id: randomUUID(),
     };
@@ -40,7 +39,7 @@ export class ReactAgent extends AgentInstance {
     let cost = 0;
 
     // ReAct Loop: Reason -> Act -> Observe
-    while (turn < params.maxTurns) {
+    while (turn < params.model.max_turns) {
       // Reason: Generate response with tools
       const modelResponse = await params.model.generateResponseWithTool(
         apiMessageContext,

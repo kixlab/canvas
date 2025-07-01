@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CXI MCP Server Interface</title>
+    <title>Canvas MCP Client Debug Interface</title>
     <style>
         /* Color variables */
         :root {
@@ -119,15 +119,19 @@
             background-color: var(--color-canvas-subtle);
             border-bottom: 1px solid var(--color-border-default);
             padding: 0;
+            overflow-x: auto;
         }
         
         .task-type-option {
             flex: 1;
+            min-width: 120px;
             padding: 10px 16px;
             text-align: center;
             cursor: pointer;
             border-bottom: 3px solid transparent;
             font-weight: 500;
+            font-size: 12px;
+            white-space: nowrap;
         }
         
         .task-type-option.active {
@@ -341,6 +345,39 @@
             margin-left: 16px;
         }
         
+        .tool-call-label, .tool-response-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        
+        .tool-call-content, .tool-response-content {
+            font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+            font-size: 12px;
+            background-color: var(--color-canvas-default);
+            padding: 8px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        
+        .cost-info {
+            background-color: var(--color-canvas-subtle);
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: var(--color-fg-muted);
+        }
+        
+        .error-message {
+            color: var(--color-danger-fg);
+            background-color: rgba(207, 34, 46, 0.1);
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid var(--color-danger-fg);
+        }
+        
         /* Debug tools */
         .debug-tools {
             padding: 16px;
@@ -457,13 +494,187 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* Message content formatting */
+        .inline-image-container {
+            margin: 8px 0;
+            text-align: center;
+        }
+
+        .inline-image-container img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid var(--color-border-default);
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .inline-audio-container {
+            margin: 8px 0;
+        }
+
+        .inline-audio-container audio {
+            max-width: 100%;
+            width: 300px;
+        }
+
+        .inline-resource-container {
+            margin: 8px 0;
+            padding: 8px;
+            background-color: var(--color-canvas-subtle);
+            border-radius: 4px;
+            border: 1px solid var(--color-border-muted);
+        }
+
+        .inline-resource-container pre {
+            margin: 4px 0 0 0;
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--color-fg-muted);
+            background-color: var(--color-canvas-default);
+            padding: 4px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+
+        /* User feedback and request styling */
+        .user-feedback, .user-request {
+            background-color: var(--color-canvas-subtle);
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border-muted);
+        }
+
+        .user-feedback {
+            border-left: 3px solid #8250df; /* Purple for feedback */
+        }
+
+        .user-request {
+            border-left: 3px solid var(--color-accent-emphasis); /* Blue for requests */
+        }
+
+        .feedback-content, .request-content {
+            margin-top: 4px;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+
+        /* Conversation workflow styling */
+        .conversation-workflow {
+            margin-bottom: 16px;
+        }
+
+        .conversation-workflow h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-fg-muted);
+            border-bottom: 1px solid var(--color-border-muted);
+            padding-bottom: 4px;
+        }
+
+        /* Enhanced tool workflow styling */
+        .tool-workflow-item {
+            margin-bottom: 12px;
+            border-left: 2px solid var(--color-border-muted);
+            padding-left: 12px;
+            position: relative;
+        }
+
+        .tool-workflow-item::before {
+            content: '';
+            position: absolute;
+            left: -4px;
+            top: 8px;
+            width: 6px;
+            height: 6px;
+            background-color: var(--color-border-muted);
+            border-radius: 50%;
+        }
+
+        .tool-call, .tool-response, .user-feedback, .user-request {
+            margin: 6px 0;
+            border-radius: 6px;
+        }
+
+        .tool-call {
+            background-color: rgba(9, 105, 218, 0.08);
+            border: 1px solid rgba(9, 105, 218, 0.2);
+            padding: 8px 10px;
+        }
+
+        .tool-response {
+            background-color: rgba(26, 127, 55, 0.08);
+            border: 1px solid rgba(26, 127, 55, 0.2);
+            margin-left: 16px;
+            padding: 8px 10px;
+        }
+
+        .tool-call-label, .tool-response-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .tool-icon {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .tool-call-content, .tool-response-content {
+            font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+            font-size: 12px;
+            background-color: var(--color-canvas-default);
+            padding: 8px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid var(--color-border-default);
+        }
+
+        .tool-response-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            margin: 4px 0;
+        }
+
+        /* Content type indicators */
+        .content-type-indicator {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 6px;
+            background-color: var(--color-canvas-subtle);
+            color: var(--color-fg-muted);
+            border-radius: 3px;
+            margin-top: 4px;
+            font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+        }
+
+        /* Responsive image gallery enhancements */
+        @media (max-width: 768px) {
+            .inline-image-container img {
+                max-width: 100%;
+            }
+            
+            .gallery-image {
+                width: 100% !important;
+            }
+            
+            .tool-response {
+                margin-left: 8px;
+            }
+        }
+
     </style>
 </head>
 <body>
     <div class="container">
         <div class="main-panel">
             <header>
-                <h1>CXI MCP Server Interface</h1>
+                <h1>Canvas MCP Client Debug Interface</h1>
             </header>
             
             <div class="task-container">
@@ -530,8 +741,7 @@
         </div>
         
         <div class="sidebar-panel">
-            <h2>Debug Tools</h2>
-        
+            <h2>Tools & Debug</h2>
             <!-- Channel Selector Panel -->
             <div class="debug-tool-panel">
                 <h3>Channel Selector</h3>
@@ -557,6 +767,7 @@
                     <button id="get-selection" class="button">Get Selection</button>
                     <button id="create-frame" class="button">Create Root Frame</button>
                     <button id="create-text" class="button">Create Text in Root Frame</button>
+                    <button id="delete-all-nodes" class="button" style="background-color: var(--color-danger-fg); color: white;">Delete All Nodes</button>
                 </div>
                 
                 <div id="frame-params" style="display: none;">
@@ -584,6 +795,14 @@
                         </div>
                         <button type="submit" class="button primary">Create</button>
                     </form>
+                </div>
+                
+                <div id="delete-nodes-section" style="display: none; margin-top: 16px;">
+                    <h4>Delete Specific Nodes</h4>
+                    <div class="form-group">
+                        <textarea id="node-ids-input" class="task-input" placeholder="Enter node IDs (one per line or comma-separated)" rows="3"></textarea>
+                        <button id="delete-specific-nodes" class="button" style="background-color: var(--color-danger-fg); color: white;">Delete Selected Nodes</button>
+                    </div>
                 </div>
             </div>
             
@@ -725,101 +944,170 @@
             if (!response) return '<div class="error-message">Empty response received</div>';
             
             try {
-                // Process json_response format
-                if (response.json_response) {
-                    const messages = response.json_response.messages || [];
-                    let finalMessage = "";
-                    let toolCalls = [];
-                    let toolResponses = [];
+                // Handle the new server response format
+                if (response.status === 'success' && response.payload) {
+                    let formattedMessage = "";
                     
-                    // Extract tool calls and final message
-                    messages.forEach(msg => {
-                        if (msg.role === 'assistant') {
-                            // Get content
-                            const content = msg.content?.data?.content || '';
-                            if (content && content.trim() !== '') finalMessage = content;
-                            
-                            // Get tool calls
-                            if (msg.content?.data?.tool_calls?.length > 0) {
-                                msg.content.data.tool_calls.forEach(tool => {
-                                    toolCalls.push({
-                                        id: tool.id,
-                                        name: tool.name,
-                                        args: tool.args
-                                    });
-                                });
-                            }
-                        }
-                        
-                        if (msg.role === 'tool') {
-                            const toolContent = msg.content?.data?.content || '';
-                            const toolName = msg.content?.data?.name || '';
-                            const toolCallId = msg.content?.data?.tool_call_id || '';
-                            
-                            if (toolContent && toolName) {
-                                toolResponses.push({
-                                    id: toolCallId,
-                                    name: toolName,
-                                    content: toolContent
-                                });
-                            }
-                        }
-                    });
-                    
-                    // Build workflow visualization
-                    let conversationFlow = "";
-                    if (toolCalls.length > 0) {
-                        conversationFlow = '<div class="conversation-workflow"><h3>Actions Performed</h3>';
-                        
-                        toolCalls.forEach(tool => {
-                            conversationFlow += `
-                                <div class="tool-workflow-item">
-                                    <div class="tool-call">
-                                        <div class="tool-call-label">
-                                            <span class="tool-icon">⚙️</span>
-                                            <strong>${tool.name}</strong>
-                                        </div>
-                                        <div class="tool-call-content">
-                                            <pre>${JSON.stringify(tool.args, null, 2)}</pre>
-                                        </div>
-                                    </div>`;
-                            
-                            // Find matching response
-                            const response = toolResponses.find(r => r.id === tool.id);
-                            if (response) {
-                                conversationFlow += `
-                                    <div class="tool-response">
-                                        <div class="tool-response-label">
-                                            <span class="tool-icon">✓</span>
-                                            <strong>${response.name} Result:</strong>
-                                        </div>
-                                        <div class="tool-response-content">${response.content}</div>
-                                    </div>`;
-                            }
-                            
-                            conversationFlow += '</div>';
-                        });
-                        
-                        conversationFlow += '</div>';
+                    // Display cost information if available
+                    if (response.payload.cost) {
+                        formattedMessage += `<div class="cost-info" style="background-color: var(--color-canvas-subtle); padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 12px;">
+                            💰 Cost: $${response.payload.cost.toFixed(6)}
+                        </div>`;
                     }
                     
-                    // Return formatted message
+                    // Process history for tool workflow
+                    if (response.payload.history && Array.isArray(response.payload.history)) {
+                        const history = response.payload.history;
+                        let toolWorkflow = "";
+                        let finalMessage = "";
+                        
+                        history.forEach((msg, index) => {
+                            if (msg.role === 'assistant' && msg.type === 'agent_request' && msg.calls) {
+                                // Tool calls
+                                msg.calls.forEach(call => {
+                                    toolWorkflow += `
+                                        <div class="tool-workflow-item">
+                                            <div class="tool-call">
+                                                <div class="tool-call-label">
+                                                    <span class="tool-icon">⚙️</span>
+                                                    <strong>${call.name}</strong>
+                                                </div>
+                                                <div class="tool-call-content">
+                                                    <pre>${JSON.stringify(call.arguments, null, 2)}</pre>
+                                                </div>
+                                            </div>
+                                        </div>`;                                    
+                                });
+                            } else if (msg.role === 'tool' && msg.type === 'tool_response') {
+                                // format tool response and add it to the workflow
+                                const resultContent = msg.results?.map(r => {
+                                    if (r.content) {
+                                        let content = r.content.map(c => {
+                                            if (c.type === 'text') return c.text;
+                                            if (c.type === 'image') {
+                                                return `<div class="inline-image-container" style="margin: 8px 0;">
+                                                    <img src="${c.data}" alt="Tool response image" style="max-width: 100%; height: auto; border: 1px solid var(--color-border-default); border-radius: 4px;">
+                                                </div>`;
+                                            }
+                                            return JSON.stringify(c);
+                                        }).join('\n');
+                                        
+                                        // Add expandable section for structured content if it exists
+                                        if (r.structuredContent) {
+                                            content += `
+                                                <details style="margin-top: 8px;">
+                                                    <summary style="cursor: pointer; color: var(--color-fg-muted); font-size: 12px;">Show structured content</summary>
+                                                    <div class="message-metadata" style="margin-top: 4px;">${JSON.stringify(r.structuredContent, null, 2)}</div>
+                                                </details>`;
+                                        }
+                                        
+                                        return content;
+                                    }
+                                    return '';
+                                }).join('\n');
+                                if (resultContent) {
+                                    toolWorkflow += `
+                                        <div class="tool-workflow-item">
+                                            <div class="tool-response">
+                                                <div class="tool-response-label">
+                                                    <span class="tool-icon">✓</span>
+                                                    <strong>${msg.name || 'Tool Response'}</strong>
+                                                </div>
+                                                <div class="tool-response-content">${resultContent}</div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+
+                            } else if (msg.role === 'user' && msg.type === 'user_feedback') {
+                                const resultContent = formatMessageContent(msg.content);
+                                // User feedback, not part of the workflow
+                                toolWorkflow += `
+                                    <div class="tool-workflow-item">
+                                        <div class="user-feedback">
+                                            <strong>User Feedback:</strong> 
+                                            <div class="feedback-content">${resultContent || 'No feedback provided'}</div>
+                                        </div>
+                                    </div>`;
+                            } else if (msg.role === 'user' && msg.type === 'intermediate_request') {
+                                const resultContent = formatMessageContent(msg.content);
+                                // Intermediate user request, not part of the workflow
+                                toolWorkflow += `
+                                    <div class="tool-workflow-item">
+                                        <div class="user-request">
+                                            <strong>Intermediate Request:</strong> 
+                                            <div class="request-content">${resultContent || 'No request provided'}</div>
+                                        </div>
+                                    </div>`;
+                            } else if (msg.role === 'user' && msg.type === 'user_request') {
+                                const resultContent = formatMessageContent(msg.content);
+                                // User request, not part of the workflow
+                                toolWorkflow += `
+                                    <div class="tool-workflow-item">
+                                        <div class="user-request">
+                                            <strong>User Request:</strong> 
+                                            <div class="request-content">${resultContent || 'No request provided'}</div>
+                                        </div>
+                                    </div>`;
+                            } else if (msg.role === 'assistant' && msg.type === 'agent_completion') {
+                                // Final assistant message
+                                if (msg.content && msg.content.length > 0) {
+                                    const textContent = msg.content.find(c => c.type === 'text');
+                                    if (textContent) {
+                                        finalMessage = textContent.text;
+                                    }
+                                }
+                            }
+                        });
+                        
+                        if (toolWorkflow) {
+                            formattedMessage += `<div class="conversation-workflow"><h3>Actions Performed</h3>${toolWorkflow}</div>`;
+                        }
+                        
+                        if (finalMessage) {
+                            formattedMessage += `<div class="message-content">${finalMessage}</div>`;
+                        }
+                    }
+                    
+                    // Add details section
+                    formattedMessage += `
+                        <details style="margin-top: 16px;">
+                            <summary>Show details</summary>
+                            <div class="message-metadata">${JSON.stringify(response, null, 2)}</div>
+                        </details>`;
+                    
+                    return formattedMessage;
+                }
+                
+                // Handle error responses
+                if (response.status === 'error') {
                     return `
-                        ${finalMessage ? `<div class="message-content">${finalMessage}</div>` : ''}
-                        ${conversationFlow}
+                        <div class="error-message" style="color: var(--color-danger-fg); background-color: rgba(207, 34, 46, 0.1); padding: 12px; border-radius: 6px;">
+                            ❌ Error: ${response.message || 'Unknown error'}
+                        </div>
                         <details>
                             <summary>Show details</summary>
                             <div class="message-metadata">${JSON.stringify(response, null, 2)}</div>
                         </details>`;
                 }
                 
-                // Fallback for other formats
-                const { content, fullResponse } = extractAIContent(response);
+                // Fallback for legacy format
+                if (response.json_response || response.response) {
+                    const { content, fullResponse } = extractAIContent(response);
+                    return `
+                        <div class="message-content">${content || "No message content"}</div>
+                        <details>
+                            <summary>Show details</summary>
+                            <div class="message-metadata">${JSON.stringify(fullResponse, null, 2)}</div>
+                        </details>`;
+                }
+                
+                // Final fallback
                 return `
-                    <div class="message-content">${content || "No message content"}</div>
+                    <div class="message-content">${typeof response === 'string' ? response : JSON.stringify(response)}</div>
                     <details>
                         <summary>Show details</summary>
-                        <div class="message-metadata">${JSON.stringify(fullResponse, null, 2)}</div>
+                        <div class="message-metadata">${JSON.stringify(response, null, 2)}</div>
                     </details>`;
                 
             } catch (e) {
@@ -831,6 +1119,35 @@
                         <div class="message-metadata">${JSON.stringify(response, null, 2)}</div>
                     </details>`;
             }
+        }
+
+        function formatMessageContent(content) {
+            if (!content || !Array.isArray(content)) return '';
+            
+            return content.map(c => {
+            if (c.type === 'text') {
+                return c.text.replace(/\n/g, '<br>');
+            } else if (c.type === 'image') {
+                return `<div class="inline-image-container">
+                <img src="${c.data}" alt="Message image">
+                ${c.mimeType ? `<div class="content-type-indicator">${c.mimeType}</div>` : ''}
+                </div>`;
+            } else if (c.type === 'audio') {
+                return `<div class="inline-audio-container">
+                <audio controls>
+                    <source src="${c.data}" type="${c.mimeType || 'audio/wav'}">
+                    Your browser does not support the audio element.
+                </audio>
+                ${c.mimeType ? `<div class="content-type-indicator">${c.mimeType}</div>` : ''}
+                </div>`;
+            } else if (c.type === 'resource') {
+                return `<div class="inline-resource-container">
+                <strong>Resource:</strong> ${c.resource?.uri || 'Unknown resource'}
+                ${c.resource?.text ? `<pre>${c.resource.text}</pre>` : ''}
+                </div>`;
+            }
+            return JSON.stringify(c);
+            }).join('');
         }
         
         function addImageToGallery(imageData) {
@@ -860,13 +1177,33 @@
             messageElement.className = 'message ai-message';
             
             const now = new Date();
+            let messageContent = formatResponseMessage(response);
+
+            // Check if response contains SVG content and escape it
+            if (typeof response === 'string' && response.trim().startsWith('<svg')) {
+                messageContent = `
+                    <div class="message-content" style="white-space: pre-wrap; font-family: SFMono-Regular, Consolas, monospace;">
+                        ${response.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                    <details>
+                        <summary>Show details</summary>
+                        <div class="message-metadata">${response.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                    </details>
+                `;
+            } else if (messageContent && messageContent.includes('<svg')) {
+                // Also escape any SVG content in the formatted message content
+                messageContent = messageContent.replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, function(match) {
+                    return `<div class="message-content" style="white-space: pre-wrap; font-family: SFMono-Regular, Consolas, monospace;">${match.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
+                });
+            }
+
             const messageHTML = `
                 <div class="message-header">
                     <span class="message-author">System</span>
                     <span class="message-time">${formatDate(now)}</span>
                 </div>
                 <div class="message-content-container">
-                    ${formatResponseMessage(response)}
+                    ${messageContent}
                 </div>`;
             
             messageElement.innerHTML = messageHTML;
@@ -876,7 +1213,21 @@
             resultContainer.appendChild(messageElement);
             resultContainer.scrollTop = 0;
             
-            // Process images in AI responses
+            // Handle images from response
+            if (response && response.payload && response.payload.responses) {
+                const responses = response.payload.responses;
+                responses.forEach(resp => {
+                    if (resp && resp.json_response && resp.json_response.images) {
+                        resp.json_response.images.forEach(img => {
+                            if (img && img.data && !img.data.startsWith('base64_uris')) {
+                                addImageToGallery(img.data);
+                            }
+                        });
+                    }
+                });
+            }
+            
+            // Legacy image handling
             const { images } = extractAIContent(response);
             if (images && images.length > 0) {
                 images.forEach(img => {
@@ -900,6 +1251,7 @@
                 
                 const data = await response.json();
                 log("Channel list:", data);
+
                 
                 // Update channel dropdown
                 const channelSelect = document.getElementById('channel-select');
@@ -912,8 +1264,11 @@
                 channelSelect.appendChild(placeholderOption);
                 
                 // Add channel options
-                if (data.status === 'success' && data.available_channels) {
-                    data.available_channels.forEach(channel => {
+                if (data.status === 'success' && data.payload.available_channels) {
+                    const availableChannels = data.payload.available_channels || [];
+                    const currentChannel = data.payload.current_channel || 'None';
+
+                    availableChannels.forEach(channel => {
                         const option = document.createElement('option');
                         option.value = channel;
                         option.textContent = channel;
@@ -921,11 +1276,11 @@
                     });
                     
                     // Update current channel display
-                    if (data.current_channel && data.current_channel !== 'None') {
-                        document.getElementById('current-channel-display').textContent = data.current_channel;
+                    if (currentChannel && currentChannel !== 'None') {
+                        document.getElementById('current-channel-display').textContent = currentChannel;
                         // Select the current channel in dropdown
                         Array.from(channelSelect.options).forEach(option => {
-                            if (option.value === data.current_channel) {
+                            if (option.value === currentChannel) {
                                 option.selected = true;
                             }
                         });
@@ -1049,7 +1404,7 @@
                 displayTaskResult(data);
             } catch (error) {
                 console.error("Request error:", error);
-                displayTaskResult({ response: `Error: ${error.message}` });
+                displayTaskResult({ status: 'error', message: error.message });
             } finally {
                 resetButton(submitButton);
             }
@@ -1084,7 +1439,7 @@
                 displayTaskResult(data);
             } catch (error) {
                 console.error("Request error:", error);
-                displayTaskResult({ response: `Error: ${error.message}` });
+                displayTaskResult({ status: 'error', message: error.message });
             } finally {
                 resetButton(submitButton);
             }
@@ -1121,12 +1476,12 @@
                 displayTaskResult(data);
             } catch (error) {
                 console.error("Request error:", error);
-                displayTaskResult({ response: `Error: ${error.message}` });
+                displayTaskResult({ status: 'error', message: error.message });
             } finally {
                 resetButton(submitButton);
             }
         });
-        
+    
         // Debug tools handlers
         document.getElementById('get-selection').addEventListener('click', async (e) => {
             const button = e.target;
@@ -1200,6 +1555,92 @@
                 document.getElementById('tool-results').textContent = `Error: ${error.message}`;
             } finally {
                 resetButton(button, 'Create Text in Root Frame');
+            }
+        });
+        
+        // Delete all nodes handler
+        document.getElementById('delete-all-nodes').addEventListener('click', async (e) => {
+            const button = e.target;
+            
+            // Confirm deletion
+            if (!confirm('Are you sure you want to delete ALL nodes in the canvas? This action cannot be undone.')) {
+                return;
+            }
+            
+            showLoading(button);
+            
+            try {
+                const response = await fetch('/tool/delete_all_top_level_nodes', { method: 'POST' });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Delete All Nodes');
+            }
+        });
+        
+        // Toggle delete nodes section
+        document.getElementById('delete-all-nodes').addEventListener('dblclick', () => {
+            const deleteSection = document.getElementById('delete-nodes-section');
+            deleteSection.style.display = deleteSection.style.display === 'none' ? 'block' : 'none';
+        });
+        
+        // Delete specific nodes handler
+        document.getElementById('delete-specific-nodes').addEventListener('click', async (e) => {
+            const button = e.target;
+            const nodeIdsText = document.getElementById('node-ids-input').value;
+            
+            if (!nodeIdsText.trim()) {
+                alert('Please enter node IDs to delete');
+                return;
+            }
+            
+            // Parse node IDs (support both comma-separated and line-separated)
+            const nodeIds = nodeIdsText
+                .split(/[,\n]/)
+                .map(id => id.trim())
+                .filter(id => id.length > 0);
+            
+            if (nodeIds.length === 0) {
+                alert('No valid node IDs found');
+                return;
+            }
+            
+            // Confirm deletion
+            if (!confirm(`Are you sure you want to delete ${nodeIds.length} node(s)? This action cannot be undone.`)) {
+                return;
+            }
+            
+            showLoading(button);
+            
+            try {
+                const response = await fetch('/tool/delete_multiple_nodes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node_ids: nodeIds }),
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+                
+                // Clear the input if successful
+                if (data.status === 'success') {
+                    document.getElementById('node-ids-input').value = '';
+                }
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Delete Selected Nodes');
             }
         });
         

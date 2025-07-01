@@ -14,6 +14,8 @@ export interface ModelInstance {
   provider: ModelProvider;
   inputCost: number;
   outputCost: number;
+  max_turns: number;
+  max_retries: number;
 
   // Core methods
   generateResponse(messages: any[], options?: any): Promise<any>;
@@ -31,6 +33,8 @@ export interface ModelInstance {
   ): any[];
   formatToolResponse(response: CallToolResult): any;
   formatImageData(imageData: string, mimeType?: string): string;
+  formatResponseToAgentRequestMessage(response: any): GenericMessage;
+  formatResponseToIntermediateRequestMessage(response: any): GenericMessage;
 
   // Context management
   createMessageContext(): any[];
