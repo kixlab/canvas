@@ -7,10 +7,12 @@ import {
   ServerConfig,
   ResponseStatus,
   ContentType,
+  CallToolRequestParams,
 } from "../types";
 import { AgentType } from "../types";
 import { Tools } from "../core/tools";
 import { randomUUID } from "crypto";
+import { Image } from "@napi-rs/canvas";
 
 // Utility functions for the MCP client
 
@@ -127,7 +129,7 @@ export const intializeRootFrame = async (
         if (content.type === ContentType.IMAGE) {
           const image = content.data;
           const img = new Image();
-          img.src = `data:image/png;base64,${image}`;
+          img.src = `data:${content.mimeType};base64,${image}`;
           img.onload = () => {
             canvasWidth = img.width;
             canvasHeight = img.height;
@@ -168,5 +170,27 @@ export const intializeRootFrame = async (
     throw new Error(
       `Error initializing root frame: ${(error as Error).message}`
     );
+  }
+};
+
+export const switchParentId = ({
+  tools,
+  callToolRequests,
+  rootFrameId,
+}: {
+  tools: Tools;
+  callToolRequests: CallToolRequestParams[];
+  rootFrameId: string;
+}) => {
+  for (const toolCall of callToolRequests) {
+    const toolArguments = toolCall.arguments || {};
+    const hasParentId = tools.catalogue
+      .get(toolCall.name)
+      ?.inputSchema.properties!.hasOwnProperty("parentId");
+
+    // Root Frame Insertion
+    if (hasParentId && !toolArguments.parentId) {
+      toolArguments["parentId"] = rootFrameId;
+    }
   }
 };

@@ -11,7 +11,7 @@ import {
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
 import { AgentInstance } from "./baseAgent";
-import { intializeRootFrame } from "../utils/helpers";
+import { switchParentId, intializeRootFrame } from "../utils/helpers";
 
 export class ReactAgent extends AgentInstance {
   async run(params: {
@@ -71,6 +71,12 @@ export class ReactAgent extends AgentInstance {
         console.log("No tool calls detected. Exiting ReAct loop.");
         break;
       }
+
+      switchParentId({
+        tools: params.tools,
+        callToolRequests,
+        rootFrameId,
+      });
 
       // Act: Execute tool calls
       const toolResults = [];
