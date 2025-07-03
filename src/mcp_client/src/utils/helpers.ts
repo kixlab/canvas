@@ -229,8 +229,6 @@ export const switchParentId = async ({
       const parentType = elementTypes.get(parentId);
       let warning: string | null = null;
 
-      console.log(parentType);
-
       if (!parentType) {
         warning = `parentId ${parentId} does not exist in the structure tree.`;
       } else if (!CORRECT_PARENT_TYPES.includes(parentType)) {

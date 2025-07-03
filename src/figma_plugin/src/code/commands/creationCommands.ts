@@ -1,5 +1,6 @@
 import {
   getAbsoluteGeometry,
+  getFontStyle,
   getLocalPosition,
   makeSolidPaint,
 } from '../utils';
@@ -193,6 +194,8 @@ export async function createText(params: {
   y: number;
   text: string;
   name: string;
+  width: number;
+  height: number;
   fontSize?: number;
   fontWeight?: number;
   fontColor?: any;
@@ -203,65 +206,38 @@ export async function createText(params: {
     y,
     text,
     name,
+    width,
+    height,
     fontSize = 14,
     fontWeight = 400,
-    fontColor = { r: 0, g: 0, b: 0, a: 1 }, // Default to black
+    fontColor = { r: 0, g: 0, b: 0, a: 1 },
     parentId,
-  } = params || {};
+  } = params;
 
-  // Map common font weights to Figma font styles
-  const getFontStyle = (weight: number) => {
-    switch (weight) {
-      case 100:
-        return 'Thin';
-      case 200:
-        return 'Extra Light';
-      case 300:
-        return 'Light';
-      case 400:
-        return 'Regular';
-      case 500:
-        return 'Medium';
-      case 600:
-        return 'Semi Bold';
-      case 700:
-        return 'Bold';
-      case 800:
-        return 'Extra Bold';
-      case 900:
-        return 'Black';
-      default:
-        return 'Regular';
-    }
-  };
-
+  // ---- create and style the text node ----
   const textNode = figma.createText();
   textNode.x = x;
   textNode.y = y;
   textNode.name = name || text;
-  try {
-    await figma.loadFontAsync({
-      family: 'Inter',
-      style: getFontStyle(fontWeight),
-    });
-    textNode.fontName = { family: 'Inter', style: getFontStyle(fontWeight) };
-    textNode.fontSize =
-      typeof fontSize === 'string' ? parseInt(fontSize) : fontSize;
-  } catch (error) {
-    console.error('Error setting font size', error);
-  }
+
+  // load font + set size/weight (unchanged) …
+  await figma.loadFontAsync({
+    family: 'Inter',
+    style: getFontStyle(fontWeight),
+  });
+  textNode.fontName = { family: 'Inter', style: getFontStyle(fontWeight) };
+  textNode.fontSize = fontSize;
+
   textNode.characters = text;
+  textNode.fills = [makeSolidPaint(fontColor)];
 
-  // Set text color
-  const paintStyle = makeSolidPaint(fontColor);
-  textNode.fills = [paintStyle];
+  textNode.textAutoResize = 'NONE'; // must be NONE before manual resize
+  textNode.resize(width, height);
 
-  // If parentId is provided, append to that node, otherwise append to current page
   if (parentId) {
     const parentNode = await figma.getNodeByIdAsync(parentId);
-    if (!parentNode) {
+    if (!parentNode)
       throw new Error(`Parent node not found with ID: ${parentId}`);
-    }
     if (hasAppendChild(parentNode)) {
       parentNode.appendChild(textNode);
       const [localX, localY] = getLocalPosition(
@@ -278,6 +254,7 @@ export async function createText(params: {
     figma.currentPage.appendChild(textNode);
   }
 
+  // ---- return payload ----
   const [newX, newY] = getAbsoluteGeometry(textNode as SceneNode);
 
   return {
@@ -285,18 +262,17 @@ export async function createText(params: {
     name: textNode.name,
     x: newX,
     y: newY,
-    width: textNode.width,
-    height: textNode.height,
+    width: textNode.width, // will match requested width
+    height: textNode.height, // will match requested height
     characters: textNode.characters,
     fontSize: textNode.fontSize,
-    fontWeight: fontWeight,
-    fontColor: fontColor,
+    fontWeight,
+    fontColor,
     fontName: textNode.fontName,
     fills: textNode.fills,
     parentId: textNode.parent ? textNode.parent.id : undefined,
   };
 }
-
 export async function createGraphic(params: {
   svg: string;
   name: string;

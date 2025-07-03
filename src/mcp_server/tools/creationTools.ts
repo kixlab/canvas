@@ -209,6 +209,8 @@ export function registerCreationTools(server: McpServer) {
       y: z.number().describe("Y position"),
       text: z.string().describe("Text content"),
       name: z.string().describe("Semantic element name for the text node"),
+      width: z.number().describe("Width of the text node"),
+      height: z.number().describe("Height of the text node"),
       fontSize: z.number().optional().describe("Font size (default: 14)"),
       fontWeight: z
         .number()
@@ -235,7 +237,18 @@ export function registerCreationTools(server: McpServer) {
           "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID to append the text to"
         ),
     },
-    async ({ x, y, text, fontSize, fontWeight, fontColor, name, parentId }) => {
+    async ({
+      x,
+      y,
+      width,
+      height,
+      text,
+      fontSize,
+      fontWeight,
+      fontColor,
+      name,
+      parentId,
+    }) => {
       try {
         const result = await sendCommandToFigma("create_text", {
           x,
@@ -245,6 +258,8 @@ export function registerCreationTools(server: McpServer) {
           fontWeight: fontWeight || 400,
           fontColor: fontColor || { r: 0, g: 0, b: 0, a: 1 },
           name: name || "Text",
+          width,
+          height,
           parentId,
         });
         const typedResult = result as { name: string; id: string };
