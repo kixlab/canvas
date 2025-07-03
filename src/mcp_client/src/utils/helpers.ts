@@ -1,8 +1,16 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "yaml";
-import { GenericMessage, ModelProvider, ServerConfig } from "../types";
+import {
+  UserRequestMessage,
+  ModelProvider,
+  ServerConfig,
+  ResponseStatus,
+  ContentType,
+} from "../types";
 import { AgentType } from "../types";
+import { Tools } from "../core/tools";
+import { randomUUID } from "crypto";
 
 // Utility functions for the MCP client
 
@@ -101,3 +109,64 @@ export function loadServerConfig(
     }
   }
 }
+
+///////////////////
+// Agent Handler //
+///////////////////
+
+export const intializeRootFrame = async (
+  requestMessage: UserRequestMessage,
+  tools: Tools
+) => {
+  try {
+    let canvasWidth = 393; // Default canvas width
+    let canvasHeight = 852; // Default canvas height
+
+    if (requestMessage.content.length > 0) {
+      for (const content of requestMessage.content) {
+        if (content.type === ContentType.IMAGE) {
+          const image = content.data;
+          const img = new Image();
+          img.src = `data:image/png;base64,${image}`;
+          img.onload = () => {
+            canvasWidth = img.width;
+            canvasHeight = img.height;
+          };
+          break;
+        }
+      }
+    }
+
+    const initializeRootFrameToolCall = tools.createToolCall(
+      "create_frame",
+      randomUUID(),
+      {
+        x: 0,
+        y: 0,
+        width: 393,
+        height: 852,
+        name: "Root Frame",
+        fillColor: { r: 1, g: 1, b: 1, a: 1 },
+      }
+    );
+    const result = await tools.callTool(initializeRootFrameToolCall);
+
+    if (result.isError || !result.structuredContent?.id) {
+      throw new Error("Failed to create root frame");
+    }
+
+    const rootFrameId = (result.structuredContent?.id as string).trim();
+    const width = result.structuredContent?.width || canvasWidth;
+    const height = result.structuredContent?.height || canvasHeight;
+
+    return {
+      rootFrameId,
+      width,
+      height,
+    };
+  } catch (error) {
+    throw new Error(
+      `Error initializing root frame: ${(error as Error).message}`
+    );
+  }
+};

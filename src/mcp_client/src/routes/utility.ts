@@ -1,8 +1,17 @@
 import { Request, Response } from "express";
 import { randomUUID } from "crypto";
-import { ResponseData, ToolResponseFormat, ResponseStatus } from "../types";
+import {
+  ResponseData,
+  ToolResponseFormat,
+  ResponseStatus,
+  UserRequestMessage,
+} from "../types";
 import { globalSession } from "../core/session";
 import { TextContent } from "@modelcontextprotocol/sdk/types";
+
+////////////////////
+// Server Handler //
+////////////////////
 
 // Helper function for common validation
 const validateTools = (res: Response<ResponseData>) => {

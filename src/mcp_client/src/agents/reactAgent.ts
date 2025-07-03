@@ -11,6 +11,7 @@ import {
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
 import { AgentInstance } from "./baseAgent";
+import { intializeRootFrame } from "../utils/helpers";
 
 export class ReactAgent extends AgentInstance {
   async run(params: {
@@ -20,7 +21,7 @@ export class ReactAgent extends AgentInstance {
     metadata: AgentMetadata;
     maxTurns: number;
   }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
-    // initialize the maxTurns
+    // Step 1: Initialize parameters
     params.metadata = params.metadata || {
       input_id: randomUUID(),
     };
@@ -28,6 +29,8 @@ export class ReactAgent extends AgentInstance {
     const toolsArray = params.model.formatToolList(
       Array.from(params.tools.catalogue.values())
     );
+
+    // Step 2: Prepare message contexts
     const apiMessageContext = params.model.createMessageContext();
     const formattedMessageContext = new Array<GenericMessage>();
     const rawResponses = new Array();
@@ -35,8 +38,13 @@ export class ReactAgent extends AgentInstance {
     apiMessageContext.push(...initialRequest);
     formattedMessageContext.push(params.requestMessage);
 
+    // Step 3: Create an environment
     let turn = 0;
     let cost = 0;
+    const { rootFrameId, width, height } = await intializeRootFrame(
+      params.requestMessage,
+      params.tools
+    );
 
     // ReAct Loop: Reason -> Act -> Observe
     while (turn < params.model.max_turns) {
