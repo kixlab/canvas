@@ -11,7 +11,7 @@ import {
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
 import { AgentInstance } from "./baseAgent";
-import { switchParentId, intializeRootFrame } from "../utils/helpers";
+import { switchParentId, intializeMainScreenFrame } from "../utils/helpers";
 
 export class ReactAgent extends AgentInstance {
   async run(params: {
@@ -41,7 +41,7 @@ export class ReactAgent extends AgentInstance {
     // Step 3: Create an environment
     let turn = 0;
     let cost = 0;
-    const { rootFrameId, width, height } = await intializeRootFrame(
+    const { mainScreenFrameId } = await intializeMainScreenFrame(
       params.requestMessage,
       params.tools
     );
@@ -75,7 +75,7 @@ export class ReactAgent extends AgentInstance {
       switchParentId({
         tools: params.tools,
         callToolRequests,
-        rootFrameId,
+        mainScreenFrameId,
       });
 
       // Act: Execute tool calls

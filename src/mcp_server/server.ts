@@ -13,7 +13,6 @@ import { registerLayoutTools } from "./tools/layoutTools.js";
 import { registerOperationTools } from "./tools/operationTools.js";
 import { registerStyleTools } from "./tools/styleTools.js";
 import { registerTextTools } from "./tools/textTools.js";
-import { registerPrompts } from "./common/prompts.js";
 
 const server = new McpServer({
   name: SERVER_CONFIG.name,
@@ -27,7 +26,6 @@ registerLayoutTools(server);
 registerOperationTools(server);
 registerStyleTools(server);
 registerTextTools(server);
-registerPrompts(server);
 
 async function main() {
   try {

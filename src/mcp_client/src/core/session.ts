@@ -25,7 +25,7 @@ export interface SessionState {
   agentType: AgentType | null;
   initialized: boolean;
   currentChannel: string | null;
-  rootFrame: {
+  mainScreenFrame: {
     id: string | null;
     width: number;
     height: number;
@@ -44,7 +44,7 @@ export class Session {
       agentType: null,
       initialized: false,
       currentChannel: null,
-      rootFrame: { id: null, width: 0, height: 0 },
+      mainScreenFrame: { id: null, width: 0, height: 0 },
     };
   }
 
@@ -115,8 +115,8 @@ export class Session {
     this.state.currentChannel = channel;
   }
 
-  setRootFrame(id: string | null, width: number, height: number): void {
-    this.state.rootFrame = { id, width, height };
+  setMainScreenFrame(id: string | null, width: number, height: number): void {
+    this.state.mainScreenFrame = { id, width, height };
   }
 }
 

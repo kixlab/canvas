@@ -5,7 +5,6 @@ import {
   UserRequestMessage,
   ModelProvider,
   ServerConfig,
-  ResponseStatus,
   ContentType,
   CallToolRequestParams,
 } from "../types";
@@ -112,7 +111,7 @@ export function loadServerConfig(
   }
 }
 
-export const intializeRootFrame = async (
+export const intializeMainScreenFrame = async (
   requestMessage: UserRequestMessage,
   tools: Tools
 ) => {
@@ -139,7 +138,7 @@ export const intializeRootFrame = async (
       }
     }
 
-    const initializeRootFrameToolCall = tools.createToolCall(
+    const initializeMainScreenFrameToolCall = tools.createToolCall(
       "create_frame",
       randomUUID(),
       {
@@ -147,22 +146,22 @@ export const intializeRootFrame = async (
         y: 0,
         width: canvasWidth,
         height: canvasHeight,
-        name: "Root Frame",
+        name: "Main Screen",
         fillColor: { r: 1, g: 1, b: 1, a: 1 },
       }
     );
-    const result = await tools.callTool(initializeRootFrameToolCall);
+    const result = await tools.callTool(initializeMainScreenFrameToolCall);
 
     if (result.isError || !result.structuredContent?.id) {
       throw new Error("Failed to create root frame");
     }
 
-    const rootFrameId = (result.structuredContent?.id as string).trim();
+    const mainScreenFrameId = (result.structuredContent?.id as string).trim();
     const width = result.structuredContent?.width;
     const height = result.structuredContent?.height;
 
     return {
-      rootFrameId,
+      mainScreenFrameId,
       width,
       height,
     };
@@ -187,11 +186,11 @@ const traverseTree = (node: any, elementTypes: Map<string, string>) => {
 export const switchParentId = async ({
   tools,
   callToolRequests,
-  rootFrameId,
+  mainScreenFrameId,
 }: {
   tools: Tools;
   callToolRequests: CallToolRequestParams[];
-  rootFrameId: string;
+  mainScreenFrameId: string;
 }) => {
   const CORRECT_PARENT_TYPES = ["FRAME", "GROUP", "SECTION"];
   const DOCUMENT_TYPES = ["DOCUMENT", "PAGE"];
@@ -230,24 +229,26 @@ export const switchParentId = async ({
       const parentType = elementTypes.get(parentId);
       let warning: string | null = null;
 
+      console.log(parentType);
+
       if (!parentType) {
         warning = `parentId ${parentId} does not exist in the structure tree.`;
       } else if (!CORRECT_PARENT_TYPES.includes(parentType)) {
         warning = `parentId ${parentId} has invalid type: ${parentType}.`;
-      } else if (DOCUMENT_TYPES.includes(parentType)) {
+      } else if (DOCUMENT_TYPES.includes(parentType) || parentId === "0:1") {
         warning = `parentId ${parentId} is of forbidden type ${parentType}.`;
       }
 
       if (warning) {
         console.warn(`Tool call ${toolCall.name}: ${warning}`);
-        toolArguments.parentId = rootFrameId;
+        toolArguments.parentId = mainScreenFrameId;
         continue;
       }
     }
 
-    // Root Frame Insertion
+    // Main Screen Insertion
     if (hasParentIdArg && !toolArguments.parentId) {
-      toolArguments["parentId"] = rootFrameId;
+      toolArguments["parentId"] = mainScreenFrameId;
     }
   }
 };
