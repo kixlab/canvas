@@ -218,7 +218,9 @@ export const switchParentId = async ({
   }
 
   for (const toolCall of callToolRequests) {
-    const toolArguments = toolCall.arguments || {};
+    if (!toolCall.arguments) continue;
+    const toolArguments = toolCall.arguments;
+
     const hasParentIdArg = tools.catalogue
       .get(toolCall.name)
       ?.inputSchema.properties!.hasOwnProperty("parentId");
@@ -237,16 +239,19 @@ export const switchParentId = async ({
         warning = `parentId ${parentId} is of forbidden type ${parentType}.`;
       }
 
+      // Parent ID Modification
       if (warning) {
         console.warn(`Tool call ${toolCall.name}: ${warning}`);
-        toolArguments.parentId = mainScreenFrameId;
+        toolCall.arguments!.parentId = mainScreenFrameId;
         continue;
       }
     }
 
-    // Main Screen Insertion
+    // Parent ID Insertion
     if (hasParentIdArg && !toolArguments.parentId) {
       toolArguments["parentId"] = mainScreenFrameId;
     }
   }
+
+  return callToolRequests;
 };

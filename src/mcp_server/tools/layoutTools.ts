@@ -7,9 +7,9 @@ export function registerLayoutTools(server: McpServer) {
   // Set Padding Tool
   server.tool(
     "set_padding",
-    "Set padding values for an auto-layout frame in Figma",
+    "Configure internal spacing (padding) values for auto-layout frames to control content positioning",
     {
-      nodeId: z.string().describe("The ID of the frame to modify"),
+      nodeId: z.string().describe("Frame ID"),
       paddingTop: z.number().optional().describe("Top padding value"),
       paddingRight: z.number().optional().describe("Right padding value"),
       paddingBottom: z.number().optional().describe("Bottom padding value"),
@@ -64,20 +64,20 @@ export function registerLayoutTools(server: McpServer) {
   // Set Axis Align Tool
   server.tool(
     "set_axis_align",
-    "Set primary and counter axis alignment for an auto-layout frame in Figma",
+    "Configure how child elements align along primary and counter axes in auto-layout frames",
     {
-      nodeId: z.string().describe("The ID of the frame to modify"),
+      nodeId: z.string().describe("Frame ID"),
       primaryAxisAlignItems: z
         .enum(["MIN", "MAX", "CENTER", "SPACE_BETWEEN"])
         .optional()
         .describe(
-          "Primary axis alignment (MIN/MAX = left/right in horizontal, top/bottom in vertical). Note: When set to SPACE_BETWEEN, itemSpacing will be ignored as children will be evenly spaced."
+          "Primary axis alignment. MIN/MAX equals left/right in horizontal, top/bottom in vertical (Note: When set to SPACE_BETWEEN, itemSpacing will be ignored as children will be evenly spaced.)"
         ),
       counterAxisAlignItems: z
         .enum(["MIN", "MAX", "CENTER", "BASELINE"])
         .optional()
         .describe(
-          "Counter axis alignment (MIN/MAX = top/bottom in horizontal, left/right in vertical)"
+          "Counter axis alignment. MIN/MAX equals top/bottom in horizontal, left/right in vertical."
         ),
     },
     async ({ nodeId, primaryAxisAlignItems, counterAxisAlignItems }) => {
@@ -117,20 +117,20 @@ export function registerLayoutTools(server: McpServer) {
   // Set Layout Sizing Tool
   server.tool(
     "set_layout_sizing",
-    "Set horizontal and vertical sizing modes for an auto-layout frame in Figma",
+    "Control how auto-layout frames resize themselves horizontally and vertically (fixed, hug content, or fill parent)",
     {
-      nodeId: z.string().describe("The ID of the frame to modify"),
+      nodeId: z.string().describe("Frame ID"),
       layoutSizingHorizontal: z
         .enum(["FIXED", "HUG", "FILL"])
         .optional()
         .describe(
-          "Horizontal sizing mode (HUG for frames/text only, FILL for auto-layout children only)"
+          "Horizontal sizing mode (Note: HUG for frames/text only, FILL for auto-layout children only.)"
         ),
       layoutSizingVertical: z
         .enum(["FIXED", "HUG", "FILL"])
         .optional()
         .describe(
-          "Vertical sizing mode (HUG for frames/text only, FILL for auto-layout children only)"
+          "Vertical sizing mode (Note: HUG for frames/text only, FILL for auto-layout children only.)"
         ),
     },
     async ({ nodeId, layoutSizingHorizontal, layoutSizingVertical }) => {
@@ -170,13 +170,13 @@ export function registerLayoutTools(server: McpServer) {
   // Set Item Spacing Tool
   server.tool(
     "set_item_spacing",
-    "Set distance between children in an auto-layout frame",
+    "Define the gap distance between child elements in auto-layout frames for consistent spacing",
     {
-      nodeId: z.string().describe("The ID of the frame to modify"),
+      nodeId: z.string().describe("Frame ID"),
       itemSpacing: z
         .number()
         .describe(
-          "Distance between children. Note: This value will be ignored if primaryAxisAlignItems is set to SPACE_BETWEEN."
+          "Distance between children (Note: This value will be ignored if primaryAxisAlignItems is set to SPACE_BETWEEN.)"
         ),
     },
     async ({ nodeId, itemSpacing }) => {
@@ -206,16 +206,16 @@ export function registerLayoutTools(server: McpServer) {
   // Set Layout Mode Tool
   server.tool(
     "set_layout_mode",
-    "Set the layout mode and wrap behavior of a frame in Figma",
+    "Configure the primary layout direction (horizontal/vertical/none) and wrapping behavior for frame containers",
     {
-      nodeId: z.string().describe("The ID of the frame to modify"),
+      nodeId: z.string().describe("Frame ID"),
       layoutMode: z
         .enum(["NONE", "HORIZONTAL", "VERTICAL"])
         .describe("Layout mode for the frame"),
       layoutWrap: z
         .enum(["NO_WRAP", "WRAP"])
         .optional()
-        .describe("Whether the auto-layout frame wraps its children"),
+        .describe("Indicates whether the auto-layout frame wraps its children"),
     },
     async ({ nodeId, layoutMode, layoutWrap }) => {
       try {

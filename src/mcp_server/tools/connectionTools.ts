@@ -176,7 +176,7 @@ export function registerConnectionTools(server: McpServer) {
 
   server.tool(
     "check_connection_status",
-    "Check the connection status with Figma",
+    "Check the connection status with the Figma",
     {},
     async () => {
       try {

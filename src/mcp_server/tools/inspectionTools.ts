@@ -8,7 +8,7 @@ export function registerInspectionTools(server: McpServer) {
   // Page Info Tool
   server.tool(
     "get_page_info",
-    "Get the information of the current page in Figma",
+    "Get comprehensive information about the current Figma page, including child node count and available frames",
     {},
     async () => {
       try {
@@ -35,7 +35,7 @@ export function registerInspectionTools(server: McpServer) {
   // Read My Design Tool
   server.tool(
     "get_selection_info",
-    "Get detailed information about the current selection in Figma, including all node details",
+    "Get detailed information about all currently selected nodes in the Figma canvas, including their properties and attributes",
     {},
     async () => {
       try {
@@ -68,7 +68,7 @@ export function registerInspectionTools(server: McpServer) {
   // Nodes Info Tool
   server.tool(
     "get_node_info",
-    "Get detailed information about the list of nodes in Figma",
+    "Retrieve detailed information and properties for a specific list of nodes by their IDs",
     {
       nodeIds: z
         .array(z.string())
@@ -110,7 +110,7 @@ export function registerInspectionTools(server: McpServer) {
   // Get Node Summary by Types Tool
   server.tool(
     "get_node_info_by_types",
-    "Scan and collect nodes of specific types within a specified node",
+    "Search and collect all nodes of specific types (e.g., FRAME, COMPONENT, TEXT) within a given parent node",
     {
       nodeId: z.string().describe("The ID of the node to scan"),
       types: z
@@ -156,12 +156,12 @@ export function registerInspectionTools(server: McpServer) {
   // Get Page Image Tool
   server.tool(
     "get_result_image",
-    "Get the result image of the tool calling in the current Figma page",
+    "Export and retrieve a visual image of the current design",
     {
       pageId: z
         .string()
         .optional()
-        .describe("Figma page ID (defaults to current page)"),
+        .describe("Page ID (defaults to current page)"),
       scale: z
         .number()
         .positive()
@@ -196,7 +196,7 @@ export function registerInspectionTools(server: McpServer) {
   // Page layer-tree inspection Tool
   server.tool(
     "get_page_structure",
-    "Get complete elements structure of the current page (name, id, type, absolute position).",
+    "Get a hierarchical tree view of all elements on the current page, showing their names, IDs, types, and absolute positions in a structured format",
     {},
     async () => {
       try {

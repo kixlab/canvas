@@ -787,10 +787,12 @@ export function makeGradientPaint(
 
 export function makeShadowEffect(
   params: {
-    r: number;
-    g: number;
-    b: number;
-    a?: number;
+    shadowColor: {
+      r: number;
+      g: number;
+      b: number;
+      a?: number;
+    };
     offsetX: number;
     offsetY: number;
     radius: number;
@@ -798,7 +800,13 @@ export function makeShadowEffect(
   },
   type: 'DROP_SHADOW' | 'INNER_SHADOW'
 ): Effect {
-  const { r, g, b, a = 1, offsetX, offsetY, radius, spread = 0 } = params;
+  const {
+    shadowColor: { r, g, b, a = 1 },
+    offsetX,
+    offsetY,
+    radius,
+    spread = 0,
+  } = params;
   return {
     type,
     color: { r, g, b, a },

@@ -72,7 +72,7 @@ export class ReactAgent extends AgentInstance {
         break;
       }
 
-      switchParentId({
+      const updatedCallToolRequests = await switchParentId({
         tools: params.tools,
         callToolRequests,
         mainScreenFrameId,
@@ -80,7 +80,7 @@ export class ReactAgent extends AgentInstance {
 
       // Act: Execute tool calls
       const toolResults = [];
-      for (const toolCall of callToolRequests) {
+      for (const toolCall of updatedCallToolRequests) {
         toolResults.push(await params.tools.callTool(toolCall));
       }
 

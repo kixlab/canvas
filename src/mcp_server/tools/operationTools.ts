@@ -7,15 +7,17 @@ export function registerOperationTools(server: McpServer) {
   // Move Node Tool
   server.tool(
     "move_node",
-    "Move a node to a new position in Figma",
+    "Move a node to a new position on the canvas, optionally changing its parent container",
     {
-      nodeId: z.string().describe("The ID of the node to move"),
-      x: z.number().describe("New X position"),
-      y: z.number().describe("New Y position"),
+      nodeId: z.string().describe("Node ID to move"),
+      x: z.number().describe("X coordinate of the node (global)"),
+      y: z.number().describe("Y coordinate of the node (global)"),
       newParentId: z
         .string()
         .optional()
-        .describe("The ID of the new parent node if needed (optional)"),
+        .describe(
+          "A parent node (FRAME, GROUP, and SECTION only) ID to append the element to"
+        ),
     },
     async ({ nodeId, x, y, newParentId }) => {
       try {
@@ -57,17 +59,17 @@ export function registerOperationTools(server: McpServer) {
   // Clone Node Tool
   server.tool(
     "clone_node",
-    "Clone an existing node in Figma",
+    "Create a duplicate copy of an existing node, optionally placing it in a different parent container or at specific coordinates",
     {
-      nodeId: z.string().describe("The ID of the node to clone"),
+      nodeId: z.string().describe("Node ID to clone"),
       newParentId: z
         .string()
         .optional()
         .describe(
-          "The ID of the new parent node to place the clone (optional)"
+          "A parent node (FRAME, GROUP, and SECTION only) ID to append the element to"
         ),
-      x: z.number().optional().describe("New X position for the clone"),
-      y: z.number().optional().describe("New Y position for the clone"),
+      x: z.number().optional().describe("X coordinate of the node (global)"),
+      y: z.number().optional().describe("Y coordinate of the node (global)"),
     },
     async ({ nodeId, newParentId, x, y }) => {
       try {
@@ -101,11 +103,11 @@ export function registerOperationTools(server: McpServer) {
   // Resize Node Tool
   server.tool(
     "resize_node",
-    "Resize a node in Figma",
+    "Change the dimensions (width and height) of a node while maintaining its position",
     {
-      nodeId: z.string().describe("The ID of the node to resize"),
-      width: z.number().positive().describe("New width"),
-      height: z.number().positive().describe("New height"),
+      nodeId: z.string().describe("Node ID to resize"),
+      width: z.number().positive().describe("Width of the node"),
+      height: z.number().positive().describe("Height of the node"),
     },
     async ({ nodeId, width, height }) => {
       try {
@@ -133,9 +135,9 @@ export function registerOperationTools(server: McpServer) {
   // Delete Multiple Nodes Tool
   server.tool(
     "delete_node",
-    "Delete nodes from Figma",
+    "Permanently remove one or more nodes from their parent node",
     {
-      nodeIds: z.array(z.string()).describe("Array of node IDs to delete"),
+      nodeIds: z.array(z.string()).describe("Node IDs to delete"),
     },
     async ({ nodeIds }) => {
       try {
@@ -156,46 +158,8 @@ export function registerOperationTools(server: McpServer) {
   );
 
   server.tool(
-    "reorder_node",
-    "Re-order a node within its parent’s layer stack",
-    {
-      nodeId: z.string().describe("ID of the node to reorder"),
-      direction: z
-        .enum(["TOP", "BOTTOM", "FORWARD", "BACKWARD"])
-        .describe(
-          "Layer-stack move: " +
-            "TOP (bring to front), BOTTOM (send to back), " +
-            "FORWARD (one layer up), BACKWARD (one layer down)"
-        ),
-    },
-    async ({ nodeId, direction }) => {
-      try {
-        const result = await sendCommandToFigma("reorder_node", {
-          nodeId,
-          direction,
-        });
-        const typed = result as {
-          id: string;
-          name: string;
-          parentId: string;
-          oldIndex: number;
-          newIndex: number;
-        };
-        return createSuccessResponse({
-          messages: [
-            `Moved “${typed.name}” from index ${typed.oldIndex} to ${typed.newIndex} in parent ${typed.parentId}.`,
-          ],
-          dataItem: typed,
-        });
-      } catch (error) {
-        return createErrorResponse({ error, context: "reorder_node" });
-      }
-    }
-  );
-
-  server.tool(
     "group_nodes",
-    "Group multiple nodes into a single group",
+    "Combine multiple separate design elements into a single organizational GROUP container",
     {
       nodeIds: z
         .array(z.string())
@@ -204,7 +168,7 @@ export function registerOperationTools(server: McpServer) {
       groupName: z
         .string()
         .optional()
-        .describe("Name to give the new group (optional)"),
+        .describe("Semantic name for the new group"),
     },
     async ({ nodeIds, groupName }) => {
       try {
@@ -226,9 +190,9 @@ export function registerOperationTools(server: McpServer) {
 
   server.tool(
     "ungroup_nodes",
-    "Ungroup an existing GROUP node",
+    "Break apart an existing GROUP container, releasing all contained elements back to individual objects",
     {
-      groupId: z.string().describe("ID of the group node to ungroup"),
+      groupId: z.string().describe("Group node ID to ungroup"),
     },
     async ({ groupId }) => {
       try {
@@ -247,9 +211,9 @@ export function registerOperationTools(server: McpServer) {
 
   server.tool(
     "rename_node",
-    "Rename a node",
+    "Change the display name of any design element to improve organization and identification",
     {
-      nodeId: z.string().describe("ID of the node to rename"),
+      nodeId: z.string().describe("Node ID to rename"),
       newName: z.string().describe("New name for the node"),
     },
     async ({ nodeId, newName }) => {
@@ -270,10 +234,14 @@ export function registerOperationTools(server: McpServer) {
 
   server.tool(
     "rotate_node",
-    "Rotate a node in Figma",
+    "Apply rotation transformation to any design element around its center point",
     {
-      nodeId: z.string().describe("The ID of the node to rotate"),
-      angle: z.number().describe("Absolute rotation angle in degrees"),
+      nodeId: z.string().describe("Node ID to rotate"),
+      angle: z
+        .number()
+        .min(0)
+        .max(360)
+        .describe("Absolute rotation angle in degrees (0 to 360)"),
     },
     async ({ nodeId, angle }) => {
       try {
@@ -305,17 +273,12 @@ export function registerOperationTools(server: McpServer) {
 
   server.tool(
     "boolean_nodes",
-    "Combine two or more shape / vector nodes with a boolean operation (UNION, SUBTRACT, INTERSECT, EXCLUDE)",
+    "Combine two or more vector shapes or geometric objects using mathematical boolean operations. Create complex shapes by merging (UNION), subtracting (SUBTRACT), finding intersections (INTERSECT), or creating cut-outs (EXCLUDE)",
     {
-      nodeIds: z
-        .array(z.string())
-        .min(2)
-        .describe("IDs of the nodes to combine (≥2)"),
+      nodeIds: z.array(z.string()).min(2).describe("Node IDs to combine (≥2)"),
       operation: z
         .enum(["UNION", "SUBTRACT", "INTERSECT", "EXCLUDE"])
-        .describe(
-          "Boolean operation to apply: UNION, SUBTRACT, INTERSECT, EXCLUDE"
-        ),
+        .describe("Boolean operation to apply"),
     },
     async ({ nodeIds, operation }) => {
       try {
@@ -340,6 +303,42 @@ export function registerOperationTools(server: McpServer) {
         });
       } catch (error) {
         return createErrorResponse({ error, context: "boolean_nodes" });
+      }
+    }
+  );
+
+  server.tool(
+    "reorder_node",
+    "Change the stacking order (z-index) of a design element within its parent container's layer stack. Control which elements appear in front of or behind others",
+    {
+      nodeId: z.string().describe("Node ID to reorder"),
+      direction: z
+        .enum(["TOP", "BOTTOM", "FORWARD", "BACKWARD"])
+        .describe(
+          "Layer-stack movement direction: TOP (bring to front), BOTTOM (send to back), FORWARD (one layer up), BACKWARD (one layer down)"
+        ),
+    },
+    async ({ nodeId, direction }) => {
+      try {
+        const result = await sendCommandToFigma("reorder_node", {
+          nodeId,
+          direction,
+        });
+        const typed = result as {
+          id: string;
+          name: string;
+          parentId: string;
+          oldIndex: number;
+          newIndex: number;
+        };
+        return createSuccessResponse({
+          messages: [
+            `Moved “${typed.name}” from index ${typed.oldIndex} to ${typed.newIndex} in parent ${typed.parentId}.`,
+          ],
+          dataItem: typed,
+        });
+      } catch (error) {
+        return createErrorResponse({ error, context: "reorder_node" });
       }
     }
   );

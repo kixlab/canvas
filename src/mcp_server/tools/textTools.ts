@@ -8,16 +8,16 @@ export function registerTextTools(server: McpServer) {
   // Set Text Contents Tool
   server.tool(
     "set_text_content",
-    "Set text content for text nodes",
+    "Modify the text content of one or multiple text nodes in Figma. Use this to update the actual text displayed in text layers.",
     {
       changes: z
         .array(
           z.object({
-            nodeId: z.string().describe("The ID of the text node to modify"),
+            nodeId: z.string().describe("Text node ID to modify the text"),
             text: z.string().describe("New text content"),
           })
         )
-        .describe("Array of text changes to apply"),
+        .describe("Array of text nodes to apply changes to"),
     },
     async ({ changes }) => {
       try {
@@ -77,9 +77,9 @@ export function registerTextTools(server: McpServer) {
   // Get Text Node Info Tool
   server.tool(
     "get_text_node_info",
-    "Collect all text nodes within a specified node",
+    "Retrieve comprehensive information about all text nodes within a specified node or frame.",
     {
-      nodeId: z.string().describe("The ID of the node to scan for text nodes"),
+      nodeId: z.string().describe("Node ID to scan for text nodes"),
     },
     async ({ nodeId }) => {
       try {
@@ -101,29 +101,24 @@ export function registerTextTools(server: McpServer) {
 
   server.tool(
     "set_text_properties",
-    "Set common text properties (size, line-height, letter-spacing, align) on one text node",
+    "Modify visual text properties such as font size, line height, letter spacing, and text alignment.",
     {
-      nodeId: z.string().describe("ID of the text node to modify"),
-      fontSize: z.number().positive().optional().describe("Font-size in px"),
+      nodeId: z.string().describe("Text node ID to modify"),
+      fontSize: z.number().positive().optional().describe("Font-size (px)"),
       lineHeight: z
         .number()
         .nonnegative()
         .optional()
-        .describe("Line-height in px (optional)"),
-      letterSpacing: z
-        .number()
-        .optional()
-        .describe("Letter-spacing in px (optional)"),
+        .describe("Text line height (px)"),
+      letterSpacing: z.number().optional().describe("Text letter spacing (px)"),
       textAlignHorizontal: z
         .enum(["LEFT", "CENTER", "RIGHT", "JUSTIFIED"])
         .optional()
-        .describe(
-          "Horizontal text-alignment (optional): LEFT / CENTER / RIGHT / JUSTIFIED"
-        ),
+        .describe("Horizontal text alignment"),
       textAlignVertical: z
         .enum(["TOP", "CENTER", "BOTTOM"])
         .optional()
-        .describe("Vertical text-alignment (optional): TOP / CENTER / BOTTOM"),
+        .describe("Vertical text alignment"),
     },
     async ({ nodeId, ...props }) => {
       try {
@@ -152,15 +147,13 @@ export function registerTextTools(server: McpServer) {
 
   server.tool(
     "set_text_decoration",
-    "Set underline / strikethrough / casing on one text node",
+    "Apply text styling decorations such as underlines, strikethrough effects, and text case transformations (uppercase, lowercase, title case, etc.).",
     {
-      nodeId: z.string().describe("ID of the text node to modify"),
+      nodeId: z.string().describe("Text node ID to modify"),
       textDecoration: z
         .enum(["NONE", "UNDERLINE", "STRIKETHROUGH"])
         .optional()
-        .describe(
-          "Decoration style (optional): NONE / UNDERLINE / STRIKETHROUGH"
-        ),
+        .describe("Text decoration style"),
       textCase: z
         .enum([
           "ORIGINAL",
@@ -171,9 +164,7 @@ export function registerTextTools(server: McpServer) {
           "SMALL_CAPS_FORCED",
         ])
         .optional()
-        .describe(
-          "Text casing style (optional): ORIGINAL / UPPER / LOWER / TITLE / SMALL_CAPS / SMALL_CAPS_FORCED"
-        ),
+        .describe("Text casing style"),
     },
     async ({ nodeId, ...props }) => {
       try {
@@ -202,13 +193,13 @@ export function registerTextTools(server: McpServer) {
 
   server.tool(
     "set_text_font",
-    "Set the font of one text node (family & style)",
+    "Change the font family and style (weight/variant) of a text node.",
     {
-      nodeId: z.string().describe("ID of the text node to modify"),
+      nodeId: z.string().describe("Text node ID to modify"),
       font: z
         .object({
-          family: z.string().describe('Font family (e.g. "Inter")'),
-          style: z.string().describe('Font style  (e.g. "Bold")'),
+          family: z.string().describe('Font family (e.g., "Inter")'),
+          style: z.string().describe('Font style (e.g., "Bold")'),
         })
         .describe("Target font"),
     },
