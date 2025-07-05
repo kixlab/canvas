@@ -25,6 +25,7 @@ import {
   combineFeedbackInstruction,
   getFeedbackPrompt,
 } from "../utils/prompts";
+import { switchParentId, intializeMainScreenFrame } from "../utils/helpers";
 
 export class FeedbackAgent extends AgentInstance {
   async run(params: {
@@ -33,21 +34,26 @@ export class FeedbackAgent extends AgentInstance {
     model: ModelInstance;
     metadata: AgentMetadata;
   }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
+    // Step 1: Initialize parameters
     params.metadata = params.metadata || { input_id: randomUUID() };
-
-    const overallHistory: GenericMessage[] = [];
-    const overallRawResponses: any[] = [];
-    let totalCost = 0;
-
     const originalTargetText = this.extractTextFromContent(
       params.requestMessage.content
     );
     const originalTargetImage = this.extractImageFromContent(
       params.requestMessage.content
     );
-
-    // Initial user request message
     let currentRequestMessage: UserRequestMessage = params.requestMessage;
+
+    // Step 2: Prepare message contexts
+    const overallHistory: GenericMessage[] = [];
+    const overallRawResponses: any[] = [];
+
+    // Step 3: Create an environment
+    let totalCost = 0;
+    const { mainScreenFrameId } = await intializeMainScreenFrame(
+      params.requestMessage,
+      params.tools
+    );
 
     /* --- Feedback Loop --------------------------------- */
     for (let iteration = 0; iteration < params.model.max_retries; iteration++) {
@@ -57,6 +63,7 @@ export class FeedbackAgent extends AgentInstance {
         tools: params.tools,
         model: params.model,
         maxDesignTurns: params.model.max_turns,
+        mainScreenFrameId: mainScreenFrameId,
       });
 
       console.log(
@@ -68,14 +75,14 @@ export class FeedbackAgent extends AgentInstance {
       totalCost += designResult.cost / 1000; // Convert to USD
 
       // (2) Get UI Snapshot
-      const { imageContent: currentImage, pageStructureText } =
+      const { labeledImageContent: currentStatusImage, pageStructureText } =
         await this.getCurrentDesignSnapshot(params.tools, params.model);
 
       // (3) Feedback Phase
       const feedbackResult = await this.runFeedbackPhase({
         originalTargetText: originalTargetText ?? undefined,
         originalTargetImage: originalTargetImage ?? undefined,
-        currentImage,
+        currentImage: currentStatusImage,
         pageStructureText,
         model: params.model,
       });
@@ -92,7 +99,7 @@ export class FeedbackAgent extends AgentInstance {
       // (4) Prepare for next iteration
       currentRequestMessage = this.buildFeedbackRequestMessage({
         feedbackInstruction: feedbackInstruction,
-        originalTargetText: originalTargetText ?? undefined,
+        statusImageContent: currentStatusImage,
         originalTargetImage: originalTargetImage ?? undefined,
         pageStructureText: pageStructureText ?? undefined,
       });
@@ -113,12 +120,14 @@ export class FeedbackAgent extends AgentInstance {
     tools: Tools;
     model: ModelInstance;
     maxDesignTurns: number;
+    mainScreenFrameId: string;
   }): Promise<{
     history: GenericMessage[];
     responses: any[];
     cost: number;
   }> {
-    const { requestMessage, tools, model, maxDesignTurns } = args;
+    const { requestMessage, tools, model, maxDesignTurns, mainScreenFrameId } =
+      args;
 
     const apiCtx = model.createMessageContext();
     const formattedCtx: GenericMessage[] = [];
@@ -147,10 +156,18 @@ export class FeedbackAgent extends AgentInstance {
 
       /* ----- Act ----------------------------------------------------- */
       const callToolRequests = model.formatCallToolRequest(modelResponse);
-      if (!callToolRequests || callToolRequests.length === 0) break;
+      if (!callToolRequests || callToolRequests.length === 0) {
+        console.log("No tool calls detected. Exiting design phase.");
+        break;
+      }
+      const updatedCallToolRequests = await switchParentId({
+        tools: tools,
+        callToolRequests: callToolRequests,
+        mainScreenFrameId: mainScreenFrameId, // Assuming the first content is the main screen frame
+      });
 
       const toolResults: CallToolResult[] = [];
-      for (const tc of callToolRequests) {
+      for (const tc of updatedCallToolRequests) {
         toolResults.push(await tools.callTool(tc));
       }
       /* ----- Observe ------------------------------------------------- */
@@ -362,18 +379,17 @@ export class FeedbackAgent extends AgentInstance {
 
   private buildFeedbackRequestMessage({
     feedbackInstruction,
-    originalTargetText,
     originalTargetImage,
     pageStructureText,
+    statusImageContent,
   }: {
     feedbackInstruction: string;
     pageStructureText: string;
-    originalTargetText?: string;
+    statusImageContent: ImageContent;
     originalTargetImage?: ImageContent;
   }): UserRequestMessage {
     const combinedInstruction = combineFeedbackInstruction({
       feedbackInstruction: feedbackInstruction,
-      originalTargetText: originalTargetText ?? undefined,
       pageStructureText: pageStructureText,
     });
 
@@ -383,6 +399,8 @@ export class FeedbackAgent extends AgentInstance {
         text: combinedInstruction.trim(),
       } as TextContent,
     ];
+
+    content.push(statusImageContent);
 
     if (originalTargetImage) {
       content.push({

@@ -224,21 +224,16 @@ ${pageStructureText}
 export function combineFeedbackInstruction({
   feedbackInstruction,
   pageStructureText,
-  originalTargetText,
 }: {
   feedbackInstruction: string;
   pageStructureText: string;
-  originalTargetText?: string;
 }) {
   const combinedInstruction = `
 
-Follow the **Feedback Instruction** below to update the design.
-Refer to the **Original Instruction** for context.
-
-**Original Instruction**
-  """ 
-  ${originalTargetText || ""}
-  """
+**Context**
+You are a UI-design agent with access to Figma via tool calls. 
+Follow the **Feedback Instruction** to update a UI design.
+Refer to the **Page Structure** and image for manipulation.
 
 **Feedback Instruction**
   """
