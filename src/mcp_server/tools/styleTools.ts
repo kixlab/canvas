@@ -280,7 +280,7 @@ export function registerStyleTools(server: McpServer) {
 
   server.tool(
     "set_inner_shadow",
-    "Add an inner shadow effect that creates a shadow inside the node boundaries. Useful for creating inset or recessed visual effects.",
+    "Add an inner shadow effect that creates a shadow inside the node boundaries.",
     {
       nodeId: z.string().describe("The ID of the node to modify"),
       shadowColor: z
@@ -320,7 +320,7 @@ export function registerStyleTools(server: McpServer) {
 
   server.tool(
     "copy_style",
-    "opy visual styling properties from one node to another.",
+    "Copy visual styling properties from one node to another.",
     {
       sourceNodeId: z.string().describe("Node ID to copy style from"),
       targetNodeId: z.string().describe("Node ID to apply style to"),

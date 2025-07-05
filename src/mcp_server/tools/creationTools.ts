@@ -328,11 +328,7 @@ export function registerCreationTools(server: McpServer) {
     "create_graphic",
     "Create a new vector graphic node from SVG markup for icons and scalable illustrations",
     {
-      svg: z
-        .string()
-        .describe(
-          "The raw SVG markup as a string (Note: Must contain at least one <path> node with a 'd' attribute.)"
-        ),
+      svg: z.string().describe("The raw SVG markup as a string"),
       name: z.string().describe("A semantic name for the vector graphic node"),
       x: z.number().describe("X coordinate of the node (global)"),
       y: z.number().describe("Y coordinate of the node (global)"),

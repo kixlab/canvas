@@ -38,15 +38,11 @@ export async function createRectangle(params: {
   rect.resize(width, height);
   rect.name = name;
 
-  console.log(params);
-
-  /* Styling ───────────────────────────────────────────────────── */
   if (fillColor) rect.fills = [makeSolidPaint(fillColor)];
   if (strokeColor) rect.strokes = [makeSolidPaint(strokeColor)];
   if (strokeWeight !== undefined) rect.strokeWeight = strokeWeight;
   if (cornerRadius !== undefined) rect.cornerRadius = cornerRadius;
 
-  /* Parenting / local-coords logic stays exactly the same */
   if (parentId) {
     const parentNode = await figma.getNodeByIdAsync(parentId);
     if (!parentNode) throw new Error(`Parent node not found: ${parentId}`);
@@ -310,54 +306,38 @@ export async function createGraphic(params: {
     throw new Error('An SVG string must be provided.');
   }
 
-  const node = figma.createNodeFromSvg(svg);
+  const graphicNode = figma.createNodeFromSvg(svg);
+  graphicNode.name = name;
 
-  node.x = x;
-  node.y = y;
-  node.name = name;
-
-  let returnNode: SceneNode = node;
-
-  if (node.children.length === 1) {
-    const child = node.children[0];
-    if (parentId) {
-      const parent = await figma.getNodeByIdAsync(parentId);
-      if (parent && 'appendChild' in parent) {
-        (parent as BaseNode & ChildrenMixin).appendChild(child);
-        const [localX, localY] = getLocalPosition(
-          x,
-          y,
-          parent as BaseNode & ChildrenMixin
-        );
-        child.x = localX;
-        child.y = localY;
-      }
-    } else {
-      figma.currentPage.appendChild(child);
+  if (parentId) {
+    const parentNode = await figma.getNodeByIdAsync(parentId);
+    if (!parentNode) {
+      throw new Error(`Parent node not found with ID: ${parentId}`);
     }
-    child.x = x;
-    child.y = y;
-    node.remove();
-    returnNode = child;
-  } else {
-    if (parentId) {
-      const parent = await figma.getNodeByIdAsync(parentId);
-      if (parent && 'appendChild' in parent) {
-        (parent as BaseNode & ChildrenMixin).appendChild(node);
-      }
+    if (hasAppendChild(parentNode)) {
+      (parentNode as BaseNode & ChildrenMixin).appendChild(graphicNode);
+      const [localX, localY] = getLocalPosition(
+        x,
+        y,
+        parentNode as BaseNode & ChildrenMixin
+      );
+      graphicNode.x = localX;
+      graphicNode.y = localY;
+    } else {
+      throw new Error(`Parent node does not support children: ${parentId}`);
     }
   }
 
-  const [newX, newY] = getAbsoluteGeometry(returnNode as SceneNode);
+  const [newX, newY] = getAbsoluteGeometry(graphicNode as SceneNode);
 
   return {
-    id: returnNode.id,
-    name: returnNode.name,
+    id: graphicNode.id,
+    name: graphicNode.name,
     x: newX,
     y: newY,
-    width: returnNode.width,
-    height: returnNode.height,
-    parentId: returnNode.parent ? returnNode.parent.id : undefined,
+    width: graphicNode.width,
+    height: graphicNode.height,
+    parentId: graphicNode.parent ? graphicNode.parent.id : undefined,
   };
 }
 
