@@ -7,7 +7,7 @@ export function registerCreationTools(server: McpServer) {
   // Create Rectangle Tool
   server.tool(
     "create_rectangle",
-    "Create a new rectangular shape node with customizable position and dimensions",
+    "Create a new rectangular shape node with common styling properties",
     {
       x: z.number().describe("X coordinate of the node (global)"),
       y: z.number().describe("Y coordinate of the node (global)"),
@@ -17,29 +17,71 @@ export function registerCreationTools(server: McpServer) {
       parentId: z
         .string()
         .optional()
-        .describe(
-          "A parent node (FRAME, GROUP, and SECTION type only) ID to append the node to"
-        ),
+        .describe("FRAME / GROUP / SECTION ID to append the node to"),
+
+      fillColor: z
+        .object({
+          r: z.number().min(0).max(1),
+          g: z.number().min(0).max(1),
+          b: z.number().min(0).max(1),
+          a: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Solid fill in RGBA (defaults to transparent)"),
+
+      strokeColor: z
+        .object({
+          r: z.number().min(0).max(1),
+          g: z.number().min(0).max(1),
+          b: z.number().min(0).max(1),
+          a: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Stroke color in RGBA"),
+
+      strokeWeight: z
+        .number()
+        .positive()
+        .optional()
+        .describe("Stroke weight in px (defaults 1)"),
+
+      cornerRadius: z
+        .number()
+        .min(0)
+        .optional()
+        .describe("Uniform corner radius in px"),
     },
-    async ({ x, y, width, height, name, parentId }) => {
+    async ({
+      x,
+      y,
+      width,
+      height,
+      name,
+      parentId,
+      fillColor,
+      strokeColor,
+      strokeWeight,
+      cornerRadius,
+    }) => {
       try {
         const result = await sendCommandToFigma("create_rectangle", {
           x,
           y,
           width,
           height,
-          name: name,
+          name,
           parentId,
+          fillColor,
+          strokeColor,
+          strokeWeight,
+          cornerRadius,
         });
         return createSuccessResponse({
-          messages: [`Created rectangle "${JSON.stringify(result)}"`],
+          messages: [`Created rectangle «${result.name}» (${result.id}).`],
           dataItem: result,
         });
       } catch (error) {
-        return createErrorResponse({
-          error,
-          context: "create_rectangle",
-        });
+        return createErrorResponse({ error, context: "create_rectangle" });
       }
     }
   );

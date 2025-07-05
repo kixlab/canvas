@@ -13,8 +13,24 @@ export async function createRectangle(params: {
   height: number;
   name: string;
   parentId?: string;
+
+  fillColor?: RGB | RGBA;
+  strokeColor?: RGB | RGBA;
+  strokeWeight?: number;
+  cornerRadius?: number;
 }) {
-  const { x, y, width, height, name, parentId } = params || {};
+  const {
+    x,
+    y,
+    width,
+    height,
+    name,
+    parentId,
+    fillColor,
+    strokeColor,
+    strokeWeight,
+    cornerRadius,
+  } = params;
 
   const rect = figma.createRectangle();
   rect.x = x;
@@ -22,15 +38,20 @@ export async function createRectangle(params: {
   rect.resize(width, height);
   rect.name = name;
 
-  // If parentId is provided, append to that node, otherwise append to current page
+  console.log(params);
+
+  /* Styling ───────────────────────────────────────────────────── */
+  if (fillColor) rect.fills = [makeSolidPaint(fillColor)];
+  if (strokeColor) rect.strokes = [makeSolidPaint(strokeColor)];
+  if (strokeWeight !== undefined) rect.strokeWeight = strokeWeight;
+  if (cornerRadius !== undefined) rect.cornerRadius = cornerRadius;
+
+  /* Parenting / local-coords logic stays exactly the same */
   if (parentId) {
     const parentNode = await figma.getNodeByIdAsync(parentId);
-    if (!parentNode) {
-      throw new Error(`Parent node not found with ID: ${parentId}`);
-    }
+    if (!parentNode) throw new Error(`Parent node not found: ${parentId}`);
     if (hasAppendChild(parentNode)) {
       parentNode.appendChild(rect);
-      // set the rectangle's position relative to the parent
       const [localX, localY] = getLocalPosition(
         x,
         y,
@@ -39,21 +60,24 @@ export async function createRectangle(params: {
       rect.x = localX;
       rect.y = localY;
     } else {
-      throw new Error(`Parent node does not support children: ${parentId}`);
+      throw new Error(`Parent cannot contain children: ${parentId}`);
     }
   } else {
     figma.currentPage.appendChild(rect);
   }
 
-  const [newX, newY] = getAbsoluteGeometry(rect as SceneNode);
-
+  const [absX, absY] = getAbsoluteGeometry(rect as SceneNode);
   return {
     id: rect.id,
     name: rect.name,
-    x: newX,
-    y: newY,
+    x: absX,
+    y: absY,
     width: rect.width,
     height: rect.height,
+    fills: rect.fills,
+    strokes: rect.strokes,
+    strokeWeight: rect.strokeWeight,
+    cornerRadius: rect.cornerRadius,
     parentId: rect.parent ? rect.parent.id : undefined,
   };
 }
