@@ -248,7 +248,7 @@ export function registerCreationTools(server: McpServer) {
   // Create Text Tool
   server.tool(
     "create_text",
-    "Create a new text node with customizable content, typography, and styling options",
+    "Create a new text node with customizable content, typography, alignment and styling options",
     {
       x: z.number().describe("X coordinate of the node (global)"),
       y: z.number().describe("Y coordinate of the node (global)"),
@@ -256,31 +256,41 @@ export function registerCreationTools(server: McpServer) {
       name: z.string().describe("Semantic name for the node"),
       width: z.number().describe("Width of the node"),
       height: z.number().describe("Height of the node"),
+
       fontSize: z.number().optional().describe("Text font size (default: 14)"),
       fontWeight: z
         .number()
+        .min(100)
+        .max(900)
         .optional()
-        .describe("Text font weight (e.g., 400 for Regular, 700 for Bold)"),
+        .describe("Text font weight in numeric value"),
       fontColor: z
         .object({
-          r: z.number().min(0).max(1).describe("Red intensity (0-1)"),
-          g: z.number().min(0).max(1).describe("Green intensity (0-1)"),
-          b: z.number().min(0).max(1).describe("Blue intensity (0-1)"),
+          r: z.number().min(0).max(1).describe("Red Intensity (0-1)"),
+          g: z.number().min(0).max(1).describe("Green Intensity (0-1)"),
+          b: z.number().min(0).max(1).describe("Blue Intensity (0-1)"),
           a: z
             .number()
             .min(0)
             .max(1)
             .optional()
-            .describe("Alpha intensity (0-1)"),
+            .describe("Alpha Intensity (0-1)"),
         })
         .optional()
-        .describe("Text font color in RGBA format"),
+        .describe("Text color (RGBA)"),
+
+      textAlignHorizontal: z
+        .enum(["LEFT", "CENTER", "RIGHT", "JUSTIFIED"])
+        .optional()
+        .describe("Horizontal text alignment"),
+      textAlignVertical: z
+        .enum(["TOP", "CENTER", "BOTTOM"])
+        .optional()
+        .describe("Vertical text alignment"),
       parentId: z
         .string()
         .optional()
-        .describe(
-          "A parent node (FRAME, GROUP, and SECTION type only) ID to append the node to"
-        ),
+        .describe("FRAME | GROUP | SECTION ID to append the node to"),
     },
     async ({
       x,
@@ -291,6 +301,8 @@ export function registerCreationTools(server: McpServer) {
       fontSize,
       fontWeight,
       fontColor,
+      textAlignHorizontal = "LEFT",
+      textAlignVertical = "TOP",
       name,
       parentId,
     }) => {
@@ -299,26 +311,29 @@ export function registerCreationTools(server: McpServer) {
           x,
           y,
           text,
-          fontSize: fontSize || 14,
-          fontWeight: fontWeight || 400,
-          fontColor: fontColor || { r: 0, g: 0, b: 0, a: 1 },
+          fontSize: fontSize ?? 14,
+          fontWeight: fontWeight ?? 400,
+          fontColor: fontColor ?? { r: 0, g: 0, b: 0, a: 1 },
+
+          /** 🆕 pass alignment through */
+          textAlignHorizontal,
+          textAlignVertical,
+
           name,
           width,
           height,
           parentId,
         });
+
         const typedResult = result as { name: string; id: string };
         return createSuccessResponse({
           messages: [
-            `Created text "${typedResult.name}" with ID: ${typedResult.id}`,
+            `Created text "${typedResult.name}" with ID ${typedResult.id}`,
           ],
           dataItem: typedResult,
         });
       } catch (error) {
-        return createErrorResponse({
-          error,
-          context: "create_text",
-        });
+        return createErrorResponse({ error, context: "create_text" });
       }
     }
   );

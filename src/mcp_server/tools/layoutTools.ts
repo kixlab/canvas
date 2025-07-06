@@ -206,7 +206,7 @@ export function registerLayoutTools(server: McpServer) {
   // Set Layout Mode Tool
   server.tool(
     "set_layout_mode",
-    "Configure the primary layout direction (horizontal/vertical/none) and wrapping behavior for frame containers",
+    "Configure the primary layout direction (horizontal/vertical/none) and wrapping behavior for frame containers with auto-layout",
     {
       nodeId: z.string().describe("Frame ID"),
       layoutMode: z

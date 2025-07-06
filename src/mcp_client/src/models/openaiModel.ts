@@ -23,6 +23,8 @@ export class OpenAIModel implements ModelInstance {
   public outputCost: number;
   public max_turns: number;
   public max_retries: number;
+  public temperature: number;
+  public max_tokens: number;
 
   constructor(config: ModelConfig) {
     this.client = new OpenAI({
@@ -34,6 +36,8 @@ export class OpenAIModel implements ModelInstance {
     this.outputCost = config.output_cost;
     this.max_turns = config.max_turns || 100;
     this.max_retries = config.max_retries || 3;
+    this.temperature = config.temperature;
+    this.max_tokens = config.max_tokens;
   }
   formatResponse(response: any[]): GenericMessage[] {
     throw new Error("Method not implemented.");
@@ -51,8 +55,8 @@ export class OpenAIModel implements ModelInstance {
     const params: OpenAIResponseType.ResponseCreateParams = {
       model: this.name,
       input: input,
-      temperature: options.temperature || 0.7,
-      max_output_tokens: options.max_output_tokens || 4096,
+      temperature: this.temperature,
+      max_output_tokens: this.max_tokens,
       ...options,
       stream: false,
     };
@@ -71,8 +75,8 @@ export class OpenAIModel implements ModelInstance {
       model: this.name,
       input: input,
       tools: tools,
-      temperature: options?.temperature || 0.7,
-      max_output_tokens: options?.max_output_tokens || 4096,
+      temperature: this.temperature,
+      max_output_tokens: this.max_tokens,
       ...options,
       stream: false,
     };

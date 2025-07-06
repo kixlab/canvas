@@ -34,6 +34,27 @@ const designPrinciple = `
 - Consistent alignment improves readability and creates predictability, making it easier for users to navigate your website or app.
 `;
 
+const figmaInstruction = `
+1. Figma Basics
+Within the Figma tool calls, every design layer is surfaced as a node object that abstracts either a container such as a frame or component, or a leaf element like a shape or text layer. 
+Nodes expose structural data to treat all layer kinds uniformly while making individualized properties accessible.
+
+2. Node Hierarchy
+All nodes belong to a single rooted tree that mirrors the canvas layer list. 
+Parent-child links form the hierarchy and the position of a node inside its parent’s children array reflects the front-to-back stacking order, so changing the index changes both z-order and the order seen in the sidebar. 
+Traversing this tree, either depth-first or by walking siblings, is the primary way plugins inspect or mutate the Figma page.
+
+3. Container Layout
+When auto layout is enabled, Figma takes control of direction, gap, padding and resizing of the container frame, recalculating positions whenever children change. 
+Because of this, layout manipulation needs careful consideration of automatic changes to the position and size within the container and its children.
+Use auto layout only when you are certain about the outcome, as this can lead to unexpected layout changes.
+
+4. Text Mechanics
+Text nodes expose font family, style, size and other typography attributes independent of layout.
+Resizing their bounding box does not automatically resize the text inside it; the text will overflow the bounding box if it exceeds the bounding box.
+Because of this, try to have sufficient bounding box size to avoid text overflow and use alignment properties to control text positioning.
+`;
+
 export function getTextBasedGenerationPrompt(instruction: string): string {
   return `
 **Context**
@@ -51,8 +72,8 @@ Interact with the canvas via the provided Figma-control tools.
 3. Keen Examination
 Carefully examine the instructions and follow them accordingly.
 
-**UI Design Principles**
-${designPrinciple}
+**Figma Basics**
+${figmaInstruction}
 
 **Instruction**
 Please analyze the following text and generate a UI design inside the "Main Screen" in the Figma canvas.
@@ -78,8 +99,8 @@ Interact with the canvas via the provided Figma-control tools.
 3. Keen Observation
 Carefully examine the provided screen image and precisely replicate it accordingly.
 
-**UI Design Principles**
-${designPrinciple}
+**Figma Basics**
+${figmaInstruction}
 
 **Instruction**
 Please analyze the following image and generate a UI design inside the "Main Screen" in the Figma canvas.
@@ -103,8 +124,8 @@ Interact with the canvas via the provided Figma-control tools.
 3. Keen Inspection
 Carefully examine the provided screen image and text, and precisely replicate them accordingly.
 
-**UI Design Principles**
-${designPrinciple}
+**Figma Basics**
+${figmaInstruction}
 
 **Instruction**
 Please analyze the following screen image and text instruction, and generate a UI inside the "Main Screen" in the Figma canvas.

@@ -12,20 +12,20 @@ export function registerOperationTools(server: McpServer) {
       nodeId: z.string().describe("Node ID to move"),
       x: z.number().describe("X coordinate of the node (global)"),
       y: z.number().describe("Y coordinate of the node (global)"),
-      newParentId: z
+      parentId: z
         .string()
         .optional()
         .describe(
           "A parent node (FRAME, GROUP, and SECTION only) ID to append the element to"
         ),
     },
-    async ({ nodeId, x, y, newParentId }) => {
+    async ({ nodeId, x, y, parentId }) => {
       try {
         const result = await sendCommandToFigma("move_node", {
           nodeId,
           x,
           y,
-          newParentId,
+          parentId,
         });
         const typedResult = result as {
           name: string;
@@ -62,7 +62,7 @@ export function registerOperationTools(server: McpServer) {
     "Create a duplicate copy of an existing node, optionally placing it in a different parent container or at specific coordinates",
     {
       nodeId: z.string().describe("Node ID to clone"),
-      newParentId: z
+      parentId: z
         .string()
         .optional()
         .describe(
@@ -71,11 +71,11 @@ export function registerOperationTools(server: McpServer) {
       x: z.number().optional().describe("X coordinate of the node (global)"),
       y: z.number().optional().describe("Y coordinate of the node (global)"),
     },
-    async ({ nodeId, newParentId, x, y }) => {
+    async ({ nodeId, parentId, x, y }) => {
       try {
         const result = await sendCommandToFigma("clone_node", {
           nodeId,
-          newParentId,
+          parentId,
           x,
           y,
         });

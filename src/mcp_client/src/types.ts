@@ -104,9 +104,9 @@ export interface ModelConfig {
   provider: ModelProvider;
   input_cost: number;
   output_cost: number;
-  temperature?: number;
-  max_tokens?: number;
-  max_turns?: number;
+  temperature: number;
+  max_tokens: number;
+  max_turns: number;
   max_retries?: number;
 }
 

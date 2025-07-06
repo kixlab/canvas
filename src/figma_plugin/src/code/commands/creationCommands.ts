@@ -216,9 +216,14 @@ export async function createText(params: {
   name: string;
   width: number;
   height: number;
+
   fontSize?: number;
   fontWeight?: number;
-  fontColor?: any;
+  fontColor?: RGBA;
+
+  textAlignHorizontal?: 'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED';
+  textAlignVertical?: 'TOP' | 'CENTER' | 'BOTTOM';
+
   parentId?: string;
 }) {
   const {
@@ -231,6 +236,8 @@ export async function createText(params: {
     fontSize = 14,
     fontWeight = 400,
     fontColor = { r: 0, g: 0, b: 0, a: 1 },
+    textAlignHorizontal = 'LEFT',
+    textAlignVertical = 'TOP',
     parentId,
   } = params;
 
@@ -240,7 +247,6 @@ export async function createText(params: {
   textNode.y = y;
   textNode.name = name || text;
 
-  // load font + set size/weight (unchanged) …
   await figma.loadFontAsync({
     family: 'Inter',
     style: getFontStyle(fontWeight),
@@ -251,7 +257,9 @@ export async function createText(params: {
   textNode.characters = text;
   textNode.fills = [makeSolidPaint(fontColor)];
 
-  textNode.textAutoResize = 'NONE'; // must be NONE before manual resize
+  textNode.textAlignHorizontal = textAlignHorizontal;
+  textNode.textAlignVertical = textAlignVertical;
+  textNode.textAutoResize = 'NONE';
   textNode.resize(width, height);
 
   if (parentId) {
@@ -275,24 +283,27 @@ export async function createText(params: {
   }
 
   // ---- return payload ----
-  const [newX, newY] = getAbsoluteGeometry(textNode as SceneNode);
-
+  const [absX, absY] = getAbsoluteGeometry(textNode as SceneNode);
   return {
     id: textNode.id,
     name: textNode.name,
-    x: newX,
-    y: newY,
-    width: textNode.width, // will match requested width
-    height: textNode.height, // will match requested height
+    x: absX,
+    y: absY,
+    width: textNode.width,
+    height: textNode.height,
     characters: textNode.characters,
     fontSize: textNode.fontSize,
     fontWeight,
     fontColor,
+    textAlignHorizontal: textNode.textAlignHorizontal,
+    textAlignVertical: textNode.textAlignVertical,
+
     fontName: textNode.fontName,
     fills: textNode.fills,
     parentId: textNode.parent ? textNode.parent.id : undefined,
   };
 }
+
 export async function createGraphic(params: {
   svg: string;
   name: string;
