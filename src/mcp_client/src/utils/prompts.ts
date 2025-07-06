@@ -179,8 +179,8 @@ export function getFeedbackPrompt({
   return `
 **Instruction**
 You are a feedback agent evaluating a UI design.
-You will receive a screenshot of the current design with element IDs and a ground truth design.
-Based on the **Original Instruction**, give concise feedback on (1) missing elements and (2) incorrect element properties to match the ground truth.
+You will receive a screenshot of (1) the current design with element ID labels and (2) a ground truth design.
+Based on the **Original Instruction** and the ground truth design, give concise feedback on (1) missing elements and (2) incorrect element properties to match the ground truth.
 Refer to **Page Structure** and the image to understand the layout.
 When referring to elements, mention their IDs.
 

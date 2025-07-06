@@ -295,12 +295,11 @@ export class FeedbackAgent extends AgentInstance {
     const labeledImageContent = await this.drawBoundingBoxes(
       rawImage,
       mimeType,
-      pageStructureTree, // ← see Response Structure
-      model
+      pageStructureTree
     );
 
     return {
-      imageContent: this.toImageContent(rawImage, mimeType, model),
+      imageContent: this.toImageContent(rawImage, mimeType),
       pageStructureText,
       labeledImageContent,
     };
@@ -310,11 +309,7 @@ export class FeedbackAgent extends AgentInstance {
   /* helpers                                                            */
   /* ------------------------------------------------------------------ */
 
-  private toImageContent(
-    base64: string,
-    mime: string,
-    model: ModelInstance
-  ): ImageContent {
+  private toImageContent(base64: string, mime: string): ImageContent {
     return {
       type: ContentType.IMAGE,
       data: base64,
@@ -325,56 +320,165 @@ export class FeedbackAgent extends AgentInstance {
   private async drawBoundingBoxes(
     base64: string,
     mime: string = "image/png",
-    tree: any[],
-    model: ModelInstance
+    tree: any[]
   ): Promise<ImageContent> {
+    /* ---------- colour helpers ---------- */
+    const PALETTE: [number, number, number][] = [
+      [230, 25, 75], // Red
+      [60, 180, 75], // Green
+      [0, 130, 200], // Blue
+      [245, 130, 48], // Orange
+      [145, 30, 180], // Purple
+      [70, 240, 240], // Cyan
+      [240, 50, 230], // Pink
+    ];
+    const rgba = (i: number, a: number) => {
+      const [r, g, b] = PALETTE[i % PALETTE.length];
+      return `rgba(${r},${g},${b},${a})`;
+    };
+
+    /* ---------- layout constants ---------- */
+    const FONT = "12px Arial";
+    const TAG_HEIGHT = 14;
+    const TAG_PAD = 4;
+    const GUTTER = 20; // gap between picture and each label column
+    const PANEL_MARG = 16; // extra padding inside each label column
+    const MIN_SPACING = 6; // minimum vertical distance between labels
+
+    /* ---------- load the image ---------- */
     const buffer = Buffer.from(base64, "base64");
     const img = await loadImage(buffer);
 
-    const canvas = createCanvas(img.width, img.height);
+    /* ---------- flatten the tree ---------- */
+    const flat: any[] = [];
+    (function visit(nodes: any[]) {
+      nodes.forEach((n) => {
+        flat.push(n);
+        if (n.children?.length) visit(n.children);
+      });
+    })(tree);
+
+    /* ---------- measure every label ---------- */
+    const measureCtx = createCanvas(1, 1).getContext("2d");
+    measureCtx.font = FONT;
+
+    const labelMeta = flat.map((node, idx) => {
+      const text = `${node.name} (ID:"${node.id}")`;
+      const textW = measureCtx.measureText(text).width;
+      const boxCx = node.position.x + node.size.width / 2;
+      const boxCy = node.position.y + node.size.height / 2;
+      return { node, idx, text, textW, boxCx, boxCy };
+    });
+
+    const maxLabelW = Math.max(...labelMeta.map((m) => m.textW)) + TAG_PAD * 2;
+    const PANEL_W = maxLabelW + PANEL_MARG;
+    const CANVAS_W = PANEL_W + GUTTER + img.width + GUTTER + PANEL_W;
+    const CANVAS_H = img.height;
+
+    /* ---------- prepare canvas ---------- */
+    const canvas = createCanvas(CANVAS_W, CANVAS_H);
     const ctx = canvas.getContext("2d");
-
-    /* background image */
-    ctx.drawImage(img, 0, 0);
-
-    /* drawing style */
-    ctx.strokeStyle = "rgba(255, 0, 255, 0.8)";
-    ctx.lineWidth = 2;
-    ctx.font = "10px Arial";
+    ctx.font = FONT;
     ctx.textBaseline = "top";
 
-    const TAG_HEIGHT = 12;
-    const TAG_PAD = 4;
+    /* ---------- draw background picture ---------- */
+    const IMAGE_X = PANEL_W + GUTTER;
+    ctx.drawImage(img, IMAGE_X, 0);
 
-    function visit(node: any) {
+    /* ---------- helpers for collision-free placement ---------- */
+    type Rect = { top: number; bottom: number; h: number };
+
+    const placedLeft: Rect[] = [];
+    const placedRight: Rect[] = [];
+
+    /** Find the nearest Y ≥ desiredY that doesn't overlap earlier labels on this side. */
+    function resolveY(desiredY: number, list: Rect[]): number {
+      let y = Math.max(0, Math.min(desiredY, CANVAS_H - TAG_HEIGHT));
+      for (const r of list) {
+        if (y + TAG_HEIGHT + MIN_SPACING <= r.top) break; // fits before this rect
+        if (y >= r.bottom + MIN_SPACING) continue; // fits after this rect
+        y = r.bottom + MIN_SPACING; // push below it & keep checking
+      }
+      // clamp if we ran past the bottom
+      if (y + TAG_HEIGHT > CANVAS_H) y = CANVAS_H - TAG_HEIGHT;
+      return y;
+    }
+
+    /* Sort labels by box centre-Y so “close” really means close */
+    labelMeta.sort((a, b) => a.boxCy - b.boxCy);
+
+    /* ---------- render ---------- */
+    for (const meta of labelMeta) {
+      const { node, idx, text, textW, boxCx, boxCy } = meta;
+
+      /* decide side: left if box centre is left of midline, else right */
+      const side = boxCx < img.width / 2 ? "left" : "right";
+
+      /* desired label Y (centre aligned with box) */
+      const desiredY = Math.round(boxCy - TAG_HEIGHT / 2);
+
+      /* resolve collision */
+      const lblY =
+        side === "left"
+          ? resolveY(desiredY, placedLeft)
+          : resolveY(desiredY, placedRight);
+
+      /* store rect for future collisions */
+      const rect: Rect = {
+        top: lblY,
+        bottom: lblY + TAG_HEIGHT,
+        h: TAG_HEIGHT,
+      };
+      (side === "left" ? placedLeft : placedRight).push(rect);
+
+      /* X position in its column */
+      const lblW = textW + TAG_PAD * 2;
+      const lblX =
+        side === "left"
+          ? PANEL_W - lblW // right-align in left panel
+          : IMAGE_X + img.width + GUTTER; // start of right panel
+
+      /* bounding box (adjusted for picture offset) */
       const {
         position: { x, y },
         size: { width, height },
-        id,
-        name,
-        children = [],
       } = node;
+      const boxX = IMAGE_X + x;
+      const boxY = y;
 
-      /* rectangle */
-      ctx.strokeRect(x, y, width, height);
+      /* colours */
+      const colSolid = rgba(idx, 0.75);
+      const colTrans = rgba(idx, 0.25);
 
-      /* label background (small black strip) */
-      const label = `${name} (${id})`;
-      const { width: textW } = ctx.measureText(label);
-      ctx.fillStyle = "rgba(255, 165, 255, 0.8)";
-      ctx.fillRect(x, y, textW + TAG_PAD * 2, TAG_HEIGHT);
+      /* draw bounding box */
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = colSolid;
+      ctx.setLineDash([]);
+      ctx.strokeRect(boxX, boxY, width, height);
+
+      /* label background */
+      ctx.fillStyle = colTrans;
+      ctx.fillRect(lblX, lblY, lblW, TAG_HEIGHT);
 
       /* label text */
       ctx.fillStyle = "#000";
-      ctx.fillText(label, x + TAG_PAD, y + 2);
+      ctx.fillText(text, lblX + TAG_PAD, lblY + 2);
 
-      children.forEach(visit);
+      /* dotted connector */
+      ctx.beginPath();
+      ctx.setLineDash([4, 4]);
+      const fromX = side === "left" ? lblX + lblW : lblX;
+      const boxEdge = side === "left" ? boxX : boxX + width;
+      ctx.moveTo(fromX, lblY + TAG_HEIGHT / 2);
+      ctx.lineTo(boxEdge, boxY + height / 2);
+      ctx.strokeStyle = colSolid;
+      ctx.stroke();
+      ctx.setLineDash([]); // reset
     }
-    tree.forEach(visit);
 
+    /* ---------- export ---------- */
     const annotatedBuf = await canvas.encode("png");
-
-    return this.toImageContent(annotatedBuf.toString("base64"), mime, model);
+    return this.toImageContent(annotatedBuf.toString("base64"), mime);
   }
 
   private buildFeedbackRequestMessage({
