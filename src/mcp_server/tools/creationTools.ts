@@ -212,7 +212,7 @@ export function registerCreationTools(server: McpServer) {
           y,
           width,
           height,
-          name: name || "Frame",
+          name: name,
           parentId,
           fillColor: fillColor || { r: 1, g: 1, b: 1, a: 1 },
           strokeColor: strokeColor,
@@ -282,11 +282,11 @@ export function registerCreationTools(server: McpServer) {
       textAlignHorizontal: z
         .enum(["LEFT", "CENTER", "RIGHT", "JUSTIFIED"])
         .optional()
-        .describe("Horizontal text alignment"),
+        .describe("Horizontal text alignment (Default value: LEFT)"),
       textAlignVertical: z
         .enum(["TOP", "CENTER", "BOTTOM"])
         .optional()
-        .describe("Vertical text alignment"),
+        .describe("Vertical text alignment (Default value: TOP)"),
       parentId: z
         .string()
         .optional()

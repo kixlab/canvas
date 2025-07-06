@@ -1,58 +1,34 @@
-// Prompts for the MCP client - TypeScript version of Python prompts
-
 import { ImageContent } from "@modelcontextprotocol/sdk/types";
 
-// https://www.figma.com/resource-library/ui-design-principles/
-const designPrinciple = `
-1. Hierarchy
-- Font size and weight: Large and bold fonts stand out and can emphasize important information and buttons.
-- Contrast: The strategic use of contrasting colors directs users to key elements.
-- Spacing: Thoughtful spacing between elements creates visual interest and shows users how different UI elements are related.
-
-2. Progressive disclosure
-- UX designers typically use progressive disclosure to guide users through a multi-step process, providing the right amount of information to make clear choices at each step.
-- UI designers can borrow this approach to prioritize what to include in the UI and what to exclude since too many features can be overwhelming.
-
-3. Consistency
-- A good interface feels familiar from the first click. 
-- Design systems create this familiarity through consistent patterns—when a button looks and works the same way throughout your product, users stop thinking about the - interface and focus on their tasks. 
-- Continuity becomes increasingly important as users advance through a flow. 
-
-4. Contrast
-- UI designers use contrast strategically to draw attention to important content or features. 
-
-5. Accessibility
-- UI designers also carefully contrast colors and luminosity to make designs distinctive and more accessible to users with vision impairments.
-
-6. Proximity
-- Things that belong together should stay together. 
-- Users naturally perceive UI elements that are close together as related, so this type of visual organization creates a more intuitive user experience and natural user flow.
-
-7. Alignment
-- Clean lines make designs feel professional. 
-- A strong grid system helps establish order and balance. 
-- Consistent alignment improves readability and creates predictability, making it easier for users to navigate your website or app.
-`;
-
 const figmaInstruction = `
-1. Figma Basics
-Within the Figma tool calls, every design layer is surfaced as a node object that abstracts either a container such as a frame or component, or a leaf element like a shape or text layer. 
-Nodes expose structural data to treat all layer kinds uniformly while making individualized properties accessible.
+1. Figma Tool Basics
+- In Figma tool calls, each design element appears as a node representing either a container (frame/component) or a leaf (shape/text).
+- Nodes provide uniform structural data while still exposing their unique properties.
+- Coordinates are global: all nodes sit relative to the canvas origin (0, 0) at the top-left.
 
 2. Node Hierarchy
-All nodes belong to a single rooted tree that mirrors the canvas layer list. 
-Parent-child links form the hierarchy and the position of a node inside its parent’s children array reflects the front-to-back stacking order, so changing the index changes both z-order and the order seen in the sidebar. 
-Traversing this tree, either depth-first or by walking siblings, is the primary way plugins inspect or mutate the Figma page.
+- All nodes live in one rooted tree mirroring the layer list.
+- Parent-child links create the hierarchy, and a node’s index in its parent sets both z-order and sidebar order.
+- When child nodes (leaf) outgrow their parent nodes (container), they will be clipped.
 
 3. Container Layout
-When auto layout is enabled, Figma takes control of direction, gap, padding and resizing of the container frame, recalculating positions whenever children change. 
-Because of this, layout manipulation needs careful consideration of automatic changes to the position and size within the container and its children.
-Use auto layout only when you are certain about the outcome, as this can lead to unexpected layout changes.
+- With auto layout applied to the frame, Figma automatically manages direction, gap, padding, and resizing of the container and the children.
+- So, manual layout property changes must account for these automatic adjustments of size and position.
+- Enable auto layout only when confident, as it can cause unexpected shifts.
 
 4. Text Mechanics
-Text nodes expose font family, style, size and other typography attributes independent of layout.
-Resizing their bounding box does not automatically resize the text inside it; the text will overflow the bounding box if it exceeds the bounding box.
-Because of this, try to have sufficient bounding box size to avoid text overflow and use alignment properties to control text positioning.
+- Text nodes expose font family, style, size, and other typography traits independent of layout.
+- Resizing the text node doesn’t scale the text; excess text simply overflows.
+- Adequately set the text node size and alignment to avoid overflow.
+`;
+
+const agencyPrinciples = `
+1. Persistence  
+Keep iterating until the instruction is fully met and confirmed. Do not end the turn early.
+2. Tool use  
+Interact with the canvas via the provided Figma-control tools.
+3. Keen Examination
+Carefully examine the instructions and image (if provided) and follow them accordingly.
 `;
 
 export function getTextBasedGenerationPrompt(instruction: string): string {
@@ -63,26 +39,22 @@ Follow the **Instruction** to generate a UI design.
 Refer to the **Agency Principles** and **UI Design Principles** for guidance.
 
 **Agency Principles**
-1. Persistence  
-Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
-
-2. Tool use  
-Interact with the canvas via the provided Figma-control tools.
-
-3. Keen Examination
-Carefully examine the instructions and follow them accordingly.
+${agencyPrinciples}
 
 **Figma Basics**
 ${figmaInstruction}
 
 **Instruction**
-Please analyze the following text and generate a UI design inside the "Main Screen" in the Figma canvas.
+Please analyze the following text and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 ${instruction}  
 
 `;
 }
 
-export function getImageBasedGenerationPrompt(): string {
+export function getImageBasedGenerationPrompt(
+  width: number,
+  height: number
+): string {
   return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls.
@@ -90,24 +62,23 @@ Follow the **Instruction** to generate a UI design.
 Refer to the **Agency Principles** and **UI Design Principles** for guidance.
 
 **Agency Principles**
-1. Persistence  
-Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
-
-2. Tool use  
-Interact with the canvas via the provided Figma-control tools.
-
-3. Keen Observation
-Carefully examine the provided screen image and precisely replicate it accordingly.
+${agencyPrinciples}
 
 **Figma Basics**
 ${figmaInstruction}
 
+
 **Instruction**
-Please analyze the following image and generate a UI design inside the "Main Screen" in the Figma canvas.
+Please analyze the following image and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+The frame size is ${width}x${height} pixels.
 `;
 }
 
-export function getTextImageBasedGenerationPrompt(instruction: string): string {
+export function getTextImageBasedGenerationPrompt(
+  instruction: string,
+  width: number,
+  height: number
+): string {
   return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls.
@@ -115,20 +86,15 @@ Follow the **Instruction** to generate a UI design.
 Refer to the **Agency Principles** and **UI Design Principles** for guidance.
 
 **Agency Principles**
-1. Persistence  
-Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
-
-2. Tool use  
-Interact with the canvas via the provided Figma-control tools.
-
-3. Keen Inspection
-Carefully examine the provided screen image and text, and precisely replicate them accordingly.
+${agencyPrinciples}
 
 **Figma Basics**
 ${figmaInstruction}
 
+
 **Instruction**
-Please analyze the following screen image and text instruction, and generate a UI inside the "Main Screen" in the Figma canvas.
+Please analyze the following screen image and text instruction, and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+The frame size is ${width}x${height} pixels.
 ${instruction}
 `;
 }
@@ -210,61 +176,59 @@ export function getFeedbackPrompt({
   originalTargetImage?: ImageContent;
   pageStructureText?: string;
 }): string {
-  let prompts = `
-** Instruction **
-You are a feedback agent tasked with evaluating the user interface design.
-You will receive a screenshot of the current design.
-Based on the **Original Instruction**, provide concise feedback on how to improve the design to match the original instruction.
-Precisely, refer to **Page Structure** to understand the current design layout.
-In your instructions, when referring to existing elements, mention their names and IDs.
-`;
+  return `
+**Instruction**
+You are a feedback agent evaluating a UI design.
+You will receive a screenshot of the current design with element IDs and a ground truth design.
+Based on the **Original Instruction**, give concise feedback on (1) missing elements and (2) incorrect element properties to match the ground truth.
+Refer to **Page Structure** and the image to understand the layout.
+When referring to elements, mention their IDs.
 
-  if (originalTargetImage) {
-    prompts += `The target image screenshot is provided as a second image.`;
-  }
-
-  if (pageStructureText) {
-    prompts += `
-** Page Structure **
-${pageStructureText}
-`;
-  }
-
-  if (originalTargetText) {
-    prompts += `
-** Original Instruction **
-  """
-  ${originalTargetText}
-  """
-`;
-  }
-
-  return prompts;
+${
+  originalTargetImage
+    ? "The target image screenshot is provided as a second image."
+    : ""
 }
 
-export function combineFeedbackInstruction({
+${pageStructureText ? `**Page Structure**\n${pageStructureText}` : ""}
+
+${
+  originalTargetText
+    ? `**Original Instruction**\n"""\n${originalTargetText}\n"""`
+    : ""
+}
+`.trim();
+}
+
+export function getUpdateInstruction({
   feedbackInstruction,
   pageStructureText,
+  width,
+  height,
 }: {
   feedbackInstruction: string;
   pageStructureText: string;
+  width: number;
+  height: number;
 }) {
   const combinedInstruction = `
 
 **Context**
-You are a UI-design agent with access to Figma via tool calls. 
-Follow the **Feedback Instruction** to update a UI design.
-Refer to the **Page Structure** and image for manipulation.
+You are a UI-design agent with access to Figma via tool calls.
+Follow the **Instruction** to update the UI design in the "Main Screen" frame in the Figma.
+The frame size is ${width}x${height} pixels.
 
-**Feedback Instruction**
-  """
-  ${feedbackInstruction.trim()}
-  """
+**Agency Principles**
+${agencyPrinciples}
+
+**Figma Basics**
+${figmaInstruction}
 
 **Page Structure**
-"""
 ${pageStructureText || ""}
-"""
+
+**Instruction**
+${feedbackInstruction.trim()}
 `;
   return combinedInstruction;
 }

@@ -1129,7 +1129,7 @@
                 return c.text.replace(/\n/g, '<br>');
             } else if (c.type === 'image') {
                 return `<div class="inline-image-container">
-                <img src="${c.data}" alt="Message image">
+                <img src="data:${c.mimeType};base64,${c.data}" alt="Message image">
                 ${c.mimeType ? `<div class="content-type-indicator">${c.mimeType}</div>` : ''}
                 </div>`;
             } else if (c.type === 'audio') {

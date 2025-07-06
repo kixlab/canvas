@@ -157,8 +157,12 @@ export const intializeMainScreenFrame = async (
     }
 
     const mainScreenFrameId = (result.structuredContent?.id as string).trim();
-    const width = result.structuredContent?.width;
-    const height = result.structuredContent?.height;
+    const width = result.structuredContent?.width as number;
+    const height = result.structuredContent?.height as number;
+
+    if (!mainScreenFrameId || !width || !height) {
+      throw new Error("Invalid response from create_frame tool");
+    }
 
     return {
       mainScreenFrameId,
@@ -170,6 +174,22 @@ export const intializeMainScreenFrame = async (
       `Error initializing root frame: ${(error as Error).message}`
     );
   }
+};
+
+export const getBase64ImageSize = async (
+  base64Image: string,
+  mimeType: string = "image/png"
+): Promise<{ width: number; height: number }> => {
+  const img = new Image();
+  img.src = `data:${mimeType};base64,${base64Image}`;
+  return new Promise((resolve, reject) => {
+    img.onload = () => {
+      resolve({ width: img.width, height: img.height });
+    };
+    img.onerror = (error) => {
+      reject(new Error(`Failed to load image: ${error}`));
+    };
+  });
 };
 
 const traverseTree = (node: any, elementTypes: Map<string, string>) => {

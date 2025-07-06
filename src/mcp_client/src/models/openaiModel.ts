@@ -106,7 +106,7 @@ export class OpenAIModel implements ModelInstance {
         } else if (item.type === ContentType.IMAGE) {
           return {
             type: "input_image" as const,
-            image_url: this.formatImageData(item.data),
+            image_url: this.formatImageData(item.data, item.mimeType),
             detail: "auto" as const,
           };
         }

@@ -12,7 +12,9 @@ const PORT = process.env.PORT || 3000;
 // Parse CLI arguments
 const args = process.argv.slice(2);
 const agentTypeArg = args.find((arg) => arg.startsWith("--agent_type="));
-const AGENT_TYPE = agentTypeArg ? agentTypeArg.split("=")[1] : AgentType.REACT;
+const AGENT_TYPE = agentTypeArg
+  ? agentTypeArg.split("=")[1]
+  : AgentType.FEEDBACK;
 
 // Validate agent type
 if (!Object.values(AgentType).includes(AGENT_TYPE as any)) {

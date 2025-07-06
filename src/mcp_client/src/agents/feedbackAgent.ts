@@ -21,10 +21,7 @@ import {
   TextContent,
 } from "@modelcontextprotocol/sdk/types";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
-import {
-  combineFeedbackInstruction,
-  getFeedbackPrompt,
-} from "../utils/prompts";
+import { getUpdateInstruction, getFeedbackPrompt } from "../utils/prompts";
 import { switchParentId, intializeMainScreenFrame } from "../utils/helpers";
 
 export class FeedbackAgent extends AgentInstance {
@@ -50,10 +47,11 @@ export class FeedbackAgent extends AgentInstance {
 
     // Step 3: Create an environment
     let totalCost = 0;
-    const { mainScreenFrameId } = await intializeMainScreenFrame(
-      params.requestMessage,
-      params.tools
-    );
+    const {
+      mainScreenFrameId,
+      width: frameWidth,
+      height: frameHeight,
+    } = await intializeMainScreenFrame(params.requestMessage, params.tools);
 
     /* --- Feedback Loop --------------------------------- */
     for (let iteration = 0; iteration < params.model.max_retries; iteration++) {
@@ -102,6 +100,8 @@ export class FeedbackAgent extends AgentInstance {
         statusImageContent: currentStatusImage,
         originalTargetImage: originalTargetImage ?? undefined,
         pageStructureText: pageStructureText ?? undefined,
+        frameWidth,
+        frameHeight,
       });
     }
 
@@ -317,7 +317,7 @@ export class FeedbackAgent extends AgentInstance {
   ): ImageContent {
     return {
       type: ContentType.IMAGE,
-      data: model.formatImageData(base64, mime),
+      data: base64,
       mimeType: mime,
     };
   }
@@ -382,15 +382,21 @@ export class FeedbackAgent extends AgentInstance {
     originalTargetImage,
     pageStructureText,
     statusImageContent,
+    frameWidth,
+    frameHeight,
   }: {
     feedbackInstruction: string;
     pageStructureText: string;
     statusImageContent: ImageContent;
     originalTargetImage?: ImageContent;
+    frameWidth: number;
+    frameHeight: number;
   }): UserRequestMessage {
-    const combinedInstruction = combineFeedbackInstruction({
+    const combinedInstruction = getUpdateInstruction({
       feedbackInstruction: feedbackInstruction,
       pageStructureText: pageStructureText,
+      width: frameWidth,
+      height: frameHeight,
     });
 
     const content: (TextContent | ImageContent)[] = [
