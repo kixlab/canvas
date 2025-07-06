@@ -2,45 +2,86 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { sendCommandToFigma } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
-import { logger } from "../config.js";
 
 export function registerCreationTools(server: McpServer) {
   // Create Rectangle Tool
   server.tool(
     "create_rectangle",
-    "Create a new rectangle in Figma",
+    "Create a new rectangular shape node with common styling properties",
     {
-      x: z.number().describe("X position"),
-      y: z.number().describe("Y position"),
-      width: z.number().describe("Width of the rectangle"),
-      height: z.number().describe("Height of the rectangle"),
-      name: z.string().describe("Name for the rectangle"),
+      x: z.number().describe("X coordinate of the node (global)"),
+      y: z.number().describe("Y coordinate of the node (global)"),
+      width: z.number().describe("Width of the node"),
+      height: z.number().describe("Height of the node"),
+      name: z.string().describe("Semantic name for the node"),
       parentId: z
         .string()
         .optional()
-        .describe(
-          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID to append the rectangle to"
-        ),
+        .describe("FRAME / GROUP / SECTION ID to append the node to"),
+
+      fillColor: z
+        .object({
+          r: z.number().min(0).max(1),
+          g: z.number().min(0).max(1),
+          b: z.number().min(0).max(1),
+          a: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Solid fill in RGBA (defaults to transparent)"),
+
+      strokeColor: z
+        .object({
+          r: z.number().min(0).max(1),
+          g: z.number().min(0).max(1),
+          b: z.number().min(0).max(1),
+          a: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Stroke color in RGBA"),
+
+      strokeWeight: z
+        .number()
+        .positive()
+        .optional()
+        .describe("Stroke weight in px (defaults 1)"),
+
+      cornerRadius: z
+        .number()
+        .min(0)
+        .optional()
+        .describe("Uniform corner radius in px"),
     },
-    async ({ x, y, width, height, name, parentId }) => {
+    async ({
+      x,
+      y,
+      width,
+      height,
+      name,
+      parentId,
+      fillColor,
+      strokeColor,
+      strokeWeight,
+      cornerRadius,
+    }) => {
       try {
         const result = await sendCommandToFigma("create_rectangle", {
           x,
           y,
           width,
           height,
-          name: name || "Rectangle",
+          name,
           parentId,
+          fillColor,
+          strokeColor,
+          strokeWeight,
+          cornerRadius,
         });
         return createSuccessResponse({
-          messages: [`Created rectangle "${JSON.stringify(result)}"`],
+          messages: [`Created rectangle «${result.name}» (${result.id}).`],
           dataItem: result,
         });
       } catch (error) {
-        return createErrorResponse({
-          error,
-          context: "create_rectangle",
-        });
+        return createErrorResponse({ error, context: "create_rectangle" });
       }
     }
   );
@@ -48,48 +89,52 @@ export function registerCreationTools(server: McpServer) {
   // Create Frame Tool
   server.tool(
     "create_frame",
-    "Create a new frame in Figma",
+    "Create a new frame container with auto-layout capabilities, styling options, and layout properties",
     {
-      x: z.number().describe("X position"),
-      y: z.number().describe("Y position"),
-      width: z.number().describe("Width of the frame"),
-      height: z.number().describe("Height of the frame"),
-      name: z.string().describe("Name for the frame"),
+      x: z.number().describe("X coordinate of the node (global)"),
+      y: z.number().describe("Y coordinate of the node (global)"),
+      width: z.number().describe("Width of the node"),
+      height: z.number().describe("Height of the node"),
+      name: z.string().describe("Semantic name for the node"),
       parentId: z
         .string()
         .optional()
         .describe(
-          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID to append the frame to"
+          "A parent node (FRAME, GROUP, and SECTION type only) ID to append the node to"
         ),
       fillColor: z
         .object({
-          r: z.number().min(0).max(1).describe("Red component (0-1)"),
-          g: z.number().min(0).max(1).describe("Green component (0-1)"),
-          b: z.number().min(0).max(1).describe("Blue component (0-1)"),
+          r: z.number().min(0).max(1).describe("Red intensity (0-1)"),
+          g: z.number().min(0).max(1).describe("Green intensity (0-1)"),
+          b: z.number().min(0).max(1).describe("Blue intensity (0-1)"),
           a: z
             .number()
             .min(0)
             .max(1)
             .optional()
-            .describe("Alpha component (0-1)"),
+            .describe("Alpha intensity (0-1)"),
         })
         .optional()
         .describe("Fill color in RGBA format"),
       strokeColor: z
         .object({
-          r: z.number().min(0).max(1).describe("Red component (0-1)"),
-          g: z.number().min(0).max(1).describe("Green component (0-1)"),
-          b: z.number().min(0).max(1).describe("Blue component (0-1)"),
+          r: z.number().min(0).max(1).describe("Red intensity (0-1)"),
+          g: z.number().min(0).max(1).describe("Green intensity (0-1)"),
+          b: z.number().min(0).max(1).describe("Blue intensity (0-1)"),
           a: z
             .number()
             .min(0)
             .max(1)
             .optional()
-            .describe("Alpha component (0-1)"),
+            .describe("Alpha intensity (0-1)"),
         })
         .optional()
         .describe("Stroke color in RGBA format"),
-      strokeWeight: z.number().positive().optional().describe("Stroke weight"),
+      strokeWeight: z
+        .number()
+        .positive()
+        .optional()
+        .describe("Stroke weight in pixel value"),
       layoutMode: z
         .enum(["NONE", "HORIZONTAL", "VERTICAL"])
         .optional()
@@ -97,28 +142,28 @@ export function registerCreationTools(server: McpServer) {
       layoutWrap: z
         .enum(["NO_WRAP", "WRAP"])
         .optional()
-        .describe("Whether the auto-layout frame wraps its children"),
+        .describe("Children wrapping configuration for auto-layout frame"),
       paddingTop: z
         .number()
         .optional()
-        .describe("Top padding for auto-layout frame"),
+        .describe("Top padding value for auto-layout frame"),
       paddingRight: z
         .number()
         .optional()
-        .describe("Right padding for auto-layout frame"),
+        .describe("Right padding value for auto-layout frame"),
       paddingBottom: z
         .number()
         .optional()
-        .describe("Bottom padding for auto-layout frame"),
+        .describe("Bottom padding value for auto-layout frame"),
       paddingLeft: z
         .number()
         .optional()
-        .describe("Left padding for auto-layout frame"),
+        .describe("Left padding value for auto-layout frame"),
       primaryAxisAlignItems: z
         .enum(["MIN", "MAX", "CENTER", "SPACE_BETWEEN"])
         .optional()
         .describe(
-          "Primary axis alignment for auto-layout frame. Note: When set to SPACE_BETWEEN, itemSpacing will be ignored as children will be evenly spaced."
+          "Primary axis alignment for auto-layout frame (Note: When set to SPACE_BETWEEN, itemSpacing will be ignored as children will be evenly spaced.)"
         ),
       counterAxisAlignItems: z
         .enum(["MIN", "MAX", "CENTER", "BASELINE"])
@@ -136,7 +181,7 @@ export function registerCreationTools(server: McpServer) {
         .number()
         .optional()
         .describe(
-          "Distance between children in auto-layout frame. Note: This value will be ignored if primaryAxisAlignItems is set to SPACE_BETWEEN."
+          "Distance between children in auto-layout frame (Note: This value will be ignored if primaryAxisAlignItems is set to SPACE_BETWEEN.)"
         ),
     },
     async ({
@@ -167,7 +212,7 @@ export function registerCreationTools(server: McpServer) {
           y,
           width,
           height,
-          name: name || "Frame",
+          name: name,
           parentId,
           fillColor: fillColor || { r: 1, g: 1, b: 1, a: 1 },
           strokeColor: strokeColor,
@@ -203,62 +248,92 @@ export function registerCreationTools(server: McpServer) {
   // Create Text Tool
   server.tool(
     "create_text",
-    "Create a new text element in Figma",
+    "Create a new text node with customizable content, typography, alignment and styling options",
     {
-      x: z.number().describe("X position"),
-      y: z.number().describe("Y position"),
-      text: z.string().describe("Text content"),
-      name: z.string().describe("Semantic element name for the text node"),
-      fontSize: z.number().optional().describe("Font size (default: 14)"),
+      x: z.number().describe("X coordinate of the node (global)"),
+      y: z.number().describe("Y coordinate of the node (global)"),
+      text: z.string().describe("Text content of the node"),
+      name: z.string().describe("Semantic name for the node"),
+      width: z.number().describe("Width of the node"),
+      height: z.number().describe("Height of the node"),
+
+      fontSize: z.number().optional().describe("Text font size (default: 14)"),
       fontWeight: z
         .number()
+        .min(100)
+        .max(900)
         .optional()
-        .describe("Font weight (e.g., 400 for Regular, 700 for Bold)"),
+        .describe("Text font weight in numeric value"),
       fontColor: z
         .object({
-          r: z.number().min(0).max(1).describe("Red component (0-1)"),
-          g: z.number().min(0).max(1).describe("Green component (0-1)"),
-          b: z.number().min(0).max(1).describe("Blue component (0-1)"),
+          r: z.number().min(0).max(1).describe("Red Intensity (0-1)"),
+          g: z.number().min(0).max(1).describe("Green Intensity (0-1)"),
+          b: z.number().min(0).max(1).describe("Blue Intensity (0-1)"),
           a: z
             .number()
             .min(0)
             .max(1)
             .optional()
-            .describe("Alpha component (0-1)"),
+            .describe("Alpha Intensity (0-1)"),
         })
         .optional()
-        .describe("Font color in RGBA format"),
+        .describe("Text color (RGBA)"),
+
+      textAlignHorizontal: z
+        .enum(["LEFT", "CENTER", "RIGHT", "JUSTIFIED"])
+        .optional()
+        .describe("Horizontal text alignment (Default value: LEFT)"),
+      textAlignVertical: z
+        .enum(["TOP", "CENTER", "BOTTOM"])
+        .optional()
+        .describe("Vertical text alignment (Default value: TOP)"),
       parentId: z
         .string()
         .optional()
-        .describe(
-          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID to append the text to"
-        ),
+        .describe("FRAME | GROUP | SECTION ID to append the node to"),
     },
-    async ({ x, y, text, fontSize, fontWeight, fontColor, name, parentId }) => {
+    async ({
+      x,
+      y,
+      width,
+      height,
+      text,
+      fontSize,
+      fontWeight,
+      fontColor,
+      textAlignHorizontal = "LEFT",
+      textAlignVertical = "TOP",
+      name,
+      parentId,
+    }) => {
       try {
         const result = await sendCommandToFigma("create_text", {
           x,
           y,
           text,
-          fontSize: fontSize || 14,
-          fontWeight: fontWeight || 400,
-          fontColor: fontColor || { r: 0, g: 0, b: 0, a: 1 },
-          name: name || "Text",
+          fontSize: fontSize ?? 14,
+          fontWeight: fontWeight ?? 400,
+          fontColor: fontColor ?? { r: 0, g: 0, b: 0, a: 1 },
+
+          /** 🆕 pass alignment through */
+          textAlignHorizontal,
+          textAlignVertical,
+
+          name,
+          width,
+          height,
           parentId,
         });
+
         const typedResult = result as { name: string; id: string };
         return createSuccessResponse({
           messages: [
-            `Created text "${typedResult.name}" with ID: ${typedResult.id}`,
+            `Created text "${typedResult.name}" with ID ${typedResult.id}`,
           ],
           dataItem: typedResult,
         });
       } catch (error) {
-        return createErrorResponse({
-          error,
-          context: "creating text",
-        });
+        return createErrorResponse({ error, context: "create_text" });
       }
     }
   );
@@ -266,21 +341,17 @@ export function registerCreationTools(server: McpServer) {
   // create SVG tool
   server.tool(
     "create_graphic",
-    "Create vector graphics (e.g. icon) using a SVG markup",
+    "Create a new vector graphic node from SVG markup for icons and scalable illustrations",
     {
-      svg: z
-        .string()
-        .describe(
-          "The raw SVG markup as a string. Must contain at least one <path> element with a 'd' attribute"
-        ),
-      name: z.string().describe("A name for the new vector layer"),
-      x: z.number().describe("X position for the new vector layer"),
-      y: z.number().describe("Y position for the new vector layer"),
+      svg: z.string().describe("The raw SVG markup as a string"),
+      name: z.string().describe("A semantic name for the vector graphic node"),
+      x: z.number().describe("X coordinate of the node (global)"),
+      y: z.number().describe("Y coordinate of the node (global)"),
       parentId: z
         .string()
         .optional()
         .describe(
-          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID to append the vector layer to"
+          "A parent node (FRAME, GROUP, and SECTION type only) ID to append the node to"
         ),
     },
     async ({ svg, x, y, name, parentId }) => {
@@ -289,7 +360,7 @@ export function registerCreationTools(server: McpServer) {
           svg,
           x,
           y,
-          name: name || "SVG Vector",
+          name,
           parentId,
         });
         const typedResult = result as { name: string; id: string };
@@ -310,42 +381,52 @@ export function registerCreationTools(server: McpServer) {
 
   server.tool(
     "create_ellipse",
-    "Create a new ellipse in Figma",
+    "Create a new elliptical or circular shape node with customizable fill and stroke properties",
     {
-      x: z.number().describe("X position"),
-      y: z.number().describe("Y position"),
-      width: z.number().describe("Width of the ellipse"),
-      height: z.number().describe("Height of the ellipse"),
-      name: z.string().describe("A semantic element name for the ellipse"),
+      x: z.number().describe("X coordinate of the node (global)"),
+      y: z.number().describe("Y coordinate of the node (global)"),
+      width: z.number().describe("Width of the node"),
+      height: z.number().describe("Height of the node"),
+      name: z.string().describe("Semantic name for the node"),
       parentId: z
         .string()
         .optional()
         .describe(
-          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID to append the ellipse to"
+          "A parent node (FRAME, GROUP, and SECTION type only) ID to append the node to"
         ),
       fillColor: z
         .object({
-          r: z.number().min(0).max(1),
-          g: z.number().min(0).max(1),
-          b: z.number().min(0).max(1),
-          a: z.number().min(0).max(1).optional(),
+          r: z.number().min(0).max(1).describe("Red intensity (0-1)"),
+          g: z.number().min(0).max(1).describe("Green intensity (0-1)"),
+          b: z.number().min(0).max(1).describe("Blue intensity (0-1)"),
+          a: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe("Alpha intensity (0-1)"),
         })
         .optional()
-        .describe("Fill color (RGBA, 0-1)"),
+        .describe("Fill color of the node in RGBA format"),
       strokeColor: z
         .object({
-          r: z.number().min(0).max(1),
-          g: z.number().min(0).max(1),
-          b: z.number().min(0).max(1),
-          a: z.number().min(0).max(1).optional(),
+          r: z.number().min(0).max(1).describe("Red intensity (0-1)"),
+          g: z.number().min(0).max(1).describe("Green intensity (0-1)"),
+          b: z.number().min(0).max(1).describe("Blue intensity (0-1)"),
+          a: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe("Alpha intensity (0-1)"),
         })
         .optional()
-        .describe("Stroke color (RGBA, 0-1)"),
+        .describe("Stroke color of the node in RGBA format"),
       strokeWeight: z
         .number()
         .positive()
         .optional()
-        .describe("Stroke weight in px"),
+        .describe("Stroke weight of the node in pixel value"),
     },
     async ({
       x,
@@ -364,7 +445,7 @@ export function registerCreationTools(server: McpServer) {
           y,
           width,
           height,
-          name: name || "Ellipse",
+          name: name,
           parentId,
           fillColor,
           strokeColor,
@@ -386,47 +467,57 @@ export function registerCreationTools(server: McpServer) {
 
   server.tool(
     "create_polygon",
-    "Create a new polygon in Figma",
+    "Create a new polygon shape with configurable number of sides and styling",
     {
-      x: z.number().describe("X position"),
-      y: z.number().describe("Y position"),
-      width: z.number().describe("Width of the polygon"),
-      height: z.number().describe("Height of the polygon"),
+      x: z.number().describe("X coordinate of the node (global)"),
+      y: z.number().describe("Y coordinate of the node (global)"),
+      width: z.number().describe("Width of the node"),
+      height: z.number().describe("Height of the node"),
       pointCount: z
         .number()
         .int()
         .min(3)
-        .describe("Number of sides (integer ≥ 3)"),
-      name: z.string().describe("A semantic element name for the polygon"),
+        .describe("Number of sides of the polygon (integer ≥ 3)"),
+      name: z.string().describe("Semantic name for the node"),
       parentId: z
         .string()
         .optional()
         .describe(
-          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID"
+          "A parent node (FRAME, GROUP, and SECTION type only) ID to append the node to"
         ),
       fillColor: z
         .object({
-          r: z.number().min(0).max(1),
-          g: z.number().min(0).max(1),
-          b: z.number().min(0).max(1),
-          a: z.number().min(0).max(1).optional(),
+          r: z.number().min(0).max(1).describe("Red intensity (0-1)"),
+          g: z.number().min(0).max(1).describe("Green intensity (0-1)"),
+          b: z.number().min(0).max(1).describe("Blue intensity (0-1)"),
+          a: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe("Alpha intensity (0-1)"),
         })
         .optional()
-        .describe("Fill color (RGBA 0-1)"),
+        .describe("Fill color of the node in RGBA format"),
       strokeColor: z
         .object({
-          r: z.number().min(0).max(1),
-          g: z.number().min(0).max(1),
-          b: z.number().min(0).max(1),
-          a: z.number().min(0).max(1).optional(),
+          r: z.number().min(0).max(1).describe("Red intensity (0-1)"),
+          g: z.number().min(0).max(1).describe("Green intensity (0-1)"),
+          b: z.number().min(0).max(1).describe("Blue intensity (0-1)"),
+          a: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe("Alpha intensity (0-1)"),
         })
         .optional()
-        .describe("Stroke color (RGBA 0-1)"),
+        .describe("Stroke color of the node in RGBA format"),
       strokeWeight: z
         .number()
         .positive()
         .optional()
-        .describe("Stroke weight (px)"),
+        .describe("Stroke weight of the node in pixel value"),
     },
     async ({
       x,
@@ -447,7 +538,7 @@ export function registerCreationTools(server: McpServer) {
           width,
           height,
           pointCount,
-          name: name || "Polygon",
+          name: name,
           parentId,
           fillColor,
           strokeColor,
@@ -469,57 +560,64 @@ export function registerCreationTools(server: McpServer) {
 
   server.tool(
     "create_star",
-    "Create a new star in Figma",
+    "Create a new star shape with customizable points, inner radius, and styling properties",
     {
-      x: z.number().describe("X position"),
-      y: z.number().describe("Y position"),
-      width: z.number().describe("Width of the star"),
-      height: z.number().describe("Height of the star"),
-      name: z
-        .string()
-        .optional()
-        .describe("A semantic element name for the star"),
+      x: z.number().describe("X coordinate of the node (global)"),
+      y: z.number().describe("Y coordinate of the node (global)"),
+      width: z.number().describe("Width of the node"),
+      height: z.number().describe("Height of the node"),
+      name: z.string().optional().describe("Semantic name for the node"),
       pointCount: z
         .number()
         .int()
         .min(3)
         .max(60)
-        .describe("Number of star points (3–60)"),
+        .describe("Number of star points"),
       innerRadius: z
         .number()
         .min(0)
         .max(100)
         .optional()
-        .describe("Inner radius as % of diameter (0–100)"),
+        .describe("Inner radius as % of diameter"),
       parentId: z
         .string()
         .optional()
         .describe(
-          "Optional parent node (FRAME, GROUP, SECTION, or PAGE only) ID"
+          "A parent node (FRAME, GROUP, and SECTION type only) ID to append the node to"
         ),
       fillColor: z
         .object({
-          r: z.number().min(0).max(1),
-          g: z.number().min(0).max(1),
-          b: z.number().min(0).max(1),
-          a: z.number().min(0).max(1).optional(),
+          r: z.number().min(0).max(1).describe("Red intensity (0-1)"),
+          g: z.number().min(0).max(1).describe("Green intensity (0-1)"),
+          b: z.number().min(0).max(1).describe("Blue intensity (0-1)"),
+          a: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe("Alpha intensity (0-1)"),
         })
         .optional()
-        .describe("Fill colour (RGBA 0–1)"),
+        .describe("Fill color of the node in RGBA format"),
       strokeColor: z
         .object({
-          r: z.number().min(0).max(1),
-          g: z.number().min(0).max(1),
-          b: z.number().min(0).max(1),
-          a: z.number().min(0).max(1).optional(),
+          r: z.number().min(0).max(1).describe("Red intensity (0-1)"),
+          g: z.number().min(0).max(1).describe("Green intensity (0-1)"),
+          b: z.number().min(0).max(1).describe("Blue intensity (0-1)"),
+          a: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe("Alpha intensity (0-1)"),
         })
         .optional()
-        .describe("Stroke colour (RGBA 0–1)"),
+        .describe("Stroke color of the node in RGBA format"),
       strokeWeight: z
         .number()
         .positive()
         .optional()
-        .describe("Stroke weight (px)"),
+        .describe("Stroke weight of the node in pixel value"),
     },
     async ({
       x,
@@ -564,17 +662,19 @@ export function registerCreationTools(server: McpServer) {
 
   server.tool(
     "create_line",
-    "Create a straight line between two points",
+    "Create a new line element between two points with customizable stroke styling and end caps",
     {
-      startX: z.number().describe("Start point – X"),
-      startY: z.number().describe("Start point – Y"),
-      endX: z.number().describe("End point – X"),
-      endY: z.number().describe("End point – Y"),
-      name: z.string().describe("Semantic name for the line"),
+      startX: z.number().describe("Start point (X coordinate)"),
+      startY: z.number().describe("Start point (Y coordinate)"),
+      endX: z.number().describe("End point (X coordinate)"),
+      endY: z.number().describe("End point (Y coordinate)"),
+      name: z.string().describe("Semantic name for the node"),
       parentId: z
         .string()
         .optional()
-        .describe("Optional parent node (FRAME / GROUP / PAGE)"),
+        .describe(
+          "A parent node (FRAME, GROUP, and SECTION type only) ID to append the node to"
+        ),
       strokeColor: z
         .object({
           r: z.number().min(0).max(1),
@@ -587,12 +687,12 @@ export function registerCreationTools(server: McpServer) {
       strokeCap: z
         .enum(["NONE", "ROUND", "SQUARE"])
         .optional()
-        .describe("Line-end cap style: NONE, ROUND, or SQUARE"),
+        .describe("Line-end cap style (e.g., NONE, ROUND, or SQUARE)"),
       dashPattern: z
         .array(z.number().positive())
         .length(2)
         .optional()
-        .describe("[dash, gap] in px. E.g., [4, 2] for a dashed line"),
+        .describe("[dash, gap] in px (e.g., [4, 2] for a dashed line)"),
     },
     async (args) => {
       try {
@@ -609,14 +709,17 @@ export function registerCreationTools(server: McpServer) {
 
   server.tool(
     "create_mask",
-    "Turn a node into a mask and group it with other nodes to apply the mask",
+    "Create a mask group by combining a mask node with content nodes to apply clipping effects",
     {
-      maskNodeId: z.string().describe("ID of the node to be used as mask"),
+      maskNodeId: z.string().describe("Node ID to use as a mask"),
       contentNodeIds: z
         .array(z.string())
         .min(1)
-        .describe("IDs of nodes to be masked by the mask node (M"),
-      groupName: z.string().optional().describe("Name for the resulting group"),
+        .describe("IDs of nodes masked by the mask node"),
+      groupName: z
+        .string()
+        .optional()
+        .describe("Semantic name for the mask group"),
     },
     async ({ maskNodeId, contentNodeIds, groupName }) => {
       try {

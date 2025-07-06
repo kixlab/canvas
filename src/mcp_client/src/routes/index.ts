@@ -47,10 +47,10 @@ export const createRoutes = () => {
 
   // Tool routes
   router.post("/tool/get_selection", toolRoutes.getSelection);
-  router.post("/tool/create_root_frame", toolRoutes.createRootFrame);
+  router.post("/tool/create_root_frame", toolRoutes.createMainScreenFrame);
   router.post(
     "/tool/create_text_in_root_frame",
-    toolRoutes.createTextInRootFrame
+    toolRoutes.createTextInMainScreenFrame
   );
   router.post("/tool/delete_node", toolRoutes.deleteNode);
   router.post("/tool/delete_multiple_nodes", toolRoutes.deleteMultipleNodes);

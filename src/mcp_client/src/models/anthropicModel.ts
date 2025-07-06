@@ -22,6 +22,8 @@ export class AnthropicModel implements ModelInstance {
   public outputCost: number;
   public max_turns: number;
   public max_retries: number;
+  public temperature: number;
+  public max_tokens: number;
 
   constructor(config: ModelConfig) {
     this.client = new AnthropicBedrock({
@@ -33,8 +35,10 @@ export class AnthropicModel implements ModelInstance {
     this.provider = config.provider;
     this.inputCost = config.input_cost;
     this.outputCost = config.output_cost;
-    this.max_turns = config.max_turns || 100;
+    this.max_turns = config.max_turns;
     this.max_retries = config.max_retries || 3;
+    this.temperature = config.temperature;
+    this.max_tokens = config.max_tokens;
   }
 
   async generateResponse(
@@ -44,8 +48,8 @@ export class AnthropicModel implements ModelInstance {
     const params: AnthropicMessageType.MessageCreateParams = {
       model: this.name,
       messages: messages,
-      max_tokens: options.max_tokens || 4096,
-      temperature: options.temperature || 0.7,
+      max_tokens: this.max_tokens,
+      temperature: this.temperature,
       ...options,
       stream: false,
     };
@@ -62,8 +66,8 @@ export class AnthropicModel implements ModelInstance {
       model: this.name,
       messages: messages,
       tools: tools,
-      max_tokens: options.max_tokens || 4096,
-      temperature: options.temperature || 0.7,
+      max_tokens: this.max_tokens,
+      temperature: this.temperature,
       ...options,
       stream: false,
     };

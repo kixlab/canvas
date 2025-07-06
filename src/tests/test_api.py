@@ -31,7 +31,7 @@ def test_create_text_in_root_frame():
     url = "http://localhost:8000/tool/create_text_in_root_frame"
     data = {"text": "This is a test text inside the root frame."}
     response = requests.post(url, data=data)
-    print("Create Text in Root Frame Response:")
+    print("Create Text in Main Screen Response:")
     print(response.json())
 
 def test_delete_node():

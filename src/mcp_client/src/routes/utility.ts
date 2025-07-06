@@ -1,8 +1,17 @@
 import { Request, Response } from "express";
 import { randomUUID } from "crypto";
-import { ResponseData, ToolResponseFormat, ResponseStatus } from "../types";
+import {
+  ResponseData,
+  ToolResponseFormat,
+  ResponseStatus,
+  UserRequestMessage,
+} from "../types";
 import { globalSession } from "../core/session";
 import { TextContent } from "@modelcontextprotocol/sdk/types";
+
+////////////////////
+// Server Handler //
+////////////////////
 
 // Helper function for common validation
 const validateTools = (res: Response<ResponseData>) => {
@@ -51,7 +60,7 @@ export const getSelection = async (
   }
 };
 
-export const createRootFrame = async (
+export const createMainScreenFrame = async (
   req: Request,
   res: Response<ResponseData>
 ): Promise<void> => {
@@ -94,9 +103,9 @@ export const createRootFrame = async (
     const response = result.content.find(
       (msg: any) => msg.type === ToolResponseFormat.TEXT
     ) as TextContent;
-    const rootFrameId = result.structuredContent?.id as string;
+    const mainScreenFrameId = result.structuredContent?.id as string;
 
-    if (!response?.text || !rootFrameId) {
+    if (!response?.text || !mainScreenFrameId) {
       res.status(500).json({
         status: ResponseStatus.ERROR,
         message: "No frame ID found in tool response",
@@ -104,19 +113,23 @@ export const createRootFrame = async (
       return;
     }
 
-    globalSession.setRootFrame(rootFrameId, Number(width), Number(height));
+    globalSession.setMainScreenFrame(
+      mainScreenFrameId,
+      Number(width),
+      Number(height)
+    );
 
     res.json({
       status: ResponseStatus.SUCCESS,
       message: response.text,
       payload: {
-        root_frame_id: rootFrameId,
+        root_frame_id: mainScreenFrameId,
         width: Number(width),
         height: Number(height),
       },
     });
   } catch (error) {
-    console.error("Error in createRootFrame:", error);
+    console.error("Error in createMainScreenFrame:", error);
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),
@@ -124,14 +137,14 @@ export const createRootFrame = async (
   }
 };
 
-export const createTextInRootFrame = async (
+export const createTextInMainScreenFrame = async (
   req: Request,
   res: Response<ResponseData>
 ): Promise<void> => {
   try {
-    const rootFrameInfo = globalSession.state.rootFrame;
+    const mainScreenFrameInfo = globalSession.state.mainScreenFrame;
 
-    if (!rootFrameInfo.id) {
+    if (!mainScreenFrameInfo.id) {
       res.status(400).json({
         status: ResponseStatus.ERROR,
         message:
@@ -146,7 +159,7 @@ export const createTextInRootFrame = async (
       "create_text",
       randomUUID(),
       {
-        parentId: rootFrameInfo.id,
+        parentId: mainScreenFrameInfo.id,
         x: 100,
         y: 100,
         text: "Hello in root!",
@@ -159,12 +172,12 @@ export const createTextInRootFrame = async (
       status: ResponseStatus.SUCCESS,
       message: "Text created in root frame",
       payload: {
-        frameId: rootFrameInfo.id,
+        frameId: mainScreenFrameInfo.id,
         textId: result.structuredContent?.id,
       },
     });
   } catch (error) {
-    console.error("Error in createTextInRootFrame:", error);
+    console.error("Error in createTextInMainScreenFrame:", error);
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),

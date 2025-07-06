@@ -1,5 +1,6 @@
 import {
   getAbsoluteGeometry,
+  getFontStyle,
   getLocalPosition,
   makeSolidPaint,
 } from '../utils';
@@ -12,8 +13,24 @@ export async function createRectangle(params: {
   height: number;
   name: string;
   parentId?: string;
+
+  fillColor?: RGB | RGBA;
+  strokeColor?: RGB | RGBA;
+  strokeWeight?: number;
+  cornerRadius?: number;
 }) {
-  const { x, y, width, height, name, parentId } = params || {};
+  const {
+    x,
+    y,
+    width,
+    height,
+    name,
+    parentId,
+    fillColor,
+    strokeColor,
+    strokeWeight,
+    cornerRadius,
+  } = params;
 
   const rect = figma.createRectangle();
   rect.x = x;
@@ -21,15 +38,16 @@ export async function createRectangle(params: {
   rect.resize(width, height);
   rect.name = name;
 
-  // If parentId is provided, append to that node, otherwise append to current page
+  if (fillColor) rect.fills = [makeSolidPaint(fillColor)];
+  if (strokeColor) rect.strokes = [makeSolidPaint(strokeColor)];
+  if (strokeWeight !== undefined) rect.strokeWeight = strokeWeight;
+  if (cornerRadius !== undefined) rect.cornerRadius = cornerRadius;
+
   if (parentId) {
     const parentNode = await figma.getNodeByIdAsync(parentId);
-    if (!parentNode) {
-      throw new Error(`Parent node not found with ID: ${parentId}`);
-    }
+    if (!parentNode) throw new Error(`Parent node not found: ${parentId}`);
     if (hasAppendChild(parentNode)) {
       parentNode.appendChild(rect);
-      // set the rectangle's position relative to the parent
       const [localX, localY] = getLocalPosition(
         x,
         y,
@@ -38,21 +56,24 @@ export async function createRectangle(params: {
       rect.x = localX;
       rect.y = localY;
     } else {
-      throw new Error(`Parent node does not support children: ${parentId}`);
+      throw new Error(`Parent cannot contain children: ${parentId}`);
     }
   } else {
     figma.currentPage.appendChild(rect);
   }
 
-  const [newX, newY] = getAbsoluteGeometry(rect as SceneNode);
-
+  const [absX, absY] = getAbsoluteGeometry(rect as SceneNode);
   return {
     id: rect.id,
     name: rect.name,
-    x: newX,
-    y: newY,
+    x: absX,
+    y: absY,
     width: rect.width,
     height: rect.height,
+    fills: rect.fills,
+    strokes: rect.strokes,
+    strokeWeight: rect.strokeWeight,
+    cornerRadius: rect.cornerRadius,
     parentId: rect.parent ? rect.parent.id : undefined,
   };
 }
@@ -193,9 +214,16 @@ export async function createText(params: {
   y: number;
   text: string;
   name: string;
+  width: number;
+  height: number;
+
   fontSize?: number;
   fontWeight?: number;
-  fontColor?: any;
+  fontColor?: RGBA;
+
+  textAlignHorizontal?: 'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED';
+  textAlignVertical?: 'TOP' | 'CENTER' | 'BOTTOM';
+
   parentId?: string;
 }) {
   const {
@@ -203,65 +231,41 @@ export async function createText(params: {
     y,
     text,
     name,
+    width,
+    height,
     fontSize = 14,
     fontWeight = 400,
-    fontColor = { r: 0, g: 0, b: 0, a: 1 }, // Default to black
+    fontColor = { r: 0, g: 0, b: 0, a: 1 },
+    textAlignHorizontal = 'LEFT',
+    textAlignVertical = 'TOP',
     parentId,
-  } = params || {};
+  } = params;
 
-  // Map common font weights to Figma font styles
-  const getFontStyle = (weight: number) => {
-    switch (weight) {
-      case 100:
-        return 'Thin';
-      case 200:
-        return 'Extra Light';
-      case 300:
-        return 'Light';
-      case 400:
-        return 'Regular';
-      case 500:
-        return 'Medium';
-      case 600:
-        return 'Semi Bold';
-      case 700:
-        return 'Bold';
-      case 800:
-        return 'Extra Bold';
-      case 900:
-        return 'Black';
-      default:
-        return 'Regular';
-    }
-  };
-
+  // ---- create and style the text node ----
   const textNode = figma.createText();
   textNode.x = x;
   textNode.y = y;
   textNode.name = name || text;
-  try {
-    await figma.loadFontAsync({
-      family: 'Inter',
-      style: getFontStyle(fontWeight),
-    });
-    textNode.fontName = { family: 'Inter', style: getFontStyle(fontWeight) };
-    textNode.fontSize =
-      typeof fontSize === 'string' ? parseInt(fontSize) : fontSize;
-  } catch (error) {
-    console.error('Error setting font size', error);
-  }
+
+  await figma.loadFontAsync({
+    family: 'Inter',
+    style: getFontStyle(fontWeight),
+  });
+  textNode.fontName = { family: 'Inter', style: getFontStyle(fontWeight) };
+  textNode.fontSize = fontSize;
+
   textNode.characters = text;
+  textNode.fills = [makeSolidPaint(fontColor)];
 
-  // Set text color
-  const paintStyle = makeSolidPaint(fontColor);
-  textNode.fills = [paintStyle];
+  textNode.textAlignHorizontal = textAlignHorizontal;
+  textNode.textAlignVertical = textAlignVertical;
+  textNode.textAutoResize = 'NONE';
+  textNode.resize(width, height);
 
-  // If parentId is provided, append to that node, otherwise append to current page
   if (parentId) {
     const parentNode = await figma.getNodeByIdAsync(parentId);
-    if (!parentNode) {
+    if (!parentNode)
       throw new Error(`Parent node not found with ID: ${parentId}`);
-    }
     if (hasAppendChild(parentNode)) {
       parentNode.appendChild(textNode);
       const [localX, localY] = getLocalPosition(
@@ -278,19 +282,22 @@ export async function createText(params: {
     figma.currentPage.appendChild(textNode);
   }
 
-  const [newX, newY] = getAbsoluteGeometry(textNode as SceneNode);
-
+  // ---- return payload ----
+  const [absX, absY] = getAbsoluteGeometry(textNode as SceneNode);
   return {
     id: textNode.id,
     name: textNode.name,
-    x: newX,
-    y: newY,
+    x: absX,
+    y: absY,
     width: textNode.width,
     height: textNode.height,
     characters: textNode.characters,
     fontSize: textNode.fontSize,
-    fontWeight: fontWeight,
-    fontColor: fontColor,
+    fontWeight,
+    fontColor,
+    textAlignHorizontal: textNode.textAlignHorizontal,
+    textAlignVertical: textNode.textAlignVertical,
+
     fontName: textNode.fontName,
     fills: textNode.fills,
     parentId: textNode.parent ? textNode.parent.id : undefined,
@@ -310,54 +317,38 @@ export async function createGraphic(params: {
     throw new Error('An SVG string must be provided.');
   }
 
-  const node = figma.createNodeFromSvg(svg);
+  const graphicNode = figma.createNodeFromSvg(svg);
+  graphicNode.name = name;
 
-  node.x = x;
-  node.y = y;
-  node.name = name;
-
-  let returnNode: SceneNode = node;
-
-  if (node.children.length === 1) {
-    const child = node.children[0];
-    if (parentId) {
-      const parent = await figma.getNodeByIdAsync(parentId);
-      if (parent && 'appendChild' in parent) {
-        (parent as BaseNode & ChildrenMixin).appendChild(child);
-        const [localX, localY] = getLocalPosition(
-          x,
-          y,
-          parent as BaseNode & ChildrenMixin
-        );
-        child.x = localX;
-        child.y = localY;
-      }
-    } else {
-      figma.currentPage.appendChild(child);
+  if (parentId) {
+    const parentNode = await figma.getNodeByIdAsync(parentId);
+    if (!parentNode) {
+      throw new Error(`Parent node not found with ID: ${parentId}`);
     }
-    child.x = x;
-    child.y = y;
-    node.remove();
-    returnNode = child;
-  } else {
-    if (parentId) {
-      const parent = await figma.getNodeByIdAsync(parentId);
-      if (parent && 'appendChild' in parent) {
-        (parent as BaseNode & ChildrenMixin).appendChild(node);
-      }
+    if (hasAppendChild(parentNode)) {
+      (parentNode as BaseNode & ChildrenMixin).appendChild(graphicNode);
+      const [localX, localY] = getLocalPosition(
+        x,
+        y,
+        parentNode as BaseNode & ChildrenMixin
+      );
+      graphicNode.x = localX;
+      graphicNode.y = localY;
+    } else {
+      throw new Error(`Parent node does not support children: ${parentId}`);
     }
   }
 
-  const [newX, newY] = getAbsoluteGeometry(returnNode as SceneNode);
+  const [newX, newY] = getAbsoluteGeometry(graphicNode as SceneNode);
 
   return {
-    id: returnNode.id,
-    name: returnNode.name,
+    id: graphicNode.id,
+    name: graphicNode.name,
     x: newX,
     y: newY,
-    width: returnNode.width,
-    height: returnNode.height,
-    parentId: returnNode.parent ? returnNode.parent.id : undefined,
+    width: graphicNode.width,
+    height: graphicNode.height,
+    parentId: graphicNode.parent ? graphicNode.parent.id : undefined,
   };
 }
 

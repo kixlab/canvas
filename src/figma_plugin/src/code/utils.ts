@@ -787,10 +787,12 @@ export function makeGradientPaint(
 
 export function makeShadowEffect(
   params: {
-    r: number;
-    g: number;
-    b: number;
-    a?: number;
+    shadowColor: {
+      r: number;
+      g: number;
+      b: number;
+      a?: number;
+    };
     offsetX: number;
     offsetY: number;
     radius: number;
@@ -798,7 +800,13 @@ export function makeShadowEffect(
   },
   type: 'DROP_SHADOW' | 'INNER_SHADOW'
 ): Effect {
-  const { r, g, b, a = 1, offsetX, offsetY, radius, spread = 0 } = params;
+  const {
+    shadowColor: { r, g, b, a = 1 },
+    offsetX,
+    offsetY,
+    radius,
+    spread = 0,
+  } = params;
   return {
     type,
     color: { r, g, b, a },
@@ -809,3 +817,28 @@ export function makeShadowEffect(
     blendMode: 'NORMAL',
   };
 }
+
+export const getFontStyle = (weight: number) => {
+  switch (weight) {
+    case 100:
+      return 'Thin';
+    case 200:
+      return 'Extra Light';
+    case 300:
+      return 'Light';
+    case 400:
+      return 'Regular';
+    case 500:
+      return 'Medium';
+    case 600:
+      return 'Semi Bold';
+    case 700:
+      return 'Bold';
+    case 800:
+      return 'Extra Bold';
+    case 900:
+      return 'Black';
+    default:
+      return 'Regular';
+  }
+};

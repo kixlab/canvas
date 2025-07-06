@@ -765,8 +765,8 @@
                 <h3>Node Tools</h3>
                 <div class="tool-buttons">
                     <button id="get-selection" class="button">Get Selection</button>
-                    <button id="create-frame" class="button">Create Root Frame</button>
-                    <button id="create-text" class="button">Create Text in Root Frame</button>
+                    <button id="create-frame" class="button">Create Main Screen Frame</button>
+                    <button id="create-text" class="button">Create Text in Main Screen Frame</button>
                     <button id="delete-all-nodes" class="button" style="background-color: var(--color-danger-fg); color: white;">Delete All Nodes</button>
                 </div>
                 
@@ -1129,7 +1129,7 @@
                 return c.text.replace(/\n/g, '<br>');
             } else if (c.type === 'image') {
                 return `<div class="inline-image-container">
-                <img src="${c.data}" alt="Message image">
+                <img src="data:${c.mimeType};base64,${c.data}" alt="Message image">
                 ${c.mimeType ? `<div class="content-type-indicator">${c.mimeType}</div>` : ''}
                 </div>`;
             } else if (c.type === 'audio') {
@@ -1554,7 +1554,7 @@
             } catch (error) {
                 document.getElementById('tool-results').textContent = `Error: ${error.message}`;
             } finally {
-                resetButton(button, 'Create Text in Root Frame');
+                resetButton(button, 'Create Text in Main Screen');
             }
         });
         

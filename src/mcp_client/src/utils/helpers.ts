@@ -1,8 +1,17 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "yaml";
-import { GenericMessage, ModelProvider, ServerConfig } from "../types";
+import {
+  UserRequestMessage,
+  ModelProvider,
+  ServerConfig,
+  ContentType,
+  CallToolRequestParams,
+} from "../types";
 import { AgentType } from "../types";
+import { Tools } from "../core/tools";
+import { randomUUID } from "crypto";
+import { Image } from "@napi-rs/canvas";
 
 // Utility functions for the MCP client
 
@@ -101,3 +110,168 @@ export function loadServerConfig(
     }
   }
 }
+
+export const intializeMainScreenFrame = async (
+  requestMessage: UserRequestMessage,
+  tools: Tools
+) => {
+  try {
+    let canvasWidth = 393; // Default canvas width
+    let canvasHeight = 852; // Default canvas height
+
+    if (requestMessage.content.length > 0) {
+      for (const content of requestMessage.content) {
+        if (content.type === ContentType.IMAGE) {
+          const image = content.data;
+          const img = new Image();
+          img.src = `data:${content.mimeType};base64,${image}`;
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => {
+              canvasWidth = img.width;
+              canvasHeight = img.height;
+              resolve();
+            };
+            img.onerror = reject;
+          });
+          break;
+        }
+      }
+    }
+
+    const initializeMainScreenFrameToolCall = tools.createToolCall(
+      "create_frame",
+      randomUUID(),
+      {
+        x: 0,
+        y: 0,
+        width: canvasWidth,
+        height: canvasHeight,
+        name: "Main Screen",
+        fillColor: { r: 1, g: 1, b: 1, a: 1 },
+      }
+    );
+    const result = await tools.callTool(initializeMainScreenFrameToolCall);
+
+    if (result.isError || !result.structuredContent?.id) {
+      throw new Error("Failed to create root frame");
+    }
+
+    const mainScreenFrameId = (result.structuredContent?.id as string).trim();
+    const width = result.structuredContent?.width as number;
+    const height = result.structuredContent?.height as number;
+
+    if (!mainScreenFrameId || !width || !height) {
+      throw new Error("Invalid response from create_frame tool");
+    }
+
+    return {
+      mainScreenFrameId,
+      width,
+      height,
+    };
+  } catch (error) {
+    throw new Error(
+      `Error initializing root frame: ${(error as Error).message}`
+    );
+  }
+};
+
+export const getBase64ImageSize = async (
+  base64Image: string,
+  mimeType: string = "image/png"
+): Promise<{ width: number; height: number }> => {
+  const img = new Image();
+  img.src = `data:${mimeType};base64,${base64Image}`;
+  return new Promise((resolve, reject) => {
+    img.onload = () => {
+      resolve({ width: img.width, height: img.height });
+    };
+    img.onerror = (error) => {
+      reject(new Error(`Failed to load image: ${error}`));
+    };
+  });
+};
+
+const traverseTree = (node: any, elementTypes: Map<string, string>) => {
+  if (node.id && node.type) {
+    elementTypes.set(node.id, node.type);
+  }
+  if (node.children && Array.isArray(node.children)) {
+    for (const child of node.children) {
+      traverseTree(child, elementTypes);
+    }
+  }
+};
+
+export const switchParentId = async ({
+  tools,
+  callToolRequests,
+  mainScreenFrameId,
+}: {
+  tools: Tools;
+  callToolRequests: CallToolRequestParams[];
+  mainScreenFrameId: string;
+}) => {
+  const CORRECT_PARENT_TYPES = ["FRAME", "GROUP", "SECTION"];
+  const DOCUMENT_TYPES = ["DOCUMENT", "PAGE"];
+
+  // Build list of element with their types
+  const getStructureCall = tools.createToolCall(
+    "get_page_structure",
+    randomUUID(),
+    {}
+  );
+  const res = await tools.callTool(getStructureCall);
+  if (res.isError || !res.structuredContent?.structureTree) {
+    throw new Error(`Failed to switch parent ID: ${res.error}`);
+  }
+  if (!res.structuredContent?.structureTree) {
+    throw new Error(
+      "Failed to switch parent ID: No structure tree found in the response"
+    );
+  }
+
+  const elementTree = res.structuredContent.structureTree as Array<object>;
+  const elementTypes = new Map<string, string>();
+  for (const node of elementTree) {
+    traverseTree(node, elementTypes);
+  }
+
+  for (const toolCall of callToolRequests) {
+    if (!toolCall.arguments) continue;
+    const toolArguments = toolCall.arguments;
+
+    const hasParentIdArg = tools.catalogue
+      .get(toolCall.name)
+      ?.inputSchema.properties!.hasOwnProperty("parentId");
+
+    // Parent ID Validation
+    if (hasParentIdArg && toolArguments.parentId) {
+      const parentId = toolArguments.parentId as string;
+      const parentType = elementTypes.get(parentId);
+      let warning: string | null = null;
+
+      if (!parentType) {
+        warning = `parentId ${parentId} does not exist in the structure tree.`;
+      } else if (!CORRECT_PARENT_TYPES.includes(parentType)) {
+        warning = `parentId ${parentId} has invalid type: ${parentType}.`;
+      } else if (DOCUMENT_TYPES.includes(parentType) || parentId === "0:1") {
+        warning = `parentId ${parentId} is of forbidden type ${parentType}.`;
+      }
+
+      // Parent ID Modification
+      if (warning) {
+        console.warn(`Tool call ${toolCall.name}: ${warning}`);
+        toolCall.arguments!.parentId = mainScreenFrameId;
+        continue;
+      }
+    }
+
+    // Parent ID Insertion
+    if (hasParentIdArg && !toolArguments.parentId) {
+      toolArguments["parentId"] = mainScreenFrameId;
+    }
+  }
+
+  return callToolRequests;
+};

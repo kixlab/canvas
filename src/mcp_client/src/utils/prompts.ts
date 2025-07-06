@@ -1,62 +1,100 @@
-// Prompts for the MCP client - TypeScript version of Python prompts
-
 import { ImageContent } from "@modelcontextprotocol/sdk/types";
+
+const figmaInstruction = `
+1. Figma Tool Basics
+- In Figma tool calls, each design element appears as a node representing either a container (frame/component) or a leaf (shape/text).
+- Nodes provide uniform structural data while still exposing their unique properties.
+- Coordinates are global: all nodes sit relative to the canvas origin (0, 0) at the top-left.
+
+2. Node Hierarchy
+- All nodes live in one rooted tree mirroring the layer list.
+- Parent-child links create the hierarchy, and a node’s index in its parent sets both z-order and sidebar order.
+- When child nodes (leaf) outgrow their parent nodes (container), they will be clipped.
+
+3. Container Layout
+- With auto layout applied to the frame, Figma automatically manages direction, gap, padding, and resizing of the container and the children.
+- So, manual layout property changes must account for these automatic adjustments of size and position.
+- Enable auto layout only when confident, as it can cause unexpected shifts.
+
+4. Text Mechanics
+- Text nodes expose font family, style, size, and other typography traits independent of layout.
+- Resizing the text node doesn’t scale the text; excess text simply overflows.
+- Adequately set the text node size and alignment to avoid overflow.
+`;
+
+const agencyPrinciples = `
+1. Persistence  
+Keep iterating until the instruction is fully met and confirmed. Do not end the turn early.
+2. Tool use  
+Interact with the canvas via the provided Figma-control tools.
+3. Keen Examination
+Carefully examine the instructions and image (if provided) and follow them accordingly.
+`;
 
 export function getTextBasedGenerationPrompt(instruction: string): string {
   return `
-[CONTEXT]
-You are a UI-design agent working inside Figma.
+**Context**
+You are a UI-design agent with access to Figma via tool calls. 
+Follow the **Instruction** to generate a UI design.
+Refer to the **Agency Principles** and **UI Design Principles** for guidance.
 
-**Persistence**  
-Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
+**Agency Principles**
+${agencyPrinciples}
 
-**Tool use**  
-Interact with the canvas via the provided Figma-control tools.
+**Figma Basics**
+${figmaInstruction}
 
-**Keen Examination**
-Carefully examine the instruction and follow it accordingly.
-
-[INSTRUCTION]
-Please analyze the following text and generate a UI inside the [ROOT FRAME] in the Figma canvas.
+**Instruction**
+Please analyze the following text and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 ${instruction}  
+
 `;
 }
 
-export function getImageBasedGenerationPrompt(): string {
+export function getImageBasedGenerationPrompt(
+  width: number,
+  height: number
+): string {
   return `
-[CONTEXT]
-You are a UI-design agent working inside Figma.
+**Context**
+You are a UI-design agent with access to Figma via tool calls.
+Follow the **Instruction** to generate a UI design.
+Refer to the **Agency Principles** and **UI Design Principles** for guidance.
 
-**Persistence**  
-Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
+**Agency Principles**
+${agencyPrinciples}
 
-**Tool use**  
-Interact with the canvas via the provided Figma-control tools.
+**Figma Basics**
+${figmaInstruction}
 
-**Keen Observation**
-Carefully examine the provided screen image and precisely replicate it accordingly.
 
-[INSTRUCTION]
-Please analyze the following screen image and generate a UI inside the [ROOT FRAME] in the Figma canvas.
+**Instruction**
+Please analyze the following image and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+The frame size is ${width}x${height} pixels.
 `;
 }
 
-export function getTextImageBasedGenerationPrompt(instruction: string): string {
+export function getTextImageBasedGenerationPrompt(
+  instruction: string,
+  width: number,
+  height: number
+): string {
   return `
-[CONTEXT]
-You are a UI-design agent working inside Figma.
+**Context**
+You are a UI-design agent with access to Figma via tool calls.
+Follow the **Instruction** to generate a UI design.
+Refer to the **Agency Principles** and **UI Design Principles** for guidance.
 
-**Persistence**  
-Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
+**Agency Principles**
+${agencyPrinciples}
 
-**Tool use**  
-Interact with the canvas via the provided Figma-control tools.
+**Figma Basics**
+${figmaInstruction}
 
-**Keen Inspection**
-Carefully examine the provided screen image and text, and precisely replicate them accordingly.
 
-[INSTRUCTION]
-Please analyze the following screen image and text instruction, and generate a UI inside the [ROOT FRAME] in the Figma canvas.
+**Instruction**
+Please analyze the following screen image and text instruction, and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+The frame size is ${width}x${height} pixels.
 ${instruction}
 `;
 }
@@ -65,19 +103,21 @@ export function getModificationWithoutOraclePrompt(
   instruction: string
 ): string {
   return `
-[CONTEXT]
-You are a UI-design agent working inside Figma.
+**Context**
+You are a UI-design agent with access to Figma via tool calls.
+Follow the **Instruction** to generate a UI design.
+Refer to the **Agency Principles** and **UI Design Principles** for guidance.
 
-**Persistence**  
+1. Persistence  
 Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
 
-**Tool use**  
+2. Tool use  
 Interact with the canvas via the provided Figma-control tools.
 
 **Modification Task**
 You are given an existing UI design and need to modify it according to the instruction.
 
-[INSTRUCTION]
+**Instruction**
 Please analyze the provided screen image and modify the UI according to the following instruction:
 ${instruction}
 `;
@@ -87,20 +127,20 @@ export function getModificationWithOracleHierarchyPrompt(
   instruction: string
 ): string {
   return `
-[CONTEXT]
+**Context**
 You are a UI-design agent working inside Figma.
 
-**Persistence**  
+1. Persistence  
 Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
 
-**Tool use**  
+2. Tool use  
 Interact with the canvas via the provided Figma-control tools.
 
 **Oracle Hierarchy Mode**
 You have access to perfect hierarchy information of the UI elements.
 
-[INSTRUCTION]
-Please analyze the provided screen image with hierarchy information and modify the UI according to the following instruction:
+**Instruction**
+Please analyze the provided screen image with hierarchy information and modify the UI according to the following instructions:
 ${instruction}
 `;
 }
@@ -109,20 +149,20 @@ export function getModificationWithOraclePerfectCanvasPrompt(
   instruction: string
 ): string {
   return `
-[CONTEXT]
+**Context**
 You are a UI-design agent working inside Figma.
 
-**Persistence**  
+1. Persistence  
 Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
 
-**Tool use**  
+2. Tool use  
 Interact with the canvas via the provided Figma-control tools.
 
 **Oracle Perfect Canvas Mode**
-You have access to perfect canvas information including all element properties and relationships.
+You have access to perfect canvas information, including all element properties and relationships.
 
-[INSTRUCTION]
-Please analyze the provided screen image with perfect canvas information and modify the UI according to the following instruction:
+**Instruction**
+Please analyze the provided screen image with perfect canvas information and modify the UI according to the following instructions:
 ${instruction}
 `;
 }
@@ -136,66 +176,59 @@ export function getFeedbackPrompt({
   originalTargetImage?: ImageContent;
   pageStructureText?: string;
 }): string {
-  let prompts = `
-** Instruction **
-You are a feedback agent tasked with evaluating the user interface design.
-You will receive a screenshot of the current design.
-Based on the **Original Instruction**, provide concise feedback on how to improve the design to match the original instruction.
-Precisely, refer to **Page Structure** to understand the current design layout.
-In your instruction, when referring to existing elements, mention their names and IDs.
-`;
+  return `
+**Instruction**
+You are a feedback agent evaluating a UI design.
+You will receive a screenshot of (1) the current design with element ID labels and (2) a ground truth design.
+Based on the **Original Instruction** and the ground truth design, give concise feedback on (1) missing elements and (2) incorrect element properties to match the ground truth.
+Refer to **Page Structure** and the image to understand the layout.
+When referring to elements, mention their IDs.
 
-  if (originalTargetImage) {
-    prompts += `The target image screenshot is provided as a second image.`;
-  }
-
-  if (pageStructureText) {
-    prompts += `
-** Page Structure **
-${pageStructureText}
-`;
-  }
-
-  if (originalTargetText) {
-    prompts += `
-** Original Instruction **
-  """
-  ${originalTargetText}
-  """
-`;
-  }
-
-  return prompts;
+${
+  originalTargetImage
+    ? "The target image screenshot is provided as a second image."
+    : ""
 }
 
-export function combineFeedbackInstruction({
+${pageStructureText ? `**Page Structure**\n${pageStructureText}` : ""}
+
+${
+  originalTargetText
+    ? `**Original Instruction**\n"""\n${originalTargetText}\n"""`
+    : ""
+}
+`.trim();
+}
+
+export function getUpdateInstruction({
   feedbackInstruction,
   pageStructureText,
-  originalTargetText,
+  width,
+  height,
 }: {
   feedbackInstruction: string;
   pageStructureText: string;
-  originalTargetText?: string;
+  width: number;
+  height: number;
 }) {
   const combinedInstruction = `
 
-Follow the ** Feedback Instruction ** below to update the design.
-Refer to the ** Original Instruction ** for context.
+**Context**
+You are a UI-design agent with access to Figma via tool calls.
+Follow the **Instruction** to update the UI design in the "Main Screen" frame in the Figma.
+The frame size is ${width}x${height} pixels.
 
-** Original Instruction **
-  """ 
-  ${originalTargetText || ""}
-  """
+**Agency Principles**
+${agencyPrinciples}
 
-** Feedback Instruction **
-  """
-  ${feedbackInstruction.trim()}
-  """
+**Figma Basics**
+${figmaInstruction}
 
-** Page Structure **
-"""
+**Page Structure**
 ${pageStructureText || ""}
-"""
+
+**Instruction**
+${feedbackInstruction.trim()}
 `;
   return combinedInstruction;
 }

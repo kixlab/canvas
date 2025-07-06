@@ -212,10 +212,12 @@ export async function setFillGradient(params: {
 
 export async function setDropShadow(params: {
   nodeId: string;
-  r: number;
-  g: number;
-  b: number;
-  a?: number;
+  shadowColor: {
+    r: number;
+    g: number;
+    b: number;
+    a?: number;
+  };
   offsetX: number;
   offsetY: number;
   radius: number;
@@ -236,10 +238,12 @@ export async function setDropShadow(params: {
 
 export async function setInnerShadow(params: {
   nodeId: string;
-  r: number;
-  g: number;
-  b: number;
-  a?: number;
+  shadowColor: {
+    r: number;
+    g: number;
+    b: number;
+    a?: number;
+  };
   offsetX: number;
   offsetY: number;
   radius: number;
