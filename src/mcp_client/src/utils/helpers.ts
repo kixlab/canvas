@@ -11,9 +11,7 @@ import {
 import { AgentType } from "../types";
 import { Tools } from "../core/tools";
 import { randomUUID } from "crypto";
-import { Image } from "@napi-rs/canvas";
-
-// Utility functions for the MCP client
+import { Canvas, Image } from "@napi-rs/canvas";
 
 export interface Message {
   role: string;
@@ -176,22 +174,54 @@ export const intializeMainScreenFrame = async (
   }
 };
 
-export const getBase64ImageSize = async (
+export const reduceBase64Image = async (
   base64Image: string,
-  mimeType: string = "image/png"
-): Promise<{ width: number; height: number }> => {
+  mimeType: string = "image/png",
+  maxHeight: number = 1024
+): Promise<{ base64: string; width: number; height: number }> => {
+  // 1.  Load the image from the Base-64 string.
   const img = new Image();
   img.src = `data:${mimeType};base64,${base64Image}`;
+
   return new Promise((resolve, reject) => {
     img.onload = () => {
-      resolve({ width: img.width, height: img.height });
+      let { width, height } = img;
+
+      // 2.  Decide whether resizing is necessary.
+      if (height > maxHeight) {
+        const scale = maxHeight / height;
+        width = Math.round(width * scale);
+        height = maxHeight;
+      }
+
+      // 3.  Draw (and implicitly resample) to a canvas.
+      const canvas = new Canvas(width, height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Unable to obtain 2-D canvas context."));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // 4. String type check.
+      const allowedMimeTypes = [
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+      ] as const;
+      const safeMimeType = allowedMimeTypes.includes(mimeType as any)
+        ? (mimeType as "image/png" | "image/jpeg" | "image/webp")
+        : "image/png";
+      const resizedBase64 = canvas
+        .toDataURL(safeMimeType)
+        .replace(`data:${safeMimeType};base64,`, "");
+
+      resolve({ base64: resizedBase64, width, height });
     };
-    img.onerror = (error) => {
-      reject(new Error(`Failed to load image: ${error}`));
-    };
+
+    img.onerror = (err) => reject(new Error(`Failed to load image: ${err}`));
   });
 };
-
 const traverseTree = (node: any, elementTypes: Map<string, string>) => {
   if (node.id && node.type) {
     elementTypes.set(node.id, node.type);

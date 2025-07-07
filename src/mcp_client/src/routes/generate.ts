@@ -4,11 +4,7 @@ import {
   getImageBasedGenerationPrompt,
   getTextImageBasedGenerationPrompt,
 } from "../utils/prompts";
-import {
-  base64Encode,
-  createImageUrl,
-  getBase64ImageSize,
-} from "../utils/helpers";
+import { base64Encode, reduceBase64Image } from "../utils/helpers";
 import {
   ContentType,
   MessageType,
@@ -105,9 +101,13 @@ export const generateFromImage = async (
       return;
     }
 
-    const base64Image = base64Encode(req.file.buffer);
+    const originalBase64Image = base64Encode(req.file.buffer);
     const mimeType = req.file.mimetype;
-    const { width, height } = await getBase64ImageSize(base64Image, mimeType);
+    const { base64, width, height } = await reduceBase64Image(
+      originalBase64Image,
+      mimeType
+    );
+
     const instruction = getImageBasedGenerationPrompt(width, height);
 
     const userRequest: UserRequestMessage = {
@@ -119,7 +119,7 @@ export const generateFromImage = async (
         { type: ContentType.TEXT, text: instruction },
         {
           type: ContentType.IMAGE,
-          data: base64Image,
+          data: base64,
           mimeType: mimeType,
         },
       ],
@@ -184,9 +184,12 @@ export const generateFromTextAndImage = async (
       return;
     }
 
-    const base64Image = base64Encode(req.file.buffer);
+    const originalBase64Image = base64Encode(req.file.buffer);
     const mimeType = req.file.mimetype;
-    const { width, height } = await getBase64ImageSize(base64Image, mimeType);
+    const { base64, width, height } = await reduceBase64Image(
+      originalBase64Image,
+      mimeType
+    );
     const instruction = getTextImageBasedGenerationPrompt(
       message,
       width,
@@ -202,7 +205,7 @@ export const generateFromTextAndImage = async (
         { type: ContentType.TEXT, text: instruction },
         {
           type: ContentType.IMAGE,
-          data: base64Image,
+          data: base64,
           mimeType: mimeType,
         },
       ],
