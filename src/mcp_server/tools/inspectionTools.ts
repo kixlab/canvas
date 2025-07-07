@@ -164,7 +164,7 @@ export function registerInspectionTools(server: McpServer) {
         .describe("Page ID (defaults to current page)"),
       scale: z
         .number()
-        .positive()
+        .min(0.1)
         .optional()
         .describe("Export scale (default 1)"),
     },

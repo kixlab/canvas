@@ -41,7 +41,7 @@ export function registerCreationTools(server: McpServer) {
 
       strokeWeight: z
         .number()
-        .positive()
+        .min(0)
         .optional()
         .describe("Stroke weight in px (defaults 1)"),
 
@@ -132,7 +132,7 @@ export function registerCreationTools(server: McpServer) {
         .describe("Stroke color in RGBA format"),
       strokeWeight: z
         .number()
-        .positive()
+        .min(0)
         .optional()
         .describe("Stroke weight in pixel value"),
       layoutMode: z
@@ -424,7 +424,7 @@ export function registerCreationTools(server: McpServer) {
         .describe("Stroke color of the node in RGBA format"),
       strokeWeight: z
         .number()
-        .positive()
+        .min(0)
         .optional()
         .describe("Stroke weight of the node in pixel value"),
     },
@@ -515,7 +515,7 @@ export function registerCreationTools(server: McpServer) {
         .describe("Stroke color of the node in RGBA format"),
       strokeWeight: z
         .number()
-        .positive()
+        .min(0)
         .optional()
         .describe("Stroke weight of the node in pixel value"),
     },
@@ -615,7 +615,7 @@ export function registerCreationTools(server: McpServer) {
         .describe("Stroke color of the node in RGBA format"),
       strokeWeight: z
         .number()
-        .positive()
+        .min(0)
         .optional()
         .describe("Stroke weight of the node in pixel value"),
     },
@@ -683,13 +683,13 @@ export function registerCreationTools(server: McpServer) {
           a: z.number().min(0).max(1).optional(),
         })
         .optional(),
-      strokeWeight: z.number().positive().optional(),
+      strokeWeight: z.number().min(0).optional(),
       strokeCap: z
         .enum(["NONE", "ROUND", "SQUARE"])
         .optional()
         .describe("Line-end cap style (e.g., NONE, ROUND, or SQUARE)"),
       dashPattern: z
-        .array(z.number().positive())
+        .array(z.number().min(0))
         .length(2)
         .optional()
         .describe("[dash, gap] in px (e.g., [4, 2] for a dashed line)"),

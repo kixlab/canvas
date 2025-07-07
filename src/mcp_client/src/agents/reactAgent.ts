@@ -67,6 +67,7 @@ export class ReactAgent extends AgentInstance {
       // Check if tool calls are needed
       const callToolRequests =
         params.model.formatCallToolRequest(modelResponse);
+
       if (!callToolRequests || callToolRequests.length === 0) {
         console.log("No tool calls detected. Exiting ReAct loop.");
         break;

@@ -44,6 +44,7 @@ export class Tools {
       return {
         id: toolCall.id,
         call_id: toolCall.call_id,
+        name: toolCall.name,
         content: result.content,
         isError: result.isError || false,
         ...(result.structuredContent && {

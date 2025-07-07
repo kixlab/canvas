@@ -149,7 +149,7 @@ export function registerStyleTools(server: McpServer) {
         })
         .optional()
         .describe("Stroke color (RGBA)"),
-      weight: z.number().positive().optional().describe("Stroke weight (px)"),
+      weight: z.number().min(0).optional().describe("Stroke weight (px)"),
       align: z
         .enum(["CENTER", "INSIDE", "OUTSIDE"])
         .optional()

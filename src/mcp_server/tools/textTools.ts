@@ -104,7 +104,7 @@ export function registerTextTools(server: McpServer) {
     "Modify visual text properties such as font size, line height, letter spacing, and text alignment.",
     {
       nodeId: z.string().describe("Text node ID to modify"),
-      fontSize: z.number().positive().optional().describe("Font-size (px)"),
+      fontSize: z.number().min(0).optional().describe("Font-size (px)"),
       lineHeight: z
         .number()
         .nonnegative()
