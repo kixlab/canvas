@@ -373,7 +373,45 @@ export class FeedbackAgent extends AgentInstance {
     const maxLabelW = Math.max(...labelMeta.map((m) => m.textW)) + TAG_PAD * 2;
     const PANEL_W = maxLabelW + PANEL_MARG;
     const CANVAS_W = PANEL_W + GUTTER + img.width + GUTTER + PANEL_W;
-    const CANVAS_H = img.height;
+
+    /* ---------- FIRST PASS: place labels & find required height ---------- */
+    type Rect = { top: number; bottom: number; h: number };
+    const placedLeft: Rect[] = [];
+    const placedRight: Rect[] = [];
+
+    type Placement = (typeof labelMeta)[number] & {
+      side: "left" | "right";
+      lblY: number;
+      lblW: number;
+    };
+    const placements: Placement[] = [];
+
+    labelMeta.sort((a, b) => a.boxCy - b.boxCy); // place top-to-bottom
+    let maxBottom = 0;
+
+    for (const meta of labelMeta) {
+      const { boxCx, boxCy, textW } = meta;
+      const side = boxCx < img.width / 2 ? "left" : "right";
+      // let y = Math.round(boxCy - TAG_HEIGHT / 2);
+      let y = Math.max(0, Math.round(boxCy - TAG_HEIGHT / 2));
+      const list = side === "left" ? placedLeft : placedRight;
+
+      for (const r of list) {
+        // simple collision solving
+        if (y + TAG_HEIGHT + MIN_SPACING <= r.top) break;
+        if (y >= r.bottom + MIN_SPACING) continue;
+        y = r.bottom + MIN_SPACING;
+      }
+
+      const rect = { top: y, bottom: y + TAG_HEIGHT, h: TAG_HEIGHT };
+      list.push(rect);
+
+      placements.push({ ...meta, side, lblY: y, lblW: textW + TAG_PAD * 2 });
+      maxBottom = Math.max(maxBottom, rect.bottom);
+    }
+
+    /* make room if any label extends below the picture */
+    const CANVAS_H = Math.max(img.height, maxBottom + PANEL_MARG);
 
     /* ---------- prepare canvas ---------- */
     const canvas = createCanvas(CANVAS_W, CANVAS_H);
@@ -385,60 +423,17 @@ export class FeedbackAgent extends AgentInstance {
     const IMAGE_X = PANEL_W + GUTTER;
     ctx.drawImage(img, IMAGE_X, 0);
 
-    /* ---------- helpers for collision-free placement ---------- */
-    type Rect = { top: number; bottom: number; h: number };
+    /* ---------- SECOND PASS: actually render ---------- */
+    for (const p of placements) {
+      const { node, idx, text, lblY, lblW, side } = p;
 
-    const placedLeft: Rect[] = [];
-    const placedRight: Rect[] = [];
-
-    /** Find the nearest Y ≥ desiredY that doesn't overlap earlier labels on this side. */
-    function resolveY(desiredY: number, list: Rect[]): number {
-      let y = Math.max(0, Math.min(desiredY, CANVAS_H - TAG_HEIGHT));
-      for (const r of list) {
-        if (y + TAG_HEIGHT + MIN_SPACING <= r.top) break; // fits before this rect
-        if (y >= r.bottom + MIN_SPACING) continue; // fits after this rect
-        y = r.bottom + MIN_SPACING; // push below it & keep checking
-      }
-      // clamp if we ran past the bottom
-      if (y + TAG_HEIGHT > CANVAS_H) y = CANVAS_H - TAG_HEIGHT;
-      return y;
-    }
-
-    /* Sort labels by box centre-Y so “close” really means close */
-    labelMeta.sort((a, b) => a.boxCy - b.boxCy);
-
-    /* ---------- render ---------- */
-    for (const meta of labelMeta) {
-      const { node, idx, text, textW, boxCx, boxCy } = meta;
-
-      /* decide side: left if box centre is left of midline, else right */
-      const side = boxCx < img.width / 2 ? "left" : "right";
-
-      /* desired label Y (centre aligned with box) */
-      const desiredY = Math.round(boxCy - TAG_HEIGHT / 2);
-
-      /* resolve collision */
-      const lblY =
-        side === "left"
-          ? resolveY(desiredY, placedLeft)
-          : resolveY(desiredY, placedRight);
-
-      /* store rect for future collisions */
-      const rect: Rect = {
-        top: lblY,
-        bottom: lblY + TAG_HEIGHT,
-        h: TAG_HEIGHT,
-      };
-      (side === "left" ? placedLeft : placedRight).push(rect);
-
-      /* X position in its column */
-      const lblW = textW + TAG_PAD * 2;
+      /* X position for the label column */
       const lblX =
         side === "left"
-          ? PANEL_W - lblW // right-align in left panel
+          ? PANEL_W - lblW // right-align in the left panel
           : IMAGE_X + img.width + GUTTER; // start of right panel
 
-      /* bounding box (adjusted for picture offset) */
+      /* bounding-box coordinates (shift for picture offset) */
       const {
         position: { x, y },
         size: { width, height },

@@ -106,8 +106,8 @@ export function registerOperationTools(server: McpServer) {
     "Change the dimensions (width and height) of a node while maintaining its position",
     {
       nodeId: z.string().describe("Node ID to resize"),
-      width: z.number().positive().describe("Width of the node"),
-      height: z.number().positive().describe("Height of the node"),
+      width: z.number().min(1).describe("Width of the node"),
+      height: z.number().min(1).describe("Height of the node"),
     },
     async ({ nodeId, width, height }) => {
       try {
