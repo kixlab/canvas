@@ -4,29 +4,20 @@ import path from "path";
 import fs from "fs";
 import { createRoutes } from "./routes";
 import { globalSession } from "./core/session";
-import { AgentType } from "./types";
+
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+// Setup variables and configurations
 
 dotenv.config();
-const PORT = process.env.PORT || 3000;
-
-// Parse CLI arguments
-const args = process.argv.slice(2);
-const agentTypeArg = args.find((arg) => arg.startsWith("--agent_type="));
-const AGENT_TYPE = agentTypeArg ? agentTypeArg.split("=")[1] : AgentType.REACT;
-
-// Validate agent type
-if (!Object.values(AgentType).includes(AGENT_TYPE as any)) {
-  console.error('Invalid agent_type. Use "single" or "multi"');
-  process.exit(1);
-}
-
-// Startup and shutdown handlers
+const portArg = process.argv.find((arg) => arg.startsWith("--port="));
+const PORT = portArg ? parseInt(portArg.split("=")[1], 10) : 3000;
 let isShuttingDown = false;
 
 const initializeServer = async () => {
   try {
-    await globalSession.initialize(AGENT_TYPE as AgentType);
-    console.log(`MCP Client initialized with agent type: ${AGENT_TYPE}`);
+    await globalSession.initialize();
+    console.log(`MCP Client initialized`);
   } catch (error) {
     console.error("Failed to initialize MCP client:", error);
     process.exit(1);
@@ -36,7 +27,6 @@ const initializeServer = async () => {
 const shutdownServer = async () => {
   if (isShuttingDown) return;
   isShuttingDown = true;
-
   console.log("Shutting down gracefully...");
   try {
     await globalSession.shutdown();
@@ -48,48 +38,31 @@ const shutdownServer = async () => {
   }
 };
 
-// Handle shutdown signals
 process.on("SIGINT", shutdownServer);
 process.on("SIGTERM", shutdownServer);
 
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
+// (1) Initialize the Express application
 
 const app = express();
-
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files setup
+// (2) Static files setup
 const publicDir = path.join(__dirname, "./public");
 const staticDir = path.join(publicDir, "static");
 const templatesDir = path.join(publicDir, "templates");
 
-console.log("dirname: ", __dirname);
-console.log(`Public directory: ${publicDir}`);
-
-// Ensure directories exist
 fs.mkdirSync(staticDir, { recursive: true });
 fs.mkdirSync(templatesDir, { recursive: true });
 
+// (3) Routing setup
 app.use("/static", express.static(staticDir));
-
-// Home route
 app.get("/", (_req: Request, res: Response) => {
   const indexPath = path.join(templatesDir, "index.html");
-  console.log(`Serving index from: ${indexPath}`);
-  console.log(
-    `${
-      fs.existsSync(indexPath)
-        ? "Index template exists"
-        : "Index template does not exist"
-    }`
-  );
-
-  // Check if the HTML template exists
   if (fs.existsSync(indexPath)) {
-    console.log("Index template found, serving it.");
+    console.log(`Serving a debugging interface from: ${indexPath}`);
     res.sendFile(indexPath);
   } else {
     res.send(`
@@ -97,23 +70,21 @@ app.get("/", (_req: Request, res: Response) => {
           <head><title>MCP Client Server</title></head>
           <body>
             <h1>MCP Client Server</h1>
-            <p>Agent Type: ${AGENT_TYPE}</p>
             <p>There is an error with the server.</p>
           </body>
         </html>
       `);
   }
 });
-
-// API routes
 app.use("/", createRoutes());
 
+// (4) Server initialization
 app.listen(PORT, () => {
-  initializeServer().catch((error) => {
+  try {
+    initializeServer();
+  } catch (error) {
     console.error("Error during server initialization:", error);
     process.exit(1);
-  });
-
-  console.log(`MCP Client server running on http://localhost:${PORT}`);
-  console.log(`Agent Type: ${AGENT_TYPE}`);
+  }
+  console.log(`MCP Client server is running on port ${PORT}`);
 });
