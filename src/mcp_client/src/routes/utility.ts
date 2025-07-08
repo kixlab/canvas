@@ -24,11 +24,11 @@ export const getSelection = async (
     if (!validateTools(res)) return;
 
     const toolCall = globalSession.state.tools!.createToolCall(
-      "get_selection",
+      "get_selection_info",
       randomUUID()
     );
     const result = await globalSession.state.tools!.callTool(toolCall);
-    const selection = result.structuredContent?.selection;
+    const selection = result.structuredContent?.nodeList;
 
     if (!selection) {
       res.status(404).json({
