@@ -1,7 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
 import * as generateRoutes from "./generate";
-import * as modifyRoutes from "./modify";
 import * as toolRoutes from "./utility";
 
 // Configure multer for file uploads
@@ -26,23 +25,6 @@ export const createRoutes = () => {
     "/generate/text-image",
     upload.single("image"),
     generateRoutes.generateFromTextAndImage
-  );
-
-  // Modification routes
-  router.post(
-    "/modify/without-oracle",
-    upload.single("image"),
-    modifyRoutes.modifyWithoutOracle
-  );
-  router.post(
-    "/modify/with-oracle/perfect-hierachy",
-    upload.single("image"),
-    modifyRoutes.modifyWithOracleHierarchy
-  );
-  router.post(
-    "/modify/with-oracle/perfect-canvas",
-    upload.single("image"),
-    modifyRoutes.modifyWithOraclePerfectCanvas
   );
 
   // Tool routes

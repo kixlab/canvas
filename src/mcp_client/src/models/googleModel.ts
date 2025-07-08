@@ -10,7 +10,6 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import {
   ModelConfig,
-  ModelProvider,
   CallToolRequestParams,
   GenericMessage,
   ContentType,
@@ -22,54 +21,34 @@ import {
 import { ModelInstance } from "./baseModel";
 import { randomUUID } from "crypto";
 
-export class GoogleModel implements ModelInstance {
+export class GoogleModel extends ModelInstance {
   private client: GoogleGenAI;
-  public name: string;
-  public provider: ModelProvider;
-  public inputCost: number;
-  public outputCost: number;
-  public max_turns: number;
-  public max_retries: number;
-  public temperature: number;
-  public max_tokens: number;
 
   constructor(config: ModelConfig) {
+    super(config);
     this.client = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
     });
-
-    this.name = config.name;
-    this.provider = config.provider;
-    this.inputCost = config.input_cost;
-    this.outputCost = config.output_cost;
-    this.max_turns = config.max_turns || 100;
-    this.max_retries = config.max_retries || 3;
-    this.temperature = config.temperature;
-    this.max_tokens = config.max_tokens;
   }
   formatImageData(imageData: string, mimeType?: string): string {
     throw new Error("Method not implemented.");
   }
 
-  /* ---------------------------------------------------------------------- */
-  /*  Low-level generation helpers                                          */
-  /* ---------------------------------------------------------------------- */
-
   /**
    * Generic content generation without tools.
    */
   async generateResponse(
-    input: ContentListUnion, // Gemini Content[]
+    input: ContentListUnion,
     options: Partial<{
       systemInstruction: any; // Gemini Content
     }> = {}
-  ): Promise<any> /* GenerateContentResponse */ {
+  ): Promise<GenerateContentResponse> {
     return await this.client.models.generateContent({
-      model: this.name,
+      model: this.modelName,
       contents: input,
       config: {
         temperature: this.temperature,
-        maxOutputTokens: this.max_tokens,
+        maxOutputTokens: this.maxTokens,
         ...(options.systemInstruction
           ? { systemInstruction: options.systemInstruction }
           : {}),
@@ -77,9 +56,6 @@ export class GoogleModel implements ModelInstance {
     });
   }
 
-  /**
-   * Generation with function calling enabled.
-   */
   async generateResponseWithTool(
     input: ContentListUnion,
     tools: FunctionDeclaration[],
@@ -92,11 +68,11 @@ export class GoogleModel implements ModelInstance {
     const mode = options.functionCallingMode ?? FunctionCallingConfigMode.AUTO;
 
     return await this.client.models.generateContent({
-      model: this.name,
+      model: this.modelName,
       contents: input,
       config: {
         temperature: this.temperature,
-        maxOutputTokens: this.max_tokens,
+        maxOutputTokens: this.maxTokens,
         tools: [
           {
             functionDeclarations: tools,
@@ -121,9 +97,6 @@ export class GoogleModel implements ModelInstance {
   /*  Formatting helpers                                                    */
   /* ---------------------------------------------------------------------- */
 
-  /**
-   * GenericMessage[] -> Gemini Content[]
-   */
   formatRequest(messages: GenericMessage[]): ContentListUnion[] {
     if (!messages?.length) {
       throw new Error("No messages provided");

@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import { createRoutes } from "./routes";
 import { globalSession } from "./core/session";
+import { ServerStatus } from "./types";
 
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
@@ -12,12 +13,12 @@ import { globalSession } from "./core/session";
 dotenv.config();
 const portArg = process.argv.find((arg) => arg.startsWith("--port="));
 const PORT = portArg ? parseInt(portArg.split("=")[1], 10) : 3000;
-let isShuttingDown = false;
 
 const initializeServer = async () => {
   try {
     await globalSession.initialize();
     console.log(`MCP Client initialized`);
+    globalSession.state.status = ServerStatus.READY;
   } catch (error) {
     console.error("Failed to initialize MCP client:", error);
     process.exit(1);
@@ -25,15 +26,20 @@ const initializeServer = async () => {
 };
 
 const shutdownServer = async () => {
-  if (isShuttingDown) return;
-  isShuttingDown = true;
+  if (globalSession.state.status === ServerStatus.CLOSING) {
+    console.log("Server is already shutting down...");
+    return;
+  }
+  globalSession.state.status = ServerStatus.CLOSING;
   console.log("Shutting down gracefully...");
   try {
     await globalSession.shutdown();
     console.log("MCP Client shutdown complete");
+    globalSession.state.status = ServerStatus.CLOSED;
     process.exit(0);
   } catch (error) {
     console.error("Error during shutdown:", error);
+    globalSession.state.status = ServerStatus.ERROR;
     process.exit(1);
   }
 };

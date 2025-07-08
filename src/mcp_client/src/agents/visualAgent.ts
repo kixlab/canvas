@@ -24,13 +24,8 @@ export class VisualAgent extends AgentInstance {
     tools: Tools;
     model: ModelInstance;
     metadata: AgentMetadata;
-    maxTurns: number;
   }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
     // initialize the maxTurns
-    params.maxTurns = params.maxTurns || 20;
-    params.metadata = params.metadata || {
-      input_id: randomUUID(),
-    };
     const initialRequest = params.model.formatRequest([params.requestMessage]);
     const toolsArray = params.model.formatToolList(
       Array.from(params.tools.catalogue.values())
@@ -46,7 +41,7 @@ export class VisualAgent extends AgentInstance {
     let cost = 0;
 
     // ReAct Loop: Reason -> Act -> Observe
-    while (turn < params.model.max_turns) {
+    while (turn < this.maxTurns) {
       // Reason: Generate response with tools
       const modelResponse = await params.model.generateResponseWithTool(
         apiMessageContext,

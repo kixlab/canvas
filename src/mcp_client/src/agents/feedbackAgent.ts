@@ -24,6 +24,8 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { getUpdateInstruction, getFeedbackPrompt } from "../utils/prompts";
 import { switchParentId, intializeMainScreenFrame } from "../utils/helpers";
 
+const DEFAULT_MAX_RETRIES = 3;
+
 export class FeedbackAgent extends AgentInstance {
   async run(params: {
     requestMessage: UserRequestMessage;
@@ -32,7 +34,6 @@ export class FeedbackAgent extends AgentInstance {
     metadata: AgentMetadata;
   }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
     // Step 1: Initialize parameters
-    params.metadata = params.metadata || { input_id: randomUUID() };
     const originalTargetText = this.extractTextFromContent(
       params.requestMessage.content
     );
@@ -54,13 +55,17 @@ export class FeedbackAgent extends AgentInstance {
     } = await intializeMainScreenFrame(params.requestMessage, params.tools);
 
     /* --- Feedback Loop --------------------------------- */
-    for (let iteration = 0; iteration < params.model.max_retries; iteration++) {
+    for (
+      let iteration = 0;
+      iteration < (this.maxRetries ?? DEFAULT_MAX_RETRIES);
+      iteration++
+    ) {
       // (1) Run design
       const designResult = await this.runDesignPhase({
         requestMessage: currentRequestMessage,
         tools: params.tools,
         model: params.model,
-        maxDesignTurns: params.model.max_turns,
+        maxDesignTurns: this.maxTurns,
         mainScreenFrameId: mainScreenFrameId,
       });
 
