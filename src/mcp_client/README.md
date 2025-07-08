@@ -20,6 +20,11 @@ npm install
 npm run dev ## for hot reloading
 ```
 
+## Setting a custom port
+```bash
+npm run start -- --port=3001
+```
+
 ## Code structure
 
 ```
