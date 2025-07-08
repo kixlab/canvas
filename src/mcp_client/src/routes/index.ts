@@ -15,7 +15,7 @@ export const createRoutes = () => {
   const router = Router();
 
   // Generation routes
-  router.post("/generate/text", generateRoutes.generateFromText);
+  router.post("/generate/text", upload.none(), generateRoutes.generateFromText);
   router.post(
     "/generate/image",
     upload.single("image"),
@@ -29,13 +29,6 @@ export const createRoutes = () => {
 
   // Tool routes
   router.post("/tool/get_selection", toolRoutes.getSelection);
-  router.post("/tool/create_root_frame", toolRoutes.createMainScreenFrame);
-  router.post(
-    "/tool/create_text_in_root_frame",
-    toolRoutes.createTextInMainScreenFrame
-  );
-  router.post("/tool/delete_node", toolRoutes.deleteNode);
-  router.post("/tool/delete_multiple_nodes", toolRoutes.deleteMultipleNodes);
   router.post(
     "/tool/delete_all_top_level_nodes",
     toolRoutes.deleteAllTopLevelNodes

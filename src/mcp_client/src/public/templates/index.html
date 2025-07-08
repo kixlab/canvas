@@ -668,6 +668,40 @@
             }
         }
 
+        /* Preset selector styles */
+        .preset-selector {
+            background-color: var(--color-canvas-subtle);
+            border-bottom: 1px solid var(--color-border-default);
+            padding: 12px 16px;
+        }
+        
+        .preset-form {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .preset-form label {
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--color-fg-default);
+        }
+        
+        .preset-form select {
+            padding: 6px 10px;
+            border: 1px solid var(--color-border-default);
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: var(--color-canvas-default);
+            min-width: 150px;
+        }
+        
+        .preset-info {
+            font-size: 12px;
+            color: var(--color-fg-muted);
+            margin-left: auto;
+        }
     </style>
 </head>
 <body>
@@ -680,6 +714,39 @@
             <div class="task-container">
                 <div class="task-header">
                     <h2>Task</h2>
+                </div>
+                
+                <!-- Preset Selector -->
+                <div class="preset-selector">
+                    <div class="preset-form">
+                        <label for="model-preset">Model:</label>
+                        <select id="model-preset">
+                            <option value="models/gemini-2.5-flash|google|0.0003|0.0025|65536|100">Gemini 2.5 Flash</option>
+                            <option value="models/gemini-2.5-pro|google|0.00125|0.01|65536|100">Gemini 2.5 Pro</option>
+                            <option value="gpt-4.1-2025-04-14|openai|0.002|0.008|32768|100">GPT-4.1 (2025-04-14)</option>
+                            <option value="anthropic.claude-3-5-sonnet-20241022-v2:0|anthropic|0.003|0.015|4096|100">Claude 3.5 Sonnet</option>
+                            <option value="gpt-4o-2024-08-06|openai|0.0025|0.0125|4096|100">GPT-4o (2024-08-06)</option>
+                        </select>
+                        
+                        <label for="agent-preset">Agent:</label>
+                        <select id="agent-preset">
+                            <option value="react">ReAct</option>
+                            <option value="feedback">Feedback</option>
+                            <option value="visual">Visual</option>
+                        </select>
+                        
+                        <label for="temperature-preset">Temperature:</label>
+                        <select id="temperature-preset">
+                            <option value="0.0">0.0 (Deterministic)</option>
+                            <option value="0.3">0.3 (Low creativity)</option>
+                            <option value="0.7">0.7 (Balanced)</option>
+                            <option value="1.0">1.0 (High creativity)</option>
+                        </select>
+                        
+                        <div class="preset-info" id="preset-info">
+                            Gemini 2.5 Flash • ReAct • Temperature: 0.0
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="task-type-selector">
@@ -760,49 +827,12 @@
                 </div>
             </div>
             
-            <!-- Node Manipulation Panel -->
+            <!-- Canvas Tools Panel -->
             <div class="debug-tool-panel">
-                <h3>Node Tools</h3>
+                <h3>Canvas Tools</h3>
                 <div class="tool-buttons">
                     <button id="get-selection" class="button">Get Selection</button>
-                    <button id="create-frame" class="button">Create Main Screen Frame</button>
-                    <button id="create-text" class="button">Create Text in Main Screen Frame</button>
                     <button id="delete-all-nodes" class="button" style="background-color: var(--color-danger-fg); color: white;">Delete All Nodes</button>
-                </div>
-                
-                <div id="frame-params" style="display: none;">
-                    <h4>Create Frame Parameters</h4>
-                    <form id="frame-params-form" class="frame-params-form">
-                        <div class="form-group">
-                            <label for="frame-x">X:</label>
-                            <input type="number" id="frame-x" value="0">
-                        </div>
-                        <div class="form-group">
-                            <label for="frame-y">Y:</label>
-                            <input type="number" id="frame-y" value="0">
-                        </div>
-                        <div class="form-group">
-                            <label for="frame-width">Width:</label>
-                            <input type="number" id="frame-width" value="320" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="frame-height">Height:</label>
-                            <input type="number" id="frame-height" value="720" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="frame-name">Name:</label>
-                            <input type="text" id="frame-name" value="Frame">
-                        </div>
-                        <button type="submit" class="button primary">Create</button>
-                    </form>
-                </div>
-                
-                <div id="delete-nodes-section" style="display: none; margin-top: 16px;">
-                    <h4>Delete Specific Nodes</h4>
-                    <div class="form-group">
-                        <textarea id="node-ids-input" class="task-input" placeholder="Enter node IDs (one per line or comma-separated)" rows="3"></textarea>
-                        <button id="delete-specific-nodes" class="button" style="background-color: var(--color-danger-fg); color: white;">Delete Selected Nodes</button>
-                    </div>
                 </div>
             </div>
             
@@ -836,6 +866,46 @@
             button.disabled = false;
             button.textContent = text;
         }
+        
+        // Preset configuration
+        function updatePresetInfo() {
+            const modelSelect = document.getElementById('model-preset');
+            const agentSelect = document.getElementById('agent-preset');
+            const tempSelect = document.getElementById('temperature-preset');
+            const presetInfo = document.getElementById('preset-info');
+            
+            const modelName = modelSelect.options[modelSelect.selectedIndex].text;
+            const agentType = agentSelect.value;
+            const temperature = tempSelect.value;
+            
+            presetInfo.textContent = `${modelName} • ${agentType} • Temperature: ${temperature}`;
+        }
+        
+        function getMetadataFromPresets() {
+            const modelSelect = document.getElementById('model-preset');
+            const agentSelect = document.getElementById('agent-preset');
+            const tempSelect = document.getElementById('temperature-preset');
+            
+            const [modelName, provider, inputCost, outputCost, maxTokens, maxTurns] = modelSelect.value.split('|');
+            
+            return {
+                case_id: `task-${Date.now()}`,
+                model_provider: provider,
+                model_name: modelName,
+                agent_type: agentSelect.value,
+                temperature: parseFloat(tempSelect.value),
+                input_cost: parseFloat(inputCost),
+                output_cost: parseFloat(outputCost),
+                max_tokens: parseInt(maxTokens),
+                max_turns: parseInt(maxTurns),
+                max_retries: 3
+            };
+        }
+        
+        // Event listeners for preset selectors
+        document.getElementById('model-preset').addEventListener('change', updatePresetInfo);
+        document.getElementById('agent-preset').addEventListener('change', updatePresetInfo);
+        document.getElementById('temperature-preset').addEventListener('change', updatePresetInfo);
         
         // Message handling functions
         function extractAIContent(response) {
@@ -1387,12 +1457,16 @@
             showLoading(submitButton);
             
             try {
-                // Send text-only task
-                log("Submitting text-only task", { message });
+                const metadata = getMetadataFromPresets();
+                log("Submitting text-only task", { message, metadata });
+                
+                const formData = new FormData();
+                formData.append('message', message);
+                formData.append('metadata', JSON.stringify(metadata));
+
                 const response = await fetch('/generate/text', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message }),
+                    body: formData,
                 });
                 
                 if (!response.ok) {
@@ -1420,10 +1494,12 @@
             showLoading(submitButton);
             
             try {
-                // Send image-only task
-                log("Submitting image-only task", { image: imageFile.name });
+                const metadata = getMetadataFromPresets();
+                log("Submitting image-only task", { image: imageFile.name, metadata });
+                
                 const formData = new FormData();
                 formData.append('image', imageFile);
+                formData.append('metadata', JSON.stringify(metadata));
                 
                 const response = await fetch('/generate/image', {
                     method: 'POST',
@@ -1456,11 +1532,13 @@
             showLoading(submitButton);
             
             try {
-                // Send text+image task
-                log("Submitting text+image task", { message, image: imageFile.name });
+                const metadata = getMetadataFromPresets();
+                log("Submitting text+image task", { message, image: imageFile.name, metadata });
+                
                 const formData = new FormData();
                 formData.append('message', message);
                 formData.append('image', imageFile);
+                formData.append('metadata', JSON.stringify(metadata));
                 
                 const response = await fetch('/generate/text-image', {
                     method: 'POST',
@@ -1500,61 +1578,6 @@
                 document.getElementById('tool-results').textContent = `Error: ${error.message}`;
             } finally {
                 resetButton(button, 'Get Selection');
-            }
-        });
-        
-        document.getElementById('create-frame').addEventListener('click', () => {
-            const paramsForm = document.getElementById('frame-params');
-            paramsForm.style.display = paramsForm.style.display === 'none' ? 'block' : 'none';
-        });
-        
-        document.getElementById('frame-params-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const button = e.target.querySelector('button[type="submit"]');
-            showLoading(button);
-            
-            const x = document.getElementById('frame-x').value;
-            const y = document.getElementById('frame-y').value;
-            const width = document.getElementById('frame-width').value;
-            const height = document.getElementById('frame-height').value;
-            const name = document.getElementById('frame-name').value;
-            
-            try {
-                const response = await fetch(`/tool/create_root_frame?x=${x}&y=${y}&width=${width}&height=${height}&name=${encodeURIComponent(name)}`, {
-                    method: 'POST',
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
-            } finally {
-                resetButton(button, 'Create');
-            }
-        });
-        
-        document.getElementById('create-text').addEventListener('click', async (e) => {
-            const button = e.target;
-            showLoading(button);
-            
-            try {
-                const response = await fetch('/tool/create_text_in_root_frame', { method: 'POST' });
-                
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
-            } finally {
-                resetButton(button, 'Create Text in Main Screen');
             }
         });
         
@@ -1645,6 +1668,8 @@
         });
         
         // Initialize
+        updatePresetInfo();
+        fetchChannels();
         log("Task interface initialized");
     </script>
 </body>

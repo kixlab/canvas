@@ -59,56 +59,6 @@ export function createImageUrl(
   return `data:${mimeType};base64,${base64Data}`;
 }
 
-export function loadServerConfig(
-  agentType: AgentType = AgentType.REACT
-): ServerConfig {
-  const configPath = path.join(
-    __dirname,
-    "..",
-    "..",
-    "config",
-    `server_${agentType}.yaml`
-  );
-
-  try {
-    const configFile = fs.readFileSync(configPath, "utf8");
-    const config = yaml.parse(configFile) as ServerConfig;
-
-    return config;
-  } catch (error) {
-    const baseConfigPath = path.join(
-      __dirname,
-      ".",
-      "config",
-      "server_base.yaml"
-    );
-    try {
-      console.warn("Failed to loead config from: ", configPath);
-      const configFile = fs.readFileSync(baseConfigPath, "utf8");
-      const config = yaml.parse(configFile) as ServerConfig;
-      return config;
-    } catch (baseError) {
-      console.warn("Failed to load base config from: ", baseConfigPath);
-      // Default configuration
-      return {
-        models: [
-          {
-            name: "gpt-4.1-2025-04-14",
-            provider: ModelProvider.OPENAI,
-            temperature: 1.0,
-            max_tokens: 32768,
-            input_cost: 0.002,
-            output_cost: 0.008,
-            max_turns: 100,
-            max_retries: 3,
-          },
-        ],
-        agent_type: agentType,
-      };
-    }
-  }
-}
-
 export const intializeMainScreenFrame = async (
   requestMessage: UserRequestMessage,
   tools: Tools

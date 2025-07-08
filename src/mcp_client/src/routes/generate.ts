@@ -27,7 +27,7 @@ export const generateFromText = async (
 ): Promise<void> => {
   try {
     const message = req.body.message;
-    const metadata = req.body.metadata as GenerateMetadata;
+    const metadata = JSON.parse(req.body.metadata) as GenerateMetadata;
     const sessionState = globalSession.state;
 
     // (1) Request Validation
@@ -83,7 +83,7 @@ export const generateFromImage = async (
   res: Response<ResponseData>
 ): Promise<void> => {
   try {
-    const metadata = req.body.metadata as GenerateMetadata;
+    const metadata = JSON.parse(req.body.metadata) as GenerateMetadata;
     const sessionState = globalSession.state;
 
     // (1) Request Validation
@@ -155,7 +155,7 @@ export const generateFromTextAndImage = async (
 ): Promise<void> => {
   try {
     const message = req.body.message;
-    const metadata = req.body.metadata as GenerateMetadata;
+    const metadata = JSON.parse(req.body.metadata) as GenerateMetadata;
     const sessionState = globalSession.state;
 
     // (1) Request Validation
