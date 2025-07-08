@@ -22,7 +22,14 @@ import {
 } from "@modelcontextprotocol/sdk/types";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { getUpdateInstruction, getFeedbackPrompt } from "../utils/prompts";
-import { switchParentId, intializeMainScreenFrame } from "../utils/helpers";
+import {
+  switchParentId,
+  intializeMainScreenFrame,
+  isPageClear,
+  clearPage,
+  getPageImage,
+  getPageStructure,
+} from "../utils/helpers";
 
 const DEFAULT_MAX_RETRIES = 3;
 
@@ -32,7 +39,21 @@ export class FeedbackAgent extends AgentInstance {
     tools: Tools;
     model: ModelInstance;
     metadata: AgentMetadata;
-  }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
+  }): Promise<{
+    case_id: string;
+    history: GenericMessage[];
+    responses: any[];
+    cost: number;
+    json_structure: Object;
+    image_base64: string;
+  }> {
+    // Step 0: Check page
+    const pageStatus = await isPageClear(params.tools);
+    if (!pageStatus) {
+      console.log("Page is not clear. Clearing the page...");
+      await clearPage(params.tools);
+    }
+
     // Step 1: Initialize parameters
     const originalTargetText = this.extractTextFromContent(
       params.requestMessage.content
@@ -110,9 +131,17 @@ export class FeedbackAgent extends AgentInstance {
       });
     }
 
+    // Get page structure and image
+    const pageStructure = await getPageStructure(params.tools);
+    const resultImage = await getPageImage(params.tools);
+    await clearPage(params.tools);
+
     return {
+      case_id: params.metadata.caseId,
       history: overallHistory,
       responses: overallRawResponses,
+      json_structure: pageStructure,
+      image_base64: resultImage,
       cost: totalCost,
     };
   }

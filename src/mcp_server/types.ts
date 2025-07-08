@@ -140,4 +140,5 @@ export type FigmaCommand =
   | "set_layout_sizing"
   | "set_item_spacing"
   | "check_connection_status"
-  | "get_result_image";
+  | "get_result_image"
+  | "export_json";

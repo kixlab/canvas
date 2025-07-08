@@ -228,4 +228,27 @@ export function registerInspectionTools(server: McpServer) {
       }
     }
   );
+
+  server.tool(
+    "export_json",
+    "[DEBUGGING ONLY] Get the complete Figma page as structured JSON, including every page and all nested nodes",
+    {},
+    async () => {
+      try {
+        const result = await sendCommandToFigma("export_json");
+
+        return createSuccessResponse({
+          messages: [
+            `Fetched document with ${result.document.children.length} top-level elements`,
+          ],
+          dataItem: result, // the full document JSON
+        });
+      } catch (error) {
+        return createErrorResponse({
+          error,
+          context: "export_json",
+        });
+      }
+    }
+  );
 }

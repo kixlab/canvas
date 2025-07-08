@@ -11,7 +11,14 @@ import {
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
 import { AgentInstance } from "./baseAgent";
-import { switchParentId, intializeMainScreenFrame } from "../utils/helpers";
+import {
+  switchParentId,
+  intializeMainScreenFrame,
+  getPageStructure,
+  clearPage,
+  isPageClear,
+  getPageImage,
+} from "../utils/helpers";
 
 export class ReactAgent extends AgentInstance {
   async run(params: {
@@ -20,7 +27,21 @@ export class ReactAgent extends AgentInstance {
     model: ModelInstance;
     metadata: AgentMetadata;
     maxTurns: number;
-  }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
+  }): Promise<{
+    case_id: string;
+    history: GenericMessage[];
+    responses: any[];
+    cost: number;
+    json_structure: Object;
+    image_base64: string;
+  }> {
+    // Step 0: Check page
+    const pageStatus = await isPageClear(params.tools);
+    if (!pageStatus) {
+      console.log("Page is not clear. Clearing the page...");
+      await clearPage(params.tools);
+    }
+
     // Step 1: Initialize parameters
     const initialRequest = params.model.formatRequest([params.requestMessage]);
     const toolsArray = params.model.formatToolList(
@@ -93,9 +114,17 @@ export class ReactAgent extends AgentInstance {
       turn++;
     }
 
+    // Get page structure and image
+    const pageStructure = await getPageStructure(params.tools);
+    const resultImage = await getPageImage(params.tools);
+    await clearPage(params.tools);
+
     return {
+      case_id: params.metadata.caseId,
       history: formattedMessageContext,
       responses: rawResponses,
+      json_structure: pageStructure,
+      image_base64: resultImage,
       cost: cost / 1000, // Convert to USD
     };
   }

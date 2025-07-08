@@ -1,10 +1,5 @@
-import * as fs from "fs";
-import * as path from "path";
-import * as yaml from "yaml";
 import {
   UserRequestMessage,
-  ModelProvider,
-  ServerConfig,
   ContentType,
   CallToolRequestParams,
 } from "../types";
@@ -255,3 +250,109 @@ export const switchParentId = async ({
 
   return callToolRequests;
 };
+
+export async function getPageStructure(tools: Tools): Promise<Object> {
+  const getPageStructureRequest = tools.createToolCall(
+    "export_json",
+    randomUUID(),
+    {}
+  );
+  const documentStructureResult = await tools.callTool(getPageStructureRequest);
+  if (documentStructureResult.isError) {
+    throw new Error("Failed to get page structure");
+  }
+  if (!documentStructureResult.structuredContent) {
+    throw new Error("No structured content found in the response");
+  }
+
+  return documentStructureResult.structuredContent;
+}
+
+export async function clearPage(tools: Tools): Promise<Array<any>> {
+  const getPageStructureRequest = tools.createToolCall(
+    "get_page_structure",
+    randomUUID(),
+    {}
+  );
+  const response = await tools.callTool(getPageStructureRequest);
+
+  if (response.isError) {
+    throw new Error("Failed to get page structure");
+  }
+
+  const documentInfo = response.structuredContent || {};
+
+  const docAny = documentInfo as any;
+  const childrenArray = Array.isArray(docAny.structureTree)
+    ? docAny.structureTree
+    : Array.isArray(docAny.children)
+    ? docAny.children
+    : [];
+
+  if (childrenArray.length === 0) {
+    return [];
+  }
+
+  const topNodeIds = childrenArray.map((node: any) => node.id);
+  const deleteNodesToolCall = tools.createToolCall(
+    "delete_node",
+    randomUUID(),
+    {
+      nodeIds: topNodeIds,
+    }
+  );
+
+  const result = await tools.callTool(deleteNodesToolCall);
+
+  if (result.isError) {
+    throw new Error(`Failed to delete nodes: ${result.error}`);
+  }
+
+  return topNodeIds;
+}
+
+export async function isPageClear(tools: Tools): Promise<boolean> {
+  const getPageStructureRequest = tools.createToolCall(
+    "get_page_structure",
+    randomUUID(),
+    {}
+  );
+  const response = await tools.callTool(getPageStructureRequest);
+
+  if (response.isError) {
+    throw new Error("Failed to get page structure");
+  }
+
+  const documentInfo = response.structuredContent || {};
+
+  const docAny = documentInfo as any;
+  const childrenArray = Array.isArray(docAny.structureTree)
+    ? docAny.structureTree
+    : Array.isArray(docAny.children)
+    ? docAny.children
+    : [];
+
+  if (childrenArray.length === 0) {
+    return true;
+  }
+  return false;
+}
+
+export async function getPageImage(tools: Tools): Promise<string> {
+  const getPageImageRequest = tools.createToolCall(
+    "get_result_image",
+    randomUUID(),
+    {}
+  );
+  const response = await tools.callTool(getPageImageRequest);
+
+  if (response.isError) {
+    throw new Error("Failed to get page image");
+  }
+
+  if (!response.structuredContent || !response.structuredContent.image) {
+    throw new Error("No image found in the response");
+  }
+
+  return response.structuredContent.imageData as string;
+}

@@ -1,6 +1,3 @@
-// filepath: /Users/daeheon_macbook/Documents/KIXLAB/25-1-design-forge/codebase/samsung-cxi-mcp-server/src/figma_plugin/src/script.ts
-
-/* ---------- Imports ---------- */
 import {
   UIstate,
   updateConnectionStatus,

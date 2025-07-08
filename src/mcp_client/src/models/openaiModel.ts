@@ -4,7 +4,6 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import {
   ModelConfig,
-  ModelProvider,
   CallToolRequestParams,
   GenericMessage,
   ContentType,

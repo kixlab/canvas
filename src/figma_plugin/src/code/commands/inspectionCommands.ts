@@ -246,3 +246,13 @@ export async function getPageStructure() {
     structureTree,
   };
 }
+
+export async function retrieveDocumentJson() {
+  figma.loadAllPagesAsync();
+
+  const documentJson = await figma.currentPage.exportAsync({
+    format: 'JSON_REST_V1',
+  });
+
+  return documentJson;
+}

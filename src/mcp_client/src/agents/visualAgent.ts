@@ -17,6 +17,12 @@ import {
   ImageContent,
   TextContent,
 } from "@modelcontextprotocol/sdk/types";
+import {
+  clearPage,
+  getPageImage,
+  getPageStructure,
+  isPageClear,
+} from "../utils/helpers";
 
 export class VisualAgent extends AgentInstance {
   async run(params: {
@@ -24,7 +30,21 @@ export class VisualAgent extends AgentInstance {
     tools: Tools;
     model: ModelInstance;
     metadata: AgentMetadata;
-  }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
+  }): Promise<{
+    case_id: string;
+    history: GenericMessage[];
+    responses: any[];
+    cost: number;
+    json_structure: Object;
+    image_base64: string;
+  }> {
+    // Step 0: Check page
+    const pageStatus = await isPageClear(params.tools);
+    if (!pageStatus) {
+      console.log("Page is not clear. Clearing the page...");
+      await clearPage(params.tools);
+    }
+
     // initialize the maxTurns
     const initialRequest = params.model.formatRequest([params.requestMessage]);
     const toolsArray = params.model.formatToolList(
@@ -113,15 +133,19 @@ export class VisualAgent extends AgentInstance {
 
       // Logging the result
       turn++;
-      console.log("==================================================");
-      console.log(`Turn ${turn} completed.`);
-      console.log("Cost so far:", cost / 1000, "USD");
-      console.dir(apiMessageContext);
     }
 
+    // Get page structure and image
+    const pageStructure = await getPageStructure(params.tools);
+    const resultImage = await getPageImage(params.tools);
+    await clearPage(params.tools);
+
     return {
+      case_id: params.metadata.caseId,
       history: formattedMessageContext,
       responses: rawResponses,
+      json_structure: pageStructure,
+      image_base64: resultImage,
       cost: cost / 1000, // Convert to USD
     };
   }
