@@ -36,7 +36,7 @@ export class VisualAgent extends AgentInstance {
     responses: any[];
     cost: number;
     json_structure: Object;
-    image_base64: string;
+    image_uri: string;
   }> {
     // Step 0: Check page
     const pageStatus = await isPageClear(params.tools);
@@ -145,7 +145,7 @@ export class VisualAgent extends AgentInstance {
       history: formattedMessageContext,
       responses: rawResponses,
       json_structure: pageStructure,
-      image_base64: resultImage,
+      image_uri: resultImage,
       cost: cost / 1000, // Convert to USD
     };
   }

@@ -350,9 +350,11 @@ export async function getPageImage(tools: Tools): Promise<string> {
     throw new Error("Failed to get page image");
   }
 
-  if (!response.structuredContent || !response.structuredContent.image) {
+  if (!response.structuredContent || !response.structuredContent.imageData) {
     throw new Error("No image found in the response");
   }
 
-  return response.structuredContent.imageData as string;
+  const imageURI = `data:${response.structuredContent.mimeType};base64,${response.structuredContent.imageData}`;
+
+  return imageURI;
 }

@@ -33,6 +33,9 @@ export const createRoutes = () => {
     "/tool/delete_all_top_level_nodes",
     toolRoutes.deleteAllTopLevelNodes
   );
+  router.post("/tool/retrieve_page_status", toolRoutes.retrievePageStatus);
+  router.post("/tool/retrieve_page_image", toolRoutes.retrievePageImage);
+
   router.post("/tool/get_channels", toolRoutes.getChannels);
   router.post("/tool/select_channel", toolRoutes.selectChannel);
 

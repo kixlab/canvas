@@ -833,6 +833,8 @@
                 <div class="tool-buttons">
                     <button id="get-selection" class="button">Get Selection</button>
                     <button id="delete-all-nodes" class="button" style="background-color: var(--color-danger-fg); color: white;">Delete All Nodes</button>
+                    <button id="retrieve-page-status" class="button">Page Status</button>
+                    <button id="retrieve-page-image" class="button">Page Image</button>
                 </div>
             </div>
             
@@ -1608,46 +1610,13 @@
             }
         });
         
-        // Toggle delete nodes section
-        document.getElementById('delete-all-nodes').addEventListener('dblclick', () => {
-            const deleteSection = document.getElementById('delete-nodes-section');
-            deleteSection.style.display = deleteSection.style.display === 'none' ? 'block' : 'none';
-        });
-        
-        // Delete specific nodes handler
-        document.getElementById('delete-specific-nodes').addEventListener('click', async (e) => {
+        // Retrieve page status handler
+        document.getElementById('retrieve-page-status').addEventListener('click', async (e) => {
             const button = e.target;
-            const nodeIdsText = document.getElementById('node-ids-input').value;
-            
-            if (!nodeIdsText.trim()) {
-                alert('Please enter node IDs to delete');
-                return;
-            }
-            
-            // Parse node IDs (support both comma-separated and line-separated)
-            const nodeIds = nodeIdsText
-                .split(/[,\n]/)
-                .map(id => id.trim())
-                .filter(id => id.length > 0);
-            
-            if (nodeIds.length === 0) {
-                alert('No valid node IDs found');
-                return;
-            }
-            
-            // Confirm deletion
-            if (!confirm(`Are you sure you want to delete ${nodeIds.length} node(s)? This action cannot be undone.`)) {
-                return;
-            }
-            
             showLoading(button);
             
             try {
-                const response = await fetch('/tool/delete_multiple_nodes', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ node_ids: nodeIds }),
-                });
+                const response = await fetch('/tool/retrieve_page_status', { method: 'POST' });
                 
                 if (!response.ok) {
                     throw new Error(`Server error: ${response.status} ${response.statusText}`);
@@ -1655,15 +1624,45 @@
                 
                 const data = await response.json();
                 document.getElementById('tool-results').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Page Status');
+            }
+        });
+        
+        // Retrieve page image handler
+        document.getElementById('retrieve-page-image').addEventListener('click', async (e) => {
+            const button = e.target;
+            showLoading(button);
+            
+            try {
+                const response = await fetch('/tool/retrieve_page_image', { method: 'POST' });
                 
-                // Clear the input if successful
-                if (data.status === 'success') {
-                    document.getElementById('node-ids-input').value = '';
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const toolResults = document.getElementById('tool-results');
+
+                console.log(data.payload)
+                
+                if (data.status === 'success' && data.payload && data.payload.image_uri) {
+                    // Display the image along with the JSON response
+                    toolResults.innerHTML = `
+                        <div style="margin-bottom: 12px;">
+                            <img src="${data.payload.image_uri}" alt="Page image" style="max-width: 100%; height: auto; border: 1px solid var(--color-border-default); border-radius: 4px;">
+                        </div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    toolResults.textContent = JSON.stringify(data, null, 2);
                 }
             } catch (error) {
                 document.getElementById('tool-results').textContent = `Error: ${error.message}`;
             } finally {
-                resetButton(button, 'Delete Selected Nodes');
+                resetButton(button, 'Page Image');
             }
         });
         

@@ -45,7 +45,7 @@ export class FeedbackAgent extends AgentInstance {
     responses: any[];
     cost: number;
     json_structure: Object;
-    image_base64: string;
+    image_uri: string;
   }> {
     // Step 0: Check page
     const pageStatus = await isPageClear(params.tools);
@@ -141,7 +141,7 @@ export class FeedbackAgent extends AgentInstance {
       history: overallHistory,
       responses: overallRawResponses,
       json_structure: pageStructure,
-      image_base64: resultImage,
+      image_uri: resultImage,
       cost: totalCost,
     };
   }

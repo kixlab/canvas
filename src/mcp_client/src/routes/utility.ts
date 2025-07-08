@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { ResponseData, ResponseStatus } from "../types";
 import { globalSession } from "../core/session";
+import { clearPage, isPageClear, getPageImage } from "../utils/helpers";
 
 // Helper function for common validation
 const validateTools = (res: Response<ResponseData>) => {
@@ -50,96 +51,6 @@ export const getSelection = async (
   }
 };
 
-export const deleteNode = async (
-  req: Request,
-  res: Response<ResponseData>
-): Promise<void> => {
-  try {
-    const { node_id } = req.body;
-
-    if (!node_id) {
-      res.status(400).json({
-        status: ResponseStatus.ERROR,
-        message: "node_id is required",
-      });
-      return;
-    }
-
-    if (!validateTools(res)) return;
-
-    const toolCall = globalSession.state.tools!.createToolCall(
-      "delete_node",
-      randomUUID(),
-      {
-        nodeIds: [node_id],
-      }
-    );
-    const result = await globalSession.state.tools!.callTool(toolCall);
-
-    res.json({
-      status: ResponseStatus.SUCCESS,
-      message: `Node with ID ${node_id} deleted successfully`,
-      payload: { nodeInfo: result.structuredContent },
-    });
-  } catch (error) {
-    console.error("Error in deleteNode:", error);
-    res.status(500).json({
-      status: ResponseStatus.ERROR,
-      message: String(error),
-    });
-  }
-};
-
-export const deleteMultipleNodes = async (
-  req: Request,
-  res: Response<ResponseData>
-): Promise<void> => {
-  try {
-    const { node_ids } = req.body;
-
-    if (!Array.isArray(node_ids)) {
-      res.status(400).json({
-        status: ResponseStatus.ERROR,
-        message: "node_ids must be an array",
-      });
-      return;
-    }
-
-    if (!validateTools(res)) return;
-
-    const toolCall = globalSession.state.tools!.createToolCall(
-      "delete_node",
-      randomUUID(),
-      {
-        nodeIds: node_ids,
-      }
-    );
-
-    const result = await globalSession.state.tools!.callTool(toolCall);
-    const typedResult = result.structuredContent as {
-      deleted: string[];
-      errors: string[] | undefined;
-      summary: { total: number; deleted: number; errors: number };
-    };
-
-    res.json({
-      status: ResponseStatus.SUCCESS,
-      message: `Deleted ${typedResult.summary.deleted} nodes successfully`,
-      payload: {
-        deleted_node_ids: typedResult.deleted,
-        errors: typedResult.errors || [],
-        summary: typedResult.summary,
-      },
-    });
-  } catch (error) {
-    console.error("Error in deleteMultipleNodes:", error);
-    res.status(500).json({
-      status: ResponseStatus.ERROR,
-      message: String(error),
-    });
-  }
-};
-
 export const deleteAllTopLevelNodes = async (
   req: Request,
   res: Response<ResponseData>
@@ -147,62 +58,77 @@ export const deleteAllTopLevelNodes = async (
   try {
     if (!validateTools(res)) return;
 
-    // Get page structure (hierarchy tree)
-    const pageStructureToolCall = globalSession.state.tools!.createToolCall(
-      "get_page_structure",
-      randomUUID()
-    );
-    const response = await globalSession.state.tools!.callTool(
-      pageStructureToolCall
-    );
-
-    if (response.isError) {
-      res.status(500).json({
-        status: ResponseStatus.ERROR,
-        message: "Failed to get page structure",
-      });
-      return;
-    }
-
-    const documentInfo = response.structuredContent || {};
-
-    const docAny = documentInfo as any;
-    const childrenArray = Array.isArray(docAny.structureTree)
-      ? docAny.structureTree
-      : Array.isArray(docAny.children)
-      ? docAny.children
-      : [];
-
-    if (childrenArray.length === 0) {
-      res.json({
-        status: ResponseStatus.SUCCESS,
-        message: "No nodes to delete",
-      });
-      return;
-    }
-
-    const topNodeIds = childrenArray.map((node: any) => node.id);
-    const deleteNodesToolCall = globalSession.state.tools!.createToolCall(
-      "delete_node",
-      randomUUID(),
-      {
-        nodeIds: topNodeIds,
-      }
-    );
-
-    const result = await globalSession.state.tools!.callTool(
-      deleteNodesToolCall
-    );
+    const cleared_ids = clearPage(globalSession.state.tools!);
 
     res.json({
       status: ResponseStatus.SUCCESS,
+      message: "All top-level nodes deleted successfully",
       payload: {
-        deleted_node_ids: topNodeIds,
-        result: result,
+        deleted_node_ids: cleared_ids,
       },
     });
+
+    return;
   } catch (error) {
     console.error("Error in deleteAllTopLevelNodes:", error);
+    res.status(500).json({
+      status: ResponseStatus.ERROR,
+      message: String(error),
+    });
+  }
+};
+
+export const retrievePageStatus = async (
+  req: Request,
+  res: Response<ResponseData>
+): Promise<void> => {
+  try {
+    if (!validateTools(res)) return;
+
+    const pageClear = await isPageClear(globalSession.state.tools!);
+
+    if (pageClear) {
+      res.json({
+        status: ResponseStatus.SUCCESS,
+        payload: { is_empty: true },
+      });
+    } else {
+      res.json({
+        status: ResponseStatus.SUCCESS,
+        payload: { is_empty: false },
+      });
+    }
+  } catch (error) {
+    console.error("Error in checkPageEmpty:", error);
+    res.status(500).json({
+      status: ResponseStatus.ERROR,
+      message: String(error),
+    });
+  }
+};
+
+export const retrievePageImage = async (
+  req: Request,
+  res: Response<ResponseData>
+): Promise<void> => {
+  try {
+    if (!validateTools(res)) return;
+    const imageURI = await getPageImage(globalSession.state.tools!);
+
+    if (!imageURI) {
+      res.status(404).json({
+        status: ResponseStatus.ERROR,
+        message: "No image data found",
+      });
+      return;
+    }
+
+    res.json({
+      status: ResponseStatus.SUCCESS,
+      payload: { image_uri: imageURI },
+    });
+  } catch (error) {
+    console.error("Error in getPageImage:", error);
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),
