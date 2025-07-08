@@ -134,7 +134,7 @@ class BaseExperiment:
         os.environ["LANGSMITH_EXPERIMENT_TAGS"] = ",".join(tags)
 
     def _load_batch_ids(self) -> Optional[set]:
-        """배치 ID 로드"""
+        """Batch ID Load"""
         if not self.config.batches_config_path:
             print(f"nothing in {self.config.batches_config_path}")
             return None
@@ -182,10 +182,23 @@ class BaseExperiment:
             return await res.json()
 
     async def get_document_info(self) -> Dict[str, Any]:
-        response = requests.post(f"{self.api_base_url}/tool/get_document_info")
+        """Fetch page hierarchy info via updated `get_page_structure` tool."""
         try:
-            return json.loads(response.json()["message"])
-        except:
+            response = requests.post(f"{self.api_base_url}/tool/get_page_structure")
+            if response.status_code != 200:
+                return {}
+
+            payload = response.json()
+            if isinstance(payload, dict) and "structuredContent" in payload:
+                return payload["structuredContent"]
+
+            if "message" in payload:
+                try:
+                    return json.loads(payload["message"])
+                except Exception:
+                    return {}
+            return {}
+        except Exception:
             return {}
 
     async def fetch_figma_hierarchy(self) -> dict:

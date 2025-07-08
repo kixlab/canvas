@@ -206,7 +206,7 @@ export const deleteNode = async (
       "delete_node",
       randomUUID(),
       {
-        nodeId: node_id,
+        nodeIds: [node_id],
       }
     );
     const result = await globalSession.state.tools!.callTool(toolCall);
@@ -243,7 +243,7 @@ export const deleteMultipleNodes = async (
     if (!validateTools(res)) return;
 
     const toolCall = globalSession.state.tools!.createToolCall(
-      "delete_multiple_nodes",
+      "delete_node",
       randomUUID(),
       {
         nodeIds: node_ids,
@@ -282,46 +282,33 @@ export const deleteAllTopLevelNodes = async (
   try {
     if (!validateTools(res)) return;
 
-    // Get document info
-    const documentInfoToolCall = globalSession.state.tools!.createToolCall(
-      "get_document_info",
+    // Get page structure (hierarchy tree)
+    const pageStructureToolCall = globalSession.state.tools!.createToolCall(
+      "get_page_structure",
       randomUUID()
     );
     const response = await globalSession.state.tools!.callTool(
-      documentInfoToolCall
+      pageStructureToolCall
     );
 
     if (response.isError) {
       res.status(500).json({
         status: ResponseStatus.ERROR,
-        message: "Failed to get document info",
+        message: "Failed to get page structure",
       });
       return;
     }
 
-    const documentInfoResponse = response.content.find(
-      (msg: any) => msg.type === "text"
-    )?.text as string;
-    if (!documentInfoResponse) {
-      res.status(500).json({
-        status: ResponseStatus.ERROR,
-        message: "No document info found",
-      });
-      return;
-    }
+    const documentInfo = response.structuredContent || {};
 
-    let documentInfo;
-    try {
-      documentInfo = JSON.parse(documentInfoResponse);
-    } catch {
-      res.status(500).json({
-        status: ResponseStatus.ERROR,
-        message: "Failed to parse document info",
-      });
-      return;
-    }
+    const docAny = documentInfo as any;
+    const childrenArray = Array.isArray(docAny.structureTree)
+      ? docAny.structureTree
+      : Array.isArray(docAny.children)
+      ? docAny.children
+      : [];
 
-    if (!documentInfo.children?.length) {
+    if (childrenArray.length === 0) {
       res.json({
         status: ResponseStatus.SUCCESS,
         message: "No nodes to delete",
@@ -329,9 +316,9 @@ export const deleteAllTopLevelNodes = async (
       return;
     }
 
-    const topNodeIds = documentInfo.children.map((node: any) => node.id);
+    const topNodeIds = childrenArray.map((node: any) => node.id);
     const deleteNodesToolCall = globalSession.state.tools!.createToolCall(
-      "delete_multiple_nodes",
+      "delete_node",
       randomUUID(),
       {
         nodeIds: topNodeIds,
