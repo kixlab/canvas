@@ -48,3 +48,242 @@ src/
     ├── helpers.ts      # General helper functions
     └── prompts.ts      # Prompt templates
 ```
+
+## API Endpoint
+
+### Generation Routes
+- **POST** `/generate/text`
+  - Body: `message` (string), `metadata` (JSON string)
+  - Content-Type: `application/x-www-form-urlencoded`
+  - **Response**: 
+    ```json
+    {
+      "status": "success" | "error",
+      "message": "string",
+      "payload": {
+        "history": "array",
+        "responses": "array", 
+        "json_structure": "object",
+        "image_uri": "string",
+        "case_id": "string",
+        "cost": "number"
+      }
+    }
+    ```
+
+- **POST** `/generate/image`
+  - Body: `image` (file), `metadata` (JSON string)
+  - Content-Type: `multipart/form-data`
+  - **Response**:
+    ```json
+    {
+      "status": "success" | "error",
+      "message": "string",
+      "payload": {
+        "history": "array",
+        "responses": "array",
+        "cost": "number",
+        "json_structure": "object",
+        "image_uri": "string",
+        "case_id": "string"
+      }
+    }
+    ```
+
+- **POST** `/generate/text-image`
+  - Body: `message` (string), `image` (file), `metadata` (JSON string)
+  - Content-Type: `multipart/form-data`
+  - **Response**:
+    ```json
+    {
+      "status": "success" | "error",
+      "message": "string", 
+      "payload": {
+        "history": "array",
+        "responses": "array",
+        "cost": "number",
+        "json_structure": "object",
+        "image_uri": "string",
+        "case_id": "string"
+      }
+    }
+    ```
+
+#### Metadata Format
+```json
+{
+  "case_id": "string",
+  "model_provider": "string",
+  "model_name": "string", 
+  "agent_type": "string",
+  "temperature": "number",
+  "input_cost": "number",
+  "output_cost": "number",
+  "max_tokens": "number",
+  "max_turns": "number",
+  "max_retries": "number (optional)"
+}
+```
+
+### Utility Routes
+- **POST** `/tool/get_selection`
+  - Body: None
+  - **Response**:
+    ```json
+    {
+      "status": "success" | "error",
+      "message": "string (optional)",
+      "payload": {
+        "selection": "array"
+      }
+    }
+    ```
+
+- **POST** `/tool/delete_all_top_level_nodes`
+  - Body: None
+  - **Response**:
+    ```json
+    {
+      "status": "success" | "error",
+      "message": "string",
+      "payload": {
+        "deleted_node_ids": "array"
+      }
+    }
+    ```
+
+- **POST** `/tool/retrieve_page_status`
+  - Body: None
+  - **Response**:
+    ```json
+    {
+      "status": "success" | "error",
+      "message": "string (optional)",
+      "payload": {
+        "is_empty": "boolean"
+      }
+    }
+    ```
+
+- **POST** `/tool/retrieve_page_image`
+  - Body: None
+  - **Response**:
+    ```json
+    {
+      "status": "success" | "error",
+      "message": "string (optional)",
+      "payload": {
+        "image_uri": "string"
+      }
+    }
+    ```
+
+- **POST** `/tool/get_channels`
+  - Body: None
+  - **Response**:
+    ```json
+    {
+      "status": "success" | "error",
+      "message": "string (optional)",
+      "payload": {
+        "available_channels": "array<string>",
+        "current_channel": "string | null"
+      }
+    }
+    ```
+
+- **POST** `/tool/select_channel`
+  - Body: `channel` (string) or Query: `?channel=string`
+  - **Response**:
+    ```json
+    {
+      "status": "success" | "error",
+      "message": "string"
+    }
+    ```
+
+
+## Python Request Example
+
+```python
+# Example 1: Text generation
+def generate_text_example():
+    url = f"{BASE_URL}/generate/text"
+    
+    metadata = {
+        "case_id": "test_case_001",
+        "model_provider": "anthropic",
+        "model_name": "claude-3-sonnet",
+        "agent_type": "react",
+        "temperature": 0.7,
+        "input_cost": 0.003,
+        "output_cost": 0.015,
+        "max_tokens": 1000,
+        "max_turns": 5,
+        "max_retries": 3
+    }
+    
+    data = {
+        "message": "Create a simple button component",
+        "metadata": json.dumps(metadata)
+    }
+    
+    response = requests.post(url, data=data)
+    return response.json()
+
+# Example 2: Image generation
+def generate_image_example():
+    url = f"{BASE_URL}/generate/image"
+    
+    metadata = {
+        "case_id": "test_case_002",
+        "model_provider": "anthropic",
+        "model_name": "claude-3-sonnet",
+        "agent_type": "visual",
+        "temperature": 0.5,
+        "input_cost": 0.003,
+        "output_cost": 0.015,
+        "max_tokens": 1500,
+        "max_turns": 3
+    }
+    
+    files = {
+        "image": open("screenshot.png", "rb")
+    }
+    
+    data = {
+        "metadata": json.dumps(metadata)
+    }
+    
+    response = requests.post(url, files=files, data=data)
+    return response.json()
+
+# Example 3: Text + Image generation
+def generate_text_image_example():
+    url = f"{BASE_URL}/generate/text-image"
+    
+    metadata = {
+        "case_id": "test_case_003",
+        "model_provider": "openai",
+        "model_name": "gpt-4-vision-preview",
+        "agent_type": "visual",
+        "temperature": 0.8,
+        "input_cost": 0.01,
+        "output_cost": 0.03,
+        "max_tokens": 2000,
+        "max_turns": 4
+    }
+    
+    files = {
+        "image": open("ui_mockup.png", "rb")
+    }
+    
+    data = {
+        "message": "Analyze this UI and suggest improvements",
+        "metadata": json.dumps(metadata)
+    }
+    
+    response = requests.post(url, files=files, data=data)
+    return response.json()
+
+```

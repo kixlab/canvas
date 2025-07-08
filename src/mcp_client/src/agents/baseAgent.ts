@@ -16,5 +16,12 @@ export abstract class AgentInstance {
     model: ModelInstance;
     tools: Tools;
     metadata?: AgentMetadata;
-  }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }>;
+  }): Promise<{
+    case_id: string;
+    history: GenericMessage[];
+    responses: any[];
+    cost: number;
+    json_structure: Object;
+    image_uri: string;
+  }>;
 }
