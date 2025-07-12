@@ -3,6 +3,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import path from "path";
 import { ServerStatus } from "../types";
 import { Tools } from "./tools";
+import { logger } from "../utils/helpers";
 
 const SERVER_PATH = path.join(
   __dirname,
@@ -35,7 +36,7 @@ export class Session {
 
   async initialize(): Promise<void> {
     if (this.state.status === ServerStatus.READY) {
-      console.log("Agent already loaded");
+      logger.debug({ header: "Agent already loaded" });
       return;
     }
 
@@ -54,11 +55,15 @@ export class Session {
       // (2) Tool Loading
       this.state.tools = new Tools(this.state.client);
       await this.state.tools.loadTools();
-      console.log(
-        `Agent initialized with ${this.state.tools.catalogue.size} tools`
-      );
+      logger.info({
+        header: "Tools loaded",
+        body: `Loaded ${this.state.tools.catalogue.size} tools`,
+      });
     } catch (error) {
-      console.error("Failed to initialize agent:", error);
+      logger.error({
+        header: "Failed to initialize agent",
+        body: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -81,9 +86,12 @@ export class Session {
       this.state.tools = null;
       this.state.status = ServerStatus.CLOSED;
 
-      console.log("Agent shutdown complete");
+      logger.info({ header: "Agent shutdown complete" });
     } catch (error) {
-      console.error("Error during shutdown:", error);
+      logger.error({
+        header: "Error during shutdown",
+        body: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 }

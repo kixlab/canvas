@@ -29,6 +29,7 @@ import {
   clearPage,
   getPageImage,
   getPageStructure,
+  logger,
 } from "../utils/helpers";
 
 const DEFAULT_MAX_RETRIES = 3;
@@ -50,7 +51,9 @@ export class FeedbackAgent extends AgentInstance {
     // Step 0: Check page
     const pageStatus = await isPageClear(params.tools);
     if (!pageStatus) {
-      console.log("Page is not clear. Clearing the page...");
+      logger.info({
+        header: "Page is not clear. Clearing the page...",
+      });
       await clearPage(params.tools);
     }
 
@@ -81,9 +84,10 @@ export class FeedbackAgent extends AgentInstance {
       iteration < (this.maxRetries ?? DEFAULT_MAX_RETRIES);
       iteration++
     ) {
-      console.log(
-        `[FeedbackAgent] Loop Turn ${iteration} (cost: ${totalCost}) ---------------`
-      );
+      logger.info({
+        header: `Feedback Loop Loop Turn ${iteration}`,
+        body: `Accumulated cost: ${totalCost}`,
+      });
 
       // (1) Run design
       const designResult = await this.runDesignPhase({
@@ -116,9 +120,10 @@ export class FeedbackAgent extends AgentInstance {
       totalCost += feedbackResult.cost / 1000; // Convert to USD
       const feedbackInstruction = feedbackResult.instructionText.trim();
 
-      console.log(
-        `[FeedbackAgent] A feedback completed - turn ${iteration}: ${feedbackInstruction} | cost: ${totalCost}`
-      );
+      logger.info({
+        header: `Feedback Loop Turn ${iteration} of Maximum ${this.maxRetries}`,
+        body: `Feedback instruction: ${feedbackInstruction}`,
+      });
 
       // (4) Prepare for next iteration
       currentRequestMessage = this.buildFeedbackRequestMessage({
@@ -177,7 +182,9 @@ export class FeedbackAgent extends AgentInstance {
 
     let turn = 0;
     while (turn < maxDesignTurns) {
-      console.log(`[Design Phase] Turn ${turn + 1} --------------------`);
+      logger.info({
+        header: `[Design Phase] Turn ${turn + 1} of maximum ${maxDesignTurns}`,
+      });
       /* ----- Reason -------------------------------------------------- */
       const modelResponse = await model.generateResponseWithTool(
         apiCtx,
@@ -192,7 +199,9 @@ export class FeedbackAgent extends AgentInstance {
       /* ----- Act ----------------------------------------------------- */
       const callToolRequests = model.formatCallToolRequest(modelResponse);
       if (!callToolRequests || callToolRequests.length === 0) {
-        console.log("No tool calls detected. Exiting design phase.");
+        logger.info({
+          header: "No tool calls detected. Exiting design phase.",
+        });
         break;
       }
       const updatedCallToolRequests = await switchParentId({

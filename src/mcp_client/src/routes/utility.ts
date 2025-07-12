@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { ResponseData, ResponseStatus } from "../types";
 import { globalSession } from "../core/session";
-import { clearPage, isPageClear, getPageImage } from "../utils/helpers";
+import { clearPage, isPageClear, getPageImage, logger } from "../utils/helpers";
 
 // Helper function for common validation
 const validateTools = (res: Response<ResponseData>) => {
@@ -43,7 +43,10 @@ export const getSelection = async (
       payload: { selection },
     });
   } catch (error) {
-    console.error("Error in getSelection:", error);
+    logger.error({
+      header: "Error in getSelection",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),
@@ -70,7 +73,10 @@ export const deleteAllTopLevelNodes = async (
 
     return;
   } catch (error) {
-    console.error("Error in deleteAllTopLevelNodes:", error);
+    logger.error({
+      header: "Error in deleteAllTopLevelNodes",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),
@@ -99,7 +105,10 @@ export const retrievePageStatus = async (
       });
     }
   } catch (error) {
-    console.error("Error in checkPageEmpty:", error);
+    logger.error({
+      header: "Error in retrievePageStatus",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),
@@ -128,7 +137,10 @@ export const retrievePageImage = async (
       payload: { image_uri: imageURI },
     });
   } catch (error) {
-    console.error("Error in getPageImage:", error);
+    logger.error({
+      header: "Error in retrievePageImage",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),
@@ -179,7 +191,10 @@ export const getChannels = async (
       },
     });
   } catch (error) {
-    console.error("Error in getChannels:", error);
+    logger.error({
+      header: "Error in getChannels",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),
@@ -224,7 +239,10 @@ export const selectChannel = async (
       message: `Switched to channel: ${result.structuredContent.channel}`,
     });
   } catch (error) {
-    console.error("Error in selectChannel:", error);
+    logger.error({
+      header: "Error in selectChannel",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),

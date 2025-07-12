@@ -5,6 +5,7 @@ import fs from "fs";
 import { createRoutes } from "./routes";
 import { globalSession } from "./core/session";
 import { ServerStatus } from "./types";
+import { logger } from "./utils/helpers";
 
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
@@ -17,28 +18,34 @@ const PORT = portArg ? parseInt(portArg.split("=")[1], 10) : 3000;
 const initializeServer = async () => {
   try {
     await globalSession.initialize();
-    console.log(`MCP Client initialized`);
     globalSession.state.status = ServerStatus.READY;
+    logger.info({ header: "MCP Client intialization complete" });
   } catch (error) {
-    console.error("Failed to initialize MCP client:", error);
+    logger.error({
+      header: "Failed to initialize MCP client",
+      body: error instanceof Error ? error.message : String(error),
+    });
     process.exit(1);
   }
 };
 
 const shutdownServer = async () => {
   if (globalSession.state.status === ServerStatus.CLOSING) {
-    console.log("Server is already shutting down...");
+    logger.info({ header: "Server is already shutting down..." });
     return;
   }
   globalSession.state.status = ServerStatus.CLOSING;
-  console.log("Shutting down gracefully...");
+  logger.info({ header: "Shutting down gracefully..." });
   try {
     await globalSession.shutdown();
-    console.log("MCP Client shutdown complete");
+    logger.info({ header: "MCP Client shutdown complete" });
     globalSession.state.status = ServerStatus.CLOSED;
     process.exit(0);
   } catch (error) {
-    console.error("Error during shutdown:", error);
+    logger.error({
+      header: "Error during shutdown",
+      body: error instanceof Error ? error.message : String(error),
+    });
     globalSession.state.status = ServerStatus.ERROR;
     process.exit(1);
   }
@@ -68,7 +75,10 @@ app.use("/static", express.static(staticDir));
 app.get("/", (_req: Request, res: Response) => {
   const indexPath = path.join(templatesDir, "index.html");
   if (fs.existsSync(indexPath)) {
-    console.log(`Serving a debugging interface from: ${indexPath}`);
+    logger.debug({
+      header: "Serving debugging interface",
+      body: `Path: ${indexPath}`,
+    });
     res.sendFile(indexPath);
   } else {
     res.send(`
@@ -89,8 +99,14 @@ app.listen(PORT, () => {
   try {
     initializeServer();
   } catch (error) {
-    console.error("Error during server initialization:", error);
+    logger.error({
+      header: "Error during server initialization",
+      body: error instanceof Error ? error.message : String(error),
+    });
     process.exit(1);
   }
-  console.log(`MCP Client server is running on port ${PORT}`);
+  logger.info({
+    header: `Start MCP client initialization`,
+    body: `Server is running on port ${PORT}`,
+  });
 });

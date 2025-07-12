@@ -1,6 +1,7 @@
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { CallToolRequestParams, ToolItem, ToolResponseFormat } from "../types";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { logger } from "../utils/helpers";
 
 const DEBUGGING_TOOL_KEYWORD = "[DEBUG]";
 
@@ -35,11 +36,10 @@ export class Tools {
       }
       this.catalogue.set(tool.name, tool);
     }
-    console.log(
-      `Tools (${debuggingTools.join(
-        ", "
-      )}) are debugging tools and will not be loaded.`
-    );
+    logger.debug({
+      header: "Debugging tools excluded",
+      body: `${debuggingTools.join(", ")}`,
+    });
   }
 
   async callTool(toolCall: CallToolRequestParams): Promise<CallToolResult> {

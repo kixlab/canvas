@@ -20,6 +20,7 @@ import {
 } from "../types";
 import { ModelInstance } from "./baseModel";
 import { randomUUID } from "crypto";
+import { logger } from "../utils/helpers";
 
 export class GoogleModel extends ModelInstance {
   private client: GoogleGenAI;
@@ -158,8 +159,10 @@ export class GoogleModel extends ModelInstance {
   formatToolResponse(result: CallToolResult): ContentListUnion {
     // [TODO] Identify the error case
     if (!result.name || typeof result.name !== "string") {
-      console.error("Error Detected: Missing tool name in response");
-      console.log(result);
+      logger.error({
+        header: "Error Detected: Missing tool name in response",
+        body: `Result: ${JSON.stringify(result, null, 2)}`,
+      });
     }
 
     return {
@@ -239,15 +242,19 @@ export class GoogleModel extends ModelInstance {
   ): void {
     // Push the *model* turn (Gemini auto-lifts first candidate).
     if (response.candidates![0].finishReason === "MALFORMED_FUNCTION_CALL") {
-      console.log("GEMINI ERROR: Malformed function call detected.");
+      logger.error({
+        header: "Malformed function call detected in Gemini response",
+      });
     }
 
     if (response.candidates?.[0]?.content) {
       // [DEBUG] For internal thought debugging
       // response.candidates?.[0]?.content.parts!.forEach((part) => {
       //   if (part.text) {
-      //     console.log("========= internal thoughts =========");
-      //     console.log("Gemini response part:", part.text);
+      //     logger.debug({
+      //       header: "Model internal thoughts",
+      //       body: part.text,
+      //     });
       //   }
       // });
 

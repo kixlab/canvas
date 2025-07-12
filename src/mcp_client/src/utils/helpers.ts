@@ -3,10 +3,61 @@ import {
   ContentType,
   CallToolRequestParams,
 } from "../types";
-import { AgentType } from "../types";
 import { Tools } from "../core/tools";
 import { randomUUID } from "crypto";
 import { Canvas, Image } from "@napi-rs/canvas";
+
+const COLORS = {
+  GRAY: "\x1b[90m",
+  CLIENT: "\x1b[35m", // Magenta for client to distinguish from server (cyan)
+  RESET: "\x1b[0m",
+  ITALIC: "\x1b[3m",
+  ERROR: "\x1b[31m",
+};
+
+const CLIENT_TAG = `${COLORS.CLIENT}[MCP-CLIENT]${COLORS.RESET}`;
+const INFO_TAG = `[${COLORS.ITALIC}info${COLORS.RESET}]`;
+const DEBUG_TAG = `[${COLORS.ITALIC}debug${COLORS.RESET}]`;
+const WARN_TAG = `[${COLORS.ITALIC}warn${COLORS.RESET}]`;
+const ERROR_TAG = `[${COLORS.ERROR}error${COLORS.RESET}]`;
+const LOG_TAG = `[${COLORS.ITALIC}log${COLORS.RESET}]`;
+
+export const logger = {
+  info: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `${CLIENT_TAG}${INFO_TAG} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+
+  debug: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `${CLIENT_TAG}${DEBUG_TAG} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+
+  warn: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `${CLIENT_TAG}${WARN_TAG} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+
+  error: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `${CLIENT_TAG}${ERROR_TAG} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+
+  log: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `${CLIENT_TAG}${LOG_TAG} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+};
 
 export interface Message {
   role: string;
@@ -236,7 +287,10 @@ export const switchParentId = async ({
 
       // Parent ID Modification
       if (warning) {
-        console.warn(`Tool call ${toolCall.name}: ${warning}`);
+        logger.warn({
+          header: `Tool call ${toolCall.name}`,
+          body: warning,
+        });
         toolCall.arguments!.parentId = mainScreenFrameId;
         continue;
       }

@@ -4,7 +4,7 @@ import {
   getImageBasedGenerationPrompt,
   getTextImageBasedGenerationPrompt,
 } from "../utils/prompts";
-import { base64Encode, reduceBase64Image } from "../utils/helpers";
+import { base64Encode, logger, reduceBase64Image } from "../utils/helpers";
 import {
   AgentType,
   ContentType,
@@ -75,7 +75,10 @@ export const generateFromText = async (
       },
     });
   } catch (error) {
-    console.error("Error in generateFromText:", error);
+    logger.error({
+      header: "Error in generateFromText",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res
       .status(500)
       .json({ status: ResponseStatus.ERROR, message: String(error) });
@@ -150,7 +153,10 @@ export const generateFromImage = async (
       },
     });
   } catch (error) {
-    console.error("Error in generateFromImage:", error);
+    logger.error({
+      header: "Error in generateFromImage",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res
       .status(500)
       .json({ status: ResponseStatus.ERROR, message: String(error) });
@@ -232,7 +238,10 @@ export const generateFromTextAndImage = async (
       },
     });
   } catch (error) {
-    console.error("Error in generateFromTextAndImage:", error);
+    logger.error({
+      header: "Error in generateFromTextAndImage",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res
       .status(500)
       .json({ status: ResponseStatus.ERROR, message: String(error) });

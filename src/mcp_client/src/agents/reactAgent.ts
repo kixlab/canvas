@@ -18,6 +18,7 @@ import {
   clearPage,
   isPageClear,
   getPageImage,
+  logger,
 } from "../utils/helpers";
 
 export class ReactAgent extends AgentInstance {
@@ -38,7 +39,9 @@ export class ReactAgent extends AgentInstance {
     // Step 0: Check page
     const pageStatus = await isPageClear(params.tools);
     if (!pageStatus) {
-      console.log("Page is not clear. Clearing the page...");
+      logger.info({
+        header: "Page is not clear. Clearing the page...",
+      });
       await clearPage(params.tools);
     }
 
@@ -67,7 +70,11 @@ export class ReactAgent extends AgentInstance {
     // ReAct Loop: Reason -> Act -> Observe
     while (turn < this.maxTurns) {
       // Reason: Generate response with tools
-      console.log(`\n[ReAct Agent] Loop Turn ${turn + 1} ------------------`);
+      logger.info({
+        header: `ReAct agent - loop turn ${turn + 1} of maximum ${
+          this.maxTurns
+        }`,
+      });
       const modelResponse = await params.model.generateResponseWithTool(
         apiMessageContext,
         toolsArray
@@ -88,7 +95,9 @@ export class ReactAgent extends AgentInstance {
         params.model.formatCallToolRequest(modelResponse);
 
       if (!callToolRequests || callToolRequests.length === 0) {
-        console.log("No tool calls detected. Exiting ReAct loop.");
+        logger.info({
+          header: "No tool calls detected. Exiting ReAct loop.",
+        });
         break;
       }
 
