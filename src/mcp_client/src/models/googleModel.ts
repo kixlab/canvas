@@ -190,13 +190,21 @@ export class GoogleModel extends ModelInstance {
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): FunctionDeclaration[] {
-    return tools.map(
-      (tool): FunctionDeclaration => ({
+    const toolList: FunctionDeclaration[] = [];
+    tools.forEach((tool) => {
+      if (
+        tool.description &&
+        tool.description.startsWith("[DEBUG]") // Exclude debugging tools
+      ) {
+        return;
+      }
+      toolList.push({
         name: tool.name,
         description: tool.description ?? "",
         parameters: tool.inputSchema as Record<string, Schema>,
-      })
-    );
+      });
+    });
+    return toolList;
   }
 
   /* ---------------------------------------------------------------------- */

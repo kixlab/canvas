@@ -31,6 +31,7 @@ import {
   getPageStructure,
   logger,
 } from "../utils/helpers";
+import { MINIMUM_TURN } from "../utils/config";
 
 const DEFAULT_MAX_RETRIES = 3;
 
@@ -102,6 +103,18 @@ export class FeedbackAgent extends AgentInstance {
       overallRawResponses.push(...designResult.responses);
       totalCost += designResult.cost / 1000; // Convert to USD
 
+      // Check if we need to re-run due to insufficient turns in first iteration
+      if (iteration === 0 && designResult.turnCount < MINIMUM_TURN) {
+        logger.error({
+          header: `Minimum turn requirement not met. Re-running the process...`,
+          body: `Completed with only ${designResult.turnCount} turns (less than ${MINIMUM_TURN}) at iteration ${iteration}`,
+        });
+
+        // Clear the page and re-run the entire feedback agent
+        await clearPage(params.tools);
+        return this.run(params);
+      }
+
       // (2) Get UI Snapshot
       const { labeledImageContent: currentStatusImage, pageStructureText } =
         await this.getCurrentDesignSnapshot(params.tools, params.model);
@@ -164,6 +177,7 @@ export class FeedbackAgent extends AgentInstance {
     history: GenericMessage[];
     responses: any[];
     cost: number;
+    turnCount: number;
   }> {
     const { requestMessage, tools, model, maxDesignTurns, mainScreenFrameId } =
       args;
@@ -218,7 +232,12 @@ export class FeedbackAgent extends AgentInstance {
       this.addToolResultsToContext(toolResults, apiCtx, formattedCtx, model);
       turn++;
     }
-    return { history: formattedCtx, responses: rawResponses, cost };
+    return {
+      history: formattedCtx,
+      responses: rawResponses,
+      cost,
+      turnCount: turn,
+    };
   }
 
   // Feedback Phase

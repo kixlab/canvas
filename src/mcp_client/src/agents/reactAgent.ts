@@ -20,6 +20,7 @@ import {
   getPageImage,
   logger,
 } from "../utils/helpers";
+import { MINIMUM_TURN } from "../utils/config";
 
 export class ReactAgent extends AgentInstance {
   async run(params: {
@@ -122,6 +123,18 @@ export class ReactAgent extends AgentInstance {
       );
 
       turn++;
+    }
+
+    // Check if we need to re-run due to insufficient turns
+    if (turn < MINIMUM_TURN) {
+      logger.error({
+        header: `Minimum turn requirement not met. Re-running the process...`,
+        body: `Completed with only ${turn} turns (less than ${MINIMUM_TURN})`,
+      });
+
+      // Clear the page and re-run
+      await clearPage(params.tools);
+      return this.run(params);
     }
 
     // Get page structure and image

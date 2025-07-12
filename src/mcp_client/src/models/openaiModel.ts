@@ -147,26 +147,33 @@ export class OpenAIModel extends ModelInstance {
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): OpenAIResponseType.Tool[] {
-    return tools.map(
-      (tool) =>
-        ({
-          type: "function",
-          name: tool.name,
-          description: tool.description ?? "",
-          parameters: tool.inputSchema
-            ? {
-                ...tool.inputSchema,
-                additionalProperties: false,
-                required: tool.inputSchema.required || [],
-              }
-            : {
-                type: "object",
-                properties: {},
-                required: [],
-              },
-          strict: false,
-        } as OpenAIResponseType.Tool)
-    );
+    const toolList: OpenAIResponseType.Tool[] = [];
+    tools.forEach((tool) => {
+      if (
+        tool.description &&
+        tool.description.startsWith("[DEBUG]") // Exclude debugging tools
+      ) {
+        return;
+      }
+      toolList.push({
+        type: "function",
+        name: tool.name,
+        description: tool.description ?? "",
+        parameters: tool.inputSchema
+          ? {
+              ...tool.inputSchema,
+              additionalProperties: false,
+              required: tool.inputSchema.required || [],
+            }
+          : {
+              type: "object",
+              properties: {},
+              required: [],
+            },
+        strict: false,
+      } as OpenAIResponseType.Tool);
+    });
+    return toolList;
   }
 
   formatResponseToAgentRequestMessage(

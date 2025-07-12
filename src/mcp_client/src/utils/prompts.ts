@@ -68,7 +68,7 @@ ${figmaInstruction}
 
 
 **Instruction**
-Please analyze the following UI image and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+Please analyze the following image and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 The frame size is ${width}x${height} pixels.
 `;
 }
@@ -92,7 +92,7 @@ ${figmaInstruction}
 
 
 **Instruction**
-Please analyze the following UI image and the user request below, and reproduce the UI design inside the existing "Main Screen" frame in Figma, exactly.
+Please analyze the following image and the user request below, and reproduce the UI design inside the existing "Main Screen" frame in Figma, exactly.
 The frame size is ${width}x${height} pixels.
 User request: ${instruction}
 `;

@@ -12,6 +12,7 @@ import {
   MessageType,
 } from "../types";
 import { ModelInstance } from "./baseModel";
+import { DEBUGGING_TOOL_KEYWORD } from "../utils/config";
 
 export class AnthropicModel extends ModelInstance {
   private client: AnthropicBedrock;
@@ -139,15 +140,26 @@ export class AnthropicModel extends ModelInstance {
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): AnthropicMessageType.Tool[] {
-    return tools.map((tool) => ({
-      name: tool.name,
-      description: tool.description ?? "",
-      input_schema: tool.inputSchema ?? {
-        type: "object",
-        properties: {},
-        required: [],
-      },
-    }));
+    const toolList: AnthropicMessageType.Tool[] = [];
+    tools.forEach((tool) => {
+      if (
+        tool.description &&
+        tool.description.startsWith(DEBUGGING_TOOL_KEYWORD)
+      ) {
+        return;
+      }
+      toolList.push({
+        name: tool.name,
+        description: tool.description ?? "",
+        input_schema: tool.inputSchema ?? {
+          type: "object",
+          properties: {},
+          required: [],
+        },
+      });
+    });
+
+    return toolList;
   }
 
   formatResponseToAgentRequestMessage(response: any): GenericMessage {
