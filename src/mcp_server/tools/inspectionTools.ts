@@ -230,7 +230,7 @@ export function registerInspectionTools(server: McpServer) {
 
   server.tool(
     "export_json",
-    "[DO NOT USE] Get the complete Figma page as structured JSON, including every page and all nested nodes",
+    "[DEBUG] Get the complete Figma page as structured JSON, including every page and all nested nodes",
     {},
     async () => {
       try {

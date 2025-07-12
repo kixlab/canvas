@@ -14,7 +14,7 @@ const CONNECTION_TIMEOUT = 5000;
 export function registerConnectionTools(server: McpServer) {
   server.tool(
     "get_channels",
-    "[DEBUGGING ONLY] Get available Figma channels for communication",
+    "[DEBUG] Get available Figma channels for communication",
     {},
     async () => {
       try {
@@ -91,7 +91,7 @@ export function registerConnectionTools(server: McpServer) {
   // Join Channel Tool
   server.tool(
     "select_channel",
-    "[DEBUGGING ONLY] Select a specific Figma channel for communication",
+    "[DEBUG] Select a specific Figma channel for communication",
     {
       channel: z.string().describe("The channel name to join"),
     },
@@ -176,7 +176,7 @@ export function registerConnectionTools(server: McpServer) {
 
   server.tool(
     "check_connection_status",
-    "[DEBUGGING ONLY] Check the connection status with the Figma",
+    "[DEBUG] Check the connection status with the Figma",
     {},
     async () => {
       try {

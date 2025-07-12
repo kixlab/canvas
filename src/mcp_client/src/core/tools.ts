@@ -2,6 +2,8 @@ import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { CallToolRequestParams, ToolItem, ToolResponseFormat } from "../types";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
+const DEBUGGING_TOOL_KEYWORD = "[DEBUG]";
+
 export class Tools {
   catalogue: Map<string, ToolItem>;
   client: Client;
@@ -22,9 +24,22 @@ export class Tools {
       throw new Error("No valid tools found in MCP server");
     }
 
+    const debuggingTools = new Array<string>();
     for (const tool of toolsResult.tools) {
+      if (
+        tool.description &&
+        tool.description.startsWith(DEBUGGING_TOOL_KEYWORD)
+      ) {
+        debuggingTools.push(tool.name);
+        continue;
+      }
       this.catalogue.set(tool.name, tool);
     }
+    console.log(
+      `Tools (${debuggingTools.join(
+        ", "
+      )}) are debugging tools and will not be loaded.`
+    );
   }
 
   async callTool(toolCall: CallToolRequestParams): Promise<CallToolResult> {
