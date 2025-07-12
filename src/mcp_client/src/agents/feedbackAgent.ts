@@ -81,6 +81,10 @@ export class FeedbackAgent extends AgentInstance {
       iteration < (this.maxRetries ?? DEFAULT_MAX_RETRIES);
       iteration++
     ) {
+      console.log(
+        `[FeedbackAgent] Loop Turn ${iteration} (cost: ${totalCost}) ---------------`
+      );
+
       // (1) Run design
       const designResult = await this.runDesignPhase({
         requestMessage: currentRequestMessage,
@@ -89,10 +93,6 @@ export class FeedbackAgent extends AgentInstance {
         maxDesignTurns: this.maxTurns,
         mainScreenFrameId: mainScreenFrameId,
       });
-
-      console.log(
-        `[FeedbackAgent] A design completed - turn ${iteration} | cost: ${totalCost}`
-      );
 
       overallHistory.push(...designResult.history);
       overallRawResponses.push(...designResult.responses);
@@ -177,6 +177,7 @@ export class FeedbackAgent extends AgentInstance {
 
     let turn = 0;
     while (turn < maxDesignTurns) {
+      console.log(`[Design Phase] Turn ${turn + 1} --------------------`);
       /* ----- Reason -------------------------------------------------- */
       const modelResponse = await model.generateResponseWithTool(
         apiCtx,
