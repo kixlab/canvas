@@ -2,22 +2,17 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { sendCommandToFigma } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
-import { logger } from "../config.js";
 
 export function registerInspectionTools(server: McpServer) {
   // Page Info Tool
   server.tool(
     "get_page_info",
-    "Get comprehensive information about the current Figma page, including child node count and available frames",
+    "Get brief information about the current Figma page, only including first-level nodes and their details (e.g., names, IDs)",
     {},
     async () => {
       try {
         const result = await sendCommandToFigma("get_page_info");
-        const responseMessage = `Found ${
-          result.childrenCount
-        } children nodes in the document. List of frame is ${result["frame"]
-          .map((n: any) => `'${n.name}(ID: ${n.id})'`)
-          .join(", ")}`;
+        const responseMessage = `The page contains ${result.childrenCount} first-level children nodes.`;
 
         return createSuccessResponse({
           messages: [responseMessage],
@@ -68,7 +63,7 @@ export function registerInspectionTools(server: McpServer) {
   // Nodes Info Tool
   server.tool(
     "get_node_info",
-    "Retrieve detailed information and properties for a specific list of nodes by their IDs",
+    "Retrieve information (e.g., names, IDs, types, and absolute positions) in a structured format for a specific list of nodes by their IDs",
     {
       nodeIds: z
         .array(z.string())
@@ -86,17 +81,22 @@ export function registerInspectionTools(server: McpServer) {
           }>;
         };
 
+        let description = `Retrieved information for ${result.nodeList.length} nodes`;
+        if (result.nodeList.length > 0) {
+          result.nodeList.forEach((node, index) => {
+            let pos = "unknown";
+            if (node.nodeInfo.position) {
+              pos = `(${Math.round(node.nodeInfo.position.x)}, ${Math.round(
+                node.nodeInfo.position.y
+              )})`;
+            }
+            description += `\nNode Name "${node.nodeInfo.name}" Node ID "${node.nodeId}" Node Type "${node.nodeInfo.type}" Node Position "${pos}"`;
+          });
+        }
+
         return createSuccessResponse({
-          messages: [
-            `Got information for ${
-              result.nodeList.length
-            } nodes. Node IDs: ${result.nodeList
-              .map((n) => `'${n.nodeId}'`)
-              .join(", ")}`,
-          ],
-          dataItem: {
-            results: result.nodeList,
-          },
+          messages: [description],
+          dataItem: result,
         });
       } catch (error) {
         return createErrorResponse({
@@ -200,7 +200,7 @@ export function registerInspectionTools(server: McpServer) {
     {},
     async () => {
       try {
-        const data = await sendCommandToFigma("get_page_structure");
+        const result = await sendCommandToFigma("get_page_structure");
 
         const toLines = (nodes: any[], indent = ""): string =>
           nodes
@@ -208,20 +208,19 @@ export function registerInspectionTools(server: McpServer) {
               const pos = `(${Math.round(n.position.x)}, ${Math.round(
                 n.position.y
               )})`;
-              const line = `${indent}${n.name}: {id: "${n.id}", type: "${n.type}", position: ${pos}}`;
+              const line = `${indent} Node Name "${n.name}", Node Id "${n.id}", Node Type "${n.type}", and Node Position "${pos}"`;
               return n.children && n.children.length
                 ? line + "\n" + toLines(n.children, indent + "- ")
                 : line;
             })
             .join("\n");
 
-        const treeString = toLines(data.structureTree);
-        const description =
-          "The structure of the current page is as follows:\n" + treeString;
+        const treeString = toLines(result.structureTree);
+        const description = "The structure of the current page\n" + treeString;
 
         return createSuccessResponse({
           messages: [description],
-          dataItem: data,
+          dataItem: result,
         });
       } catch (error) {
         return createErrorResponse({ error, context: "get_page_structure" });
@@ -231,7 +230,7 @@ export function registerInspectionTools(server: McpServer) {
 
   server.tool(
     "export_json",
-    "[DEBUGGING ONLY] Get the complete Figma page as structured JSON, including every page and all nested nodes",
+    "[DO NOT USE] Get the complete Figma page as structured JSON, including every page and all nested nodes",
     {},
     async () => {
       try {

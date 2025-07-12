@@ -24,15 +24,11 @@ export async function getPageInfo() {
   const info: Record<string, any> = {
     id: page.id,
     name: page.name,
-    childrenCount: childrenNodes.length,
+    immediateChildren: {},
+    immediateChildrenCount: childrenNodes.length,
   };
 
-  for (const [type, nodes] of Object.entries(buckets)) {
-    info[type] = nodes.map((n) => {
-      const nodeInfo = distillNodeInfo(n);
-      return nodeInfo;
-    });
-  }
+  info.immediateChildren = page.children.map((n) => distillNodeInfo(n));
 
   return info;
 }

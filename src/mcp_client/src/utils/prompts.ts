@@ -3,7 +3,7 @@ import { ImageContent } from "@modelcontextprotocol/sdk/types";
 const figmaInstruction = `
 1. Figma Tool Basics
 - In Figma tool calls, each design element appears as a node representing either a container (frame/component) or a leaf (shape/text).
-- Nodes provide uniform structural data while still exposing their unique properties.
+- Nodes provide uniform structural data exposing their unique properties (e.g., id, name, type, and position).
 - Coordinates are global: all nodes sit relative to the canvas origin (0, 0) at the top-left.
 
 2. Node Hierarchy
@@ -45,9 +45,8 @@ ${agencyPrinciples}
 ${figmaInstruction}
 
 **Instruction**
-Please analyze the following text and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
-${instruction}  
-
+Please analyze the user request below and reproduce the UI design inside the existing "Main Screen" frame in Figma, exactly.
+User request: ${instruction}  
 `;
 }
 
@@ -69,7 +68,7 @@ ${figmaInstruction}
 
 
 **Instruction**
-Please analyze the following image and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+Please analyze the following UI image and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 The frame size is ${width}x${height} pixels.
 `;
 }
@@ -93,9 +92,9 @@ ${figmaInstruction}
 
 
 **Instruction**
-Please analyze the following screen image and text instruction, and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+Please analyze the following UI image and the user request below, and reproduce the UI design inside the existing "Main Screen" frame in Figma, exactly.
 The frame size is ${width}x${height} pixels.
-${instruction}
+User request: ${instruction}
 `;
 }
 
@@ -118,7 +117,7 @@ Interact with the canvas via the provided Figma-control tools.
 You are given an existing UI design and need to modify it according to the instruction.
 
 **Instruction**
-Please analyze the provided screen image and modify the UI according to the following instruction:
+Please analyze the provided UI image and modify the UI according to the following instruction:
 ${instruction}
 `;
 }

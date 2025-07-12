@@ -86,6 +86,10 @@ export class GoogleModel extends ModelInstance {
               : {}),
           },
         },
+        // [DEBUG] Enable this to see internal thoughts
+        // thinkingConfig: {
+        //   includeThoughts: true,
+        // },
         ...(options.systemInstruction
           ? { systemInstruction: options.systemInstruction }
           : {}),
@@ -166,8 +170,10 @@ export class GoogleModel extends ModelInstance {
             name:
               typeof result.name === "string" ? result.name : "unknown_tool",
             response: {
-              content: result.content,
-              structuredContent: result.structuredContent ?? {},
+              output: {
+                content: result.content,
+                structuredContent: result.structuredContent ?? {},
+              },
             },
           },
         },
@@ -232,7 +238,19 @@ export class GoogleModel extends ModelInstance {
     context: ContentListUnion[]
   ): void {
     // Push the *model* turn (Gemini auto-lifts first candidate).
+    if (response.candidates![0].finishReason === "MALFORMED_FUNCTION_CALL") {
+      console.log("GEMINI ERROR: Malformed function call detected.");
+    }
+
     if (response.candidates?.[0]?.content) {
+      // [DEBUG] For internal thought debugging
+      // response.candidates?.[0]?.content.parts!.forEach((part) => {
+      //   if (part.text) {
+      //     console.log("========= internal thoughts =========");
+      //     console.log("Gemini response part:", part.text);
+      //   }
+      // });
+
       context.push({
         role: "model",
         parts: response.candidates[0].content.parts,

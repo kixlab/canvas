@@ -66,7 +66,9 @@ export class ReactAgent extends AgentInstance {
 
     // ReAct Loop: Reason -> Act -> Observe
     while (turn < this.maxTurns) {
+      // console.dir(apiMessageContext, { depth: null });
       // Reason: Generate response with tools
+      console.log(`Turn ${turn + 1} of ${this.maxTurns}`);
       const modelResponse = await params.model.generateResponseWithTool(
         apiMessageContext,
         toolsArray
