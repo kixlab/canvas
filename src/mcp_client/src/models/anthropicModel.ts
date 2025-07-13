@@ -142,12 +142,6 @@ export class AnthropicModel extends ModelInstance {
   ): AnthropicMessageType.Tool[] {
     const toolList: AnthropicMessageType.Tool[] = [];
     tools.forEach((tool) => {
-      if (
-        tool.description &&
-        tool.description.startsWith(DEBUGGING_TOOL_KEYWORD)
-      ) {
-        return;
-      }
       toolList.push({
         name: tool.name,
         description: tool.description ?? "",

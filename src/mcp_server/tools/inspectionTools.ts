@@ -7,7 +7,7 @@ export function registerInspectionTools(server: McpServer) {
   // Page Info Tool
   server.tool(
     "get_page_info",
-    "Get brief information about the current Figma page, only including first-level nodes and their details (e.g., names, IDs)",
+    "Get brief information about the current Figma page, including first-level nodes and their details (e.g., names, IDs)",
     {},
     async () => {
       try {
@@ -110,7 +110,7 @@ export function registerInspectionTools(server: McpServer) {
   // Get Node Summary by Types Tool
   server.tool(
     "get_node_info_by_types",
-    "Search and collect all nodes of specific types (e.g., FRAME, COMPONENT, TEXT) within a given parent node",
+    "Get information about all nodes with specific types (e.g., FRAME, COMPONENT, TEXT) within a given parent node",
     {
       nodeId: z.string().describe("The ID of the node to scan"),
       types: z
@@ -196,7 +196,7 @@ export function registerInspectionTools(server: McpServer) {
   // Page layer-tree inspection Tool
   server.tool(
     "get_page_structure",
-    "Get a hierarchical tree view of all elements on the current page, showing their names, IDs, types, and absolute positions in a structured format",
+    "Get a hierarchical tree structure of all elements (nodes) on the current page, including their information (e.g., names, IDs, types, and absolute positions) in a structured format",
     {},
     async () => {
       try {
@@ -230,7 +230,7 @@ export function registerInspectionTools(server: McpServer) {
 
   server.tool(
     "export_json",
-    "[DEBUG] Get the complete Figma page as structured JSON, including every page and all nested nodes",
+    "[ONLY FOR DEBUGGING] Get the complete Figma page as structured JSON, including every page and all nested nodes",
     {},
     async () => {
       try {

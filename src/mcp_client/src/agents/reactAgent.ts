@@ -38,6 +38,11 @@ export class ReactAgent extends AgentInstance {
     image_uri: string;
   }> {
     // Step 0: Check page
+    logger.log({
+      header: "ReAct Agent Generation Started",
+      body: `Model: ${params.model.modelName}, Provider: ${params.model.modelProvider}, Max Turns: ${this.maxTurns}`,
+    });
+
     const pageStatus = await isPageClear(params.tools);
     if (!pageStatus) {
       logger.info({

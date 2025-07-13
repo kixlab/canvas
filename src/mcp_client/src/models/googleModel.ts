@@ -192,12 +192,6 @@ export class GoogleModel extends ModelInstance {
   ): FunctionDeclaration[] {
     const toolList: FunctionDeclaration[] = [];
     tools.forEach((tool) => {
-      if (
-        tool.description &&
-        tool.description.startsWith("[DEBUG]") // Exclude debugging tools
-      ) {
-        return;
-      }
       toolList.push({
         name: tool.name,
         description: tool.description ?? "",

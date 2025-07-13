@@ -149,12 +149,6 @@ export class OpenAIModel extends ModelInstance {
   ): OpenAIResponseType.Tool[] {
     const toolList: OpenAIResponseType.Tool[] = [];
     tools.forEach((tool) => {
-      if (
-        tool.description &&
-        tool.description.startsWith("[DEBUG]") // Exclude debugging tools
-      ) {
-        return;
-      }
       toolList.push({
         type: "function",
         name: tool.name,

@@ -49,6 +49,11 @@ export class FeedbackAgent extends AgentInstance {
     json_structure: Object;
     image_uri: string;
   }> {
+    logger.log({
+      header: "Feedback Agent Generation Started",
+      body: `Model: ${params.model.modelName}, Provider: ${params.model.modelProvider}, Max Turns: ${this.maxTurns}`,
+    });
+
     // Step 0: Check page
     const pageStatus = await isPageClear(params.tools);
     if (!pageStatus) {
