@@ -10,12 +10,12 @@ from keras.utils import Sequence
 import cv2
 import scipy.io
 import math
-from attentive_convlstm_new import AttentiveConvLSTM2D
-from dcn_resnet_new import dcn_resnet
-from gaussian_prior_new import LearningPrior
-from sal_imp_utilities import *
+from .attentive_convlstm_new import AttentiveConvLSTM2D
+from .dcn_resnet_new import dcn_resnet
+from .gaussian_prior_new import LearningPrior
+from .sal_imp_utilities import *
 # from multiduration_models import decoder_block_timedist
-from xception_custom import Xception_wrapper
+from .xception_custom import Xception_wrapper
 #from keras.applications import keras_modules_injection
 from keras.regularizers import l2
 

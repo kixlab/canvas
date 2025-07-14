@@ -1,6 +1,6 @@
 import keras.backend as K
 import numpy as np
-from sal_imp_utilities import *
+from .sal_imp_utilities import *
 from tensorflow.keras.losses import KLDivergence, MeanSquaredError
 
 
