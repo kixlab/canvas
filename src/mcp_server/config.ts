@@ -1,39 +1,50 @@
-// Custom logging functions that write to stderr instead of stdout to avoid being captured
-// ANSI color codes for styling
 const COLORS = {
-  GRAY: "\x1b[90m", // Bright black (gray)
-  RESET: "\x1b[0m", // Reset to default
+  GRAY: "\x1b[90m",
+  SERVER: "\x1b[36m",
+  RESET: "\x1b[0m",
+  ITALIC: "\x1b[3m",
+  ERROR: "\x1b[31m",
 };
 
+const SERVER_TAG = `${COLORS.SERVER}[MCP-SERVER]${COLORS.RESET}`;
+const INFO_TAG = `[${COLORS.ITALIC}info${COLORS.RESET}]`;
+const DEBUG_TAG = `[${COLORS.ITALIC}debug${COLORS.RESET}]`;
+const WARN_TAG = `[${COLORS.ITALIC}warn${COLORS.RESET}]`;
+const ERROR_TAG = `[${COLORS.ERROR}error${COLORS.RESET}]`;
+const LOG_TAG = `[${COLORS.ITALIC}log${COLORS.RESET}]`;
+
 export const logger = {
-  info: ({ header, body }: { header: string; body?: string }) => {
+  info: ({ header, body }: { header: string; body?: string }) =>
     process.stderr.write(
-      `[INFO][mcp-server] ${header} ${
+      `${SERVER_TAG}${INFO_TAG} ${header}${
         body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
       }\n`
-    );
-  },
+    ),
+
   debug: ({ header, body }: { header: string; body?: string }) =>
     process.stderr.write(
-      `[DEBUG][mcp-server] ${header} ${
+      `${SERVER_TAG}${DEBUG_TAG} ${header}${
         body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
       }\n`
     ),
+
   warn: ({ header, body }: { header: string; body?: string }) =>
     process.stderr.write(
-      `[WARN][mcp-server] ${header} ${
+      `${SERVER_TAG}${WARN_TAG} ${header}${
         body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
       }\n`
     ),
+
   error: ({ header, body }: { header: string; body?: string }) =>
     process.stderr.write(
-      `[ERROR][mcp-server] ${header} ${
+      `${SERVER_TAG}${ERROR_TAG} ${header}${
         body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
       }\n`
     ),
+
   log: ({ header, body }: { header: string; body?: string }) =>
     process.stderr.write(
-      `[LOG][mcp-server] ${header} ${
+      `${SERVER_TAG}${LOG_TAG} ${header}${
         body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
       }\n`
     ),

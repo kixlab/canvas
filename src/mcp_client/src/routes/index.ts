@@ -1,7 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
 import * as generateRoutes from "./generate";
-import * as modifyRoutes from "./modify";
 import * as toolRoutes from "./utility";
 
 // Configure multer for file uploads
@@ -16,7 +15,7 @@ export const createRoutes = () => {
   const router = Router();
 
   // Generation routes
-  router.post("/generate/text", generateRoutes.generateFromText);
+  router.post("/generate/text", upload.none(), generateRoutes.generateFromText);
   router.post(
     "/generate/image",
     upload.single("image"),
@@ -28,36 +27,15 @@ export const createRoutes = () => {
     generateRoutes.generateFromTextAndImage
   );
 
-  // Modification routes
-  router.post(
-    "/modify/without-oracle",
-    upload.single("image"),
-    modifyRoutes.modifyWithoutOracle
-  );
-  router.post(
-    "/modify/with-oracle/perfect-hierachy",
-    upload.single("image"),
-    modifyRoutes.modifyWithOracleHierarchy
-  );
-  router.post(
-    "/modify/with-oracle/perfect-canvas",
-    upload.single("image"),
-    modifyRoutes.modifyWithOraclePerfectCanvas
-  );
-
   // Tool routes
   router.post("/tool/get_selection", toolRoutes.getSelection);
-  router.post("/tool/create_root_frame", toolRoutes.createMainScreenFrame);
-  router.post(
-    "/tool/create_text_in_root_frame",
-    toolRoutes.createTextInMainScreenFrame
-  );
-  router.post("/tool/delete_node", toolRoutes.deleteNode);
-  router.post("/tool/delete_multiple_nodes", toolRoutes.deleteMultipleNodes);
   router.post(
     "/tool/delete_all_top_level_nodes",
     toolRoutes.deleteAllTopLevelNodes
   );
+  router.post("/tool/retrieve_page_status", toolRoutes.retrievePageStatus);
+  router.post("/tool/retrieve_page_image", toolRoutes.retrievePageImage);
+
   router.post("/tool/get_channels", toolRoutes.getChannels);
   router.post("/tool/select_channel", toolRoutes.selectChannel);
 

@@ -11,7 +11,16 @@ import {
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
 import { AgentInstance } from "./baseAgent";
-import { switchParentId, intializeMainScreenFrame } from "../utils/helpers";
+import {
+  switchParentId,
+  intializeMainScreenFrame,
+  getPageStructure,
+  clearPage,
+  isPageClear,
+  getPageImage,
+  logger,
+} from "../utils/helpers";
+import { MINIMUM_TURN } from "../utils/config";
 
 export class ReactAgent extends AgentInstance {
   async run(params: {
@@ -20,11 +29,29 @@ export class ReactAgent extends AgentInstance {
     model: ModelInstance;
     metadata: AgentMetadata;
     maxTurns: number;
-  }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
+  }): Promise<{
+    case_id: string;
+    history: GenericMessage[];
+    responses: any[];
+    cost: number;
+    json_structure: Object;
+    image_uri: string;
+  }> {
+    // Step 0: Check page
+    logger.log({
+      header: "ReAct Agent Generation Started",
+      body: `Model: ${params.model.modelName}, Provider: ${params.model.modelProvider}, Max Turns: ${this.maxTurns}`,
+    });
+
+    const pageStatus = await isPageClear(params.tools);
+    if (!pageStatus) {
+      logger.info({
+        header: "Page is not clear. Clearing the page...",
+      });
+      await clearPage(params.tools);
+    }
+
     // Step 1: Initialize parameters
-    params.metadata = params.metadata || {
-      input_id: randomUUID(),
-    };
     const initialRequest = params.model.formatRequest([params.requestMessage]);
     const toolsArray = params.model.formatToolList(
       Array.from(params.tools.catalogue.values())
@@ -47,8 +74,13 @@ export class ReactAgent extends AgentInstance {
     );
 
     // ReAct Loop: Reason -> Act -> Observe
-    while (turn < params.model.max_turns) {
+    while (turn < this.maxTurns) {
       // Reason: Generate response with tools
+      logger.info({
+        header: `ReAct agent - loop turn ${turn + 1} of maximum ${
+          this.maxTurns
+        }`,
+      });
       const modelResponse = await params.model.generateResponseWithTool(
         apiMessageContext,
         toolsArray
@@ -69,7 +101,9 @@ export class ReactAgent extends AgentInstance {
         params.model.formatCallToolRequest(modelResponse);
 
       if (!callToolRequests || callToolRequests.length === 0) {
-        console.log("No tool calls detected. Exiting ReAct loop.");
+        logger.info({
+          header: "No tool calls detected. Exiting ReAct loop.",
+        });
         break;
       }
 
@@ -96,9 +130,29 @@ export class ReactAgent extends AgentInstance {
       turn++;
     }
 
+    // Check if we need to re-run due to insufficient turns
+    if (turn < MINIMUM_TURN) {
+      logger.error({
+        header: `Minimum turn requirement not met. Re-running the process...`,
+        body: `Completed with only ${turn} turns (less than ${MINIMUM_TURN})`,
+      });
+
+      // Clear the page and re-run
+      await clearPage(params.tools);
+      return this.run(params);
+    }
+
+    // Get page structure and image
+    const pageStructure = await getPageStructure(params.tools);
+    const resultImage = await getPageImage(params.tools);
+    await clearPage(params.tools);
+
     return {
+      case_id: params.metadata.caseId,
       history: formattedMessageContext,
       responses: rawResponses,
+      json_structure: pageStructure,
+      image_uri: resultImage,
       cost: cost / 1000, // Convert to USD
     };
   }

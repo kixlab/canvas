@@ -22,7 +22,18 @@ import {
 } from "@modelcontextprotocol/sdk/types";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { getUpdateInstruction, getFeedbackPrompt } from "../utils/prompts";
-import { switchParentId, intializeMainScreenFrame } from "../utils/helpers";
+import {
+  switchParentId,
+  intializeMainScreenFrame,
+  isPageClear,
+  clearPage,
+  getPageImage,
+  getPageStructure,
+  logger,
+} from "../utils/helpers";
+import { MINIMUM_TURN } from "../utils/config";
+
+const DEFAULT_MAX_RETRIES = 3;
 
 export class FeedbackAgent extends AgentInstance {
   async run(params: {
@@ -30,9 +41,29 @@ export class FeedbackAgent extends AgentInstance {
     tools: Tools;
     model: ModelInstance;
     metadata: AgentMetadata;
-  }): Promise<{ history: GenericMessage[]; responses: any[]; cost: number }> {
+  }): Promise<{
+    case_id: string;
+    history: GenericMessage[];
+    responses: any[];
+    cost: number;
+    json_structure: Object;
+    image_uri: string;
+  }> {
+    logger.log({
+      header: "Feedback Agent Generation Started",
+      body: `Model: ${params.model.modelName}, Provider: ${params.model.modelProvider}, Max Turns: ${this.maxTurns}`,
+    });
+
+    // Step 0: Check page
+    const pageStatus = await isPageClear(params.tools);
+    if (!pageStatus) {
+      logger.info({
+        header: "Page is not clear. Clearing the page...",
+      });
+      await clearPage(params.tools);
+    }
+
     // Step 1: Initialize parameters
-    params.metadata = params.metadata || { input_id: randomUUID() };
     const originalTargetText = this.extractTextFromContent(
       params.requestMessage.content
     );
@@ -54,23 +85,40 @@ export class FeedbackAgent extends AgentInstance {
     } = await intializeMainScreenFrame(params.requestMessage, params.tools);
 
     /* --- Feedback Loop --------------------------------- */
-    for (let iteration = 0; iteration < params.model.max_retries; iteration++) {
+    for (
+      let iteration = 0;
+      iteration < (this.maxRetries ?? DEFAULT_MAX_RETRIES);
+      iteration++
+    ) {
+      logger.info({
+        header: `Feedback Loop Loop Turn ${iteration}`,
+        body: `Accumulated cost: ${totalCost}`,
+      });
+
       // (1) Run design
       const designResult = await this.runDesignPhase({
         requestMessage: currentRequestMessage,
         tools: params.tools,
         model: params.model,
-        maxDesignTurns: params.model.max_turns,
+        maxDesignTurns: this.maxTurns,
         mainScreenFrameId: mainScreenFrameId,
       });
-
-      console.log(
-        `[FeedbackAgent] A design completed - turn ${iteration} | cost: ${totalCost}`
-      );
 
       overallHistory.push(...designResult.history);
       overallRawResponses.push(...designResult.responses);
       totalCost += designResult.cost / 1000; // Convert to USD
+
+      // Check if we need to re-run due to insufficient turns in first iteration
+      if (iteration === 0 && designResult.turnCount < MINIMUM_TURN) {
+        logger.error({
+          header: `Minimum turn requirement not met. Re-running the process...`,
+          body: `Completed with only ${designResult.turnCount} turns (less than ${MINIMUM_TURN}) at iteration ${iteration}`,
+        });
+
+        // Clear the page and re-run the entire feedback agent
+        await clearPage(params.tools);
+        return this.run(params);
+      }
 
       // (2) Get UI Snapshot
       const { labeledImageContent: currentStatusImage, pageStructureText } =
@@ -90,9 +138,10 @@ export class FeedbackAgent extends AgentInstance {
       totalCost += feedbackResult.cost / 1000; // Convert to USD
       const feedbackInstruction = feedbackResult.instructionText.trim();
 
-      console.log(
-        `[FeedbackAgent] A feedback completed - turn ${iteration}: ${feedbackInstruction} | cost: ${totalCost}`
-      );
+      logger.info({
+        header: `Feedback Loop Turn ${iteration} of Maximum ${this.maxRetries}`,
+        body: `Feedback instruction: ${feedbackInstruction}`,
+      });
 
       // (4) Prepare for next iteration
       currentRequestMessage = this.buildFeedbackRequestMessage({
@@ -105,9 +154,17 @@ export class FeedbackAgent extends AgentInstance {
       });
     }
 
+    // Get page structure and image
+    const pageStructure = await getPageStructure(params.tools);
+    const resultImage = await getPageImage(params.tools);
+    await clearPage(params.tools);
+
     return {
+      case_id: params.metadata.caseId,
       history: overallHistory,
       responses: overallRawResponses,
+      json_structure: pageStructure,
+      image_uri: resultImage,
       cost: totalCost,
     };
   }
@@ -125,6 +182,7 @@ export class FeedbackAgent extends AgentInstance {
     history: GenericMessage[];
     responses: any[];
     cost: number;
+    turnCount: number;
   }> {
     const { requestMessage, tools, model, maxDesignTurns, mainScreenFrameId } =
       args;
@@ -143,6 +201,9 @@ export class FeedbackAgent extends AgentInstance {
 
     let turn = 0;
     while (turn < maxDesignTurns) {
+      logger.info({
+        header: `[Design Phase] Turn ${turn + 1} of maximum ${maxDesignTurns}`,
+      });
       /* ----- Reason -------------------------------------------------- */
       const modelResponse = await model.generateResponseWithTool(
         apiCtx,
@@ -157,7 +218,9 @@ export class FeedbackAgent extends AgentInstance {
       /* ----- Act ----------------------------------------------------- */
       const callToolRequests = model.formatCallToolRequest(modelResponse);
       if (!callToolRequests || callToolRequests.length === 0) {
-        console.log("No tool calls detected. Exiting design phase.");
+        logger.info({
+          header: "No tool calls detected. Exiting design phase.",
+        });
         break;
       }
       const updatedCallToolRequests = await switchParentId({
@@ -174,7 +237,12 @@ export class FeedbackAgent extends AgentInstance {
       this.addToolResultsToContext(toolResults, apiCtx, formattedCtx, model);
       turn++;
     }
-    return { history: formattedCtx, responses: rawResponses, cost };
+    return {
+      history: formattedCtx,
+      responses: rawResponses,
+      cost,
+      turnCount: turn,
+    };
   }
 
   // Feedback Phase

@@ -56,7 +56,10 @@ export function connectToFigma(
   }
 
   const wsUrl = serverUrl === "localhost" ? `${WS_URL}:${port}` : WS_URL;
-  logger.info({ header: `Connecting to Figma socket server at ${wsUrl}...` });
+  logger.info({
+    header: `Connecting to Figma socket server`,
+    body: `URL: ${wsUrl}`,
+  });
   ws = new WebSocket(wsUrl);
 
   ws.on("open", () => {

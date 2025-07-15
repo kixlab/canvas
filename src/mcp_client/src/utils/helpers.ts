@@ -1,17 +1,63 @@
-import * as fs from "fs";
-import * as path from "path";
-import * as yaml from "yaml";
 import {
   UserRequestMessage,
-  ModelProvider,
-  ServerConfig,
   ContentType,
   CallToolRequestParams,
 } from "../types";
-import { AgentType } from "../types";
 import { Tools } from "../core/tools";
 import { randomUUID } from "crypto";
 import { Canvas, Image } from "@napi-rs/canvas";
+
+const COLORS = {
+  GRAY: "\x1b[90m",
+  CLIENT: "\x1b[35m", // Magenta for client to distinguish from server (cyan)
+  RESET: "\x1b[0m",
+  ITALIC: "\x1b[3m",
+  ERROR: "\x1b[31m",
+};
+
+const CLIENT_TAG = `${COLORS.CLIENT}[MCP-CLIENT]${COLORS.RESET}`;
+const INFO_TAG = `[${COLORS.ITALIC}info${COLORS.RESET}]`;
+const DEBUG_TAG = `[${COLORS.ITALIC}debug${COLORS.RESET}]`;
+const WARN_TAG = `[${COLORS.ITALIC}warn${COLORS.RESET}]`;
+const ERROR_TAG = `[${COLORS.ERROR}error${COLORS.RESET}]`;
+const LOG_TAG = `[${COLORS.ITALIC}log${COLORS.RESET}]`;
+
+export const logger = {
+  info: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `${CLIENT_TAG}${INFO_TAG} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+
+  debug: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `${CLIENT_TAG}${DEBUG_TAG} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+
+  warn: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `${CLIENT_TAG}${WARN_TAG} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+
+  error: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `${CLIENT_TAG}${ERROR_TAG} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+
+  log: ({ header, body }: { header: string; body?: string }) =>
+    process.stderr.write(
+      `${CLIENT_TAG}${LOG_TAG} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    ),
+};
 
 export interface Message {
   role: string;
@@ -57,56 +103,6 @@ export function createImageUrl(
   mimeType: string = "image/png"
 ): string {
   return `data:${mimeType};base64,${base64Data}`;
-}
-
-export function loadServerConfig(
-  agentType: AgentType = AgentType.REACT
-): ServerConfig {
-  const configPath = path.join(
-    __dirname,
-    "..",
-    "..",
-    "config",
-    `server_${agentType}.yaml`
-  );
-
-  try {
-    const configFile = fs.readFileSync(configPath, "utf8");
-    const config = yaml.parse(configFile) as ServerConfig;
-
-    return config;
-  } catch (error) {
-    const baseConfigPath = path.join(
-      __dirname,
-      ".",
-      "config",
-      "server_base.yaml"
-    );
-    try {
-      console.warn("Failed to loead config from: ", configPath);
-      const configFile = fs.readFileSync(baseConfigPath, "utf8");
-      const config = yaml.parse(configFile) as ServerConfig;
-      return config;
-    } catch (baseError) {
-      console.warn("Failed to load base config from: ", baseConfigPath);
-      // Default configuration
-      return {
-        models: [
-          {
-            name: "gpt-4.1-2025-04-14",
-            provider: ModelProvider.OPENAI,
-            temperature: 1.0,
-            max_tokens: 32768,
-            input_cost: 0.002,
-            output_cost: 0.008,
-            max_turns: 100,
-            max_retries: 3,
-          },
-        ],
-        agent_type: agentType,
-      };
-    }
-  }
 }
 
 export const intializeMainScreenFrame = async (
@@ -291,7 +287,10 @@ export const switchParentId = async ({
 
       // Parent ID Modification
       if (warning) {
-        console.warn(`Tool call ${toolCall.name}: ${warning}`);
+        logger.warn({
+          header: `Tool call ${toolCall.name}`,
+          body: warning,
+        });
         toolCall.arguments!.parentId = mainScreenFrameId;
         continue;
       }
@@ -305,3 +304,111 @@ export const switchParentId = async ({
 
   return callToolRequests;
 };
+
+export async function getPageStructure(tools: Tools): Promise<Object> {
+  const getPageStructureRequest = tools.createToolCall(
+    "export_json",
+    randomUUID(),
+    {}
+  );
+  const documentStructureResult = await tools.callTool(getPageStructureRequest);
+  if (documentStructureResult.isError) {
+    throw new Error("Failed to get page structure");
+  }
+  if (!documentStructureResult.structuredContent) {
+    throw new Error("No structured content found in the response");
+  }
+
+  return documentStructureResult.structuredContent;
+}
+
+export async function clearPage(tools: Tools): Promise<Array<any>> {
+  const getPageStructureRequest = tools.createToolCall(
+    "get_page_structure",
+    randomUUID(),
+    {}
+  );
+  const response = await tools.callTool(getPageStructureRequest);
+
+  if (response.isError) {
+    throw new Error("Failed to get page structure");
+  }
+
+  const documentInfo = response.structuredContent || {};
+
+  const docAny = documentInfo as any;
+  const childrenArray = Array.isArray(docAny.structureTree)
+    ? docAny.structureTree
+    : Array.isArray(docAny.children)
+    ? docAny.children
+    : [];
+
+  if (childrenArray.length === 0) {
+    return [];
+  }
+
+  const topNodeIds = childrenArray.map((node: any) => node.id);
+  const deleteNodesToolCall = tools.createToolCall(
+    "delete_node",
+    randomUUID(),
+    {
+      nodeIds: topNodeIds,
+    }
+  );
+
+  const result = await tools.callTool(deleteNodesToolCall);
+
+  if (result.isError) {
+    throw new Error(`Failed to delete nodes: ${result.error}`);
+  }
+
+  return topNodeIds;
+}
+
+export async function isPageClear(tools: Tools): Promise<boolean> {
+  const getPageStructureRequest = tools.createToolCall(
+    "get_page_structure",
+    randomUUID(),
+    {}
+  );
+  const response = await tools.callTool(getPageStructureRequest);
+
+  if (response.isError) {
+    throw new Error("Failed to get page structure");
+  }
+
+  const documentInfo = response.structuredContent || {};
+
+  const docAny = documentInfo as any;
+  const childrenArray = Array.isArray(docAny.structureTree)
+    ? docAny.structureTree
+    : Array.isArray(docAny.children)
+    ? docAny.children
+    : [];
+
+  if (childrenArray.length === 0) {
+    return true;
+  }
+  return false;
+}
+
+export async function getPageImage(tools: Tools): Promise<string> {
+  const getPageImageRequest = tools.createToolCall(
+    "get_result_image",
+    randomUUID(),
+    {}
+  );
+  const response = await tools.callTool(getPageImageRequest);
+
+  if (response.isError) {
+    throw new Error("Failed to get page image");
+  }
+
+  if (!response.structuredContent || !response.structuredContent.imageData) {
+    throw new Error("No image found in the response");
+  }
+
+  const imageURI = `data:${response.structuredContent.mimeType};base64,${response.structuredContent.imageData}`;
+
+  return imageURI;
+}

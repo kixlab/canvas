@@ -1,11 +1,9 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import path from "path";
-import { loadServerConfig } from "../utils/helpers";
-import { AgentType, ToolItem } from "../types";
+import { ServerStatus } from "../types";
 import { Tools } from "./tools";
-import { createModel } from "../models";
-import { ModelInstance } from "../models/baseModel";
+import { logger } from "../utils/helpers";
 
 const SERVER_PATH = path.join(
   __dirname,
@@ -21,15 +19,7 @@ export interface SessionState {
   client: Client | null;
   transport: StdioClientTransport | null;
   tools: Tools | null;
-  model: ModelInstance | null;
-  agentType: AgentType | null;
-  initialized: boolean;
-  currentChannel: string | null;
-  mainScreenFrame: {
-    id: string | null;
-    width: number;
-    height: number;
-  };
+  status: ServerStatus;
 }
 
 export class Session {
@@ -40,28 +30,18 @@ export class Session {
       client: null,
       transport: null,
       tools: null,
-      model: null,
-      agentType: null,
-      initialized: false,
-      currentChannel: null,
-      mainScreenFrame: { id: null, width: 0, height: 0 },
+      status: ServerStatus.CLOSED,
     };
   }
 
-  async initialize(agentType: AgentType = AgentType.REACT): Promise<void> {
-    if (this.state.initialized) {
-      console.log("Agent already initialized");
+  async initialize(): Promise<void> {
+    if (this.state.status === ServerStatus.READY) {
+      logger.debug({ header: "Agent already loaded" });
       return;
     }
 
     try {
-      const serverConfig = loadServerConfig(agentType);
-      if (!serverConfig.models?.length) {
-        throw new Error("No models defined in config");
-      }
-      const [modelConfig] = serverConfig.models;
-
-      // Internal Variable Initialization
+      // (1) Initialize MCP Client
       this.state.transport = new StdioClientTransport({
         command: "node",
         args: [SERVER_PATH],
@@ -71,23 +51,29 @@ export class Session {
         { capabilities: {} }
       );
       this.state.client.connect(this.state.transport);
+
+      // (2) Tool Loading
       this.state.tools = new Tools(this.state.client);
       await this.state.tools.loadTools();
-      this.state.model = createModel(modelConfig);
-      this.state.agentType = serverConfig.agent_type;
-      this.state.initialized = true;
-
-      console.log(
-        `Agent initialized with ${this.state.tools.catalogue.size} tools`
-      );
+      logger.info({
+        header: "Tools loaded",
+        body: `Loaded ${this.state.tools.catalogue.size} tools`,
+      });
     } catch (error) {
-      console.error("Failed to initialize agent:", error);
+      logger.error({
+        header: "Failed to initialize agent",
+        body: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
 
   async shutdown(): Promise<void> {
-    if (!this.state.initialized) return;
+    if (
+      this.state.status !== ServerStatus.READY &&
+      this.state.status !== ServerStatus.ERROR
+    )
+      return;
 
     try {
       if (this.state.client) {
@@ -98,25 +84,15 @@ export class Session {
       this.state.transport = null;
       this.state.tools?.catalogue.clear();
       this.state.tools = null;
-      this.state.initialized = false;
+      this.state.status = ServerStatus.CLOSED;
 
-      console.log("Agent shutdown complete");
+      logger.info({ header: "Agent shutdown complete" });
     } catch (error) {
-      console.error("Error during shutdown:", error);
+      logger.error({
+        header: "Error during shutdown",
+        body: error instanceof Error ? error.message : String(error),
+      });
     }
-  }
-
-  isInitialized(): boolean {
-    return this.state.initialized;
-  }
-
-  // App state management
-  setCurrentChannel(channel: string | null): void {
-    this.state.currentChannel = channel;
-  }
-
-  setMainScreenFrame(id: string | null, width: number, height: number): void {
-    this.state.mainScreenFrame = { id, width, height };
   }
 }
 

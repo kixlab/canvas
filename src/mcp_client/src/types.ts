@@ -1,4 +1,4 @@
-import { Request } from "express";
+import e, { Request } from "express";
 import {
   TextContent,
   ImageContent,
@@ -100,14 +100,18 @@ export type CallToolRequestParams = CallToolRequest["params"];
 // arguments: Record<string, any>
 
 export interface ModelConfig {
-  name: string;
-  provider: ModelProvider;
-  input_cost: number;
-  output_cost: number;
+  modelName: string;
+  modelProvider: ModelProvider;
+  inputCost: number;
+  outputCost: number;
   temperature: number;
-  max_tokens: number;
-  max_turns: number;
-  max_retries?: number;
+  maxTokens: number;
+}
+
+export interface AgentConfig {
+  agentType: AgentType;
+  maxTurns: number;
+  maxRetries?: number;
 }
 
 export enum AgentType {
@@ -121,8 +125,15 @@ export interface ServerConfig {
   agent_type: AgentType;
 }
 
+export enum ServerStatus {
+  READY = "ready",
+  CLOSED = "closed",
+  CLOSING = "closing",
+  ERROR = "error",
+}
+
 export interface AgentMetadata {
-  input_id: string;
+  caseId: string;
 }
 
 // Extend Express Request type to include file property from multer

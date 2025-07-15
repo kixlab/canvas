@@ -4,7 +4,6 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import {
   ModelConfig,
-  ModelProvider,
   CallToolRequestParams,
   GenericMessage,
   ContentType,
@@ -13,32 +12,18 @@ import {
   MessageType,
 } from "../types";
 import { ModelInstance } from "./baseModel";
+import { DEBUGGING_TOOL_KEYWORD } from "../utils/config";
 
-export class AnthropicModel implements ModelInstance {
+export class AnthropicModel extends ModelInstance {
   private client: AnthropicBedrock;
-  public name: string;
-  public provider: ModelProvider;
-  public inputCost: number;
-  public outputCost: number;
-  public max_turns: number;
-  public max_retries: number;
-  public temperature: number;
-  public max_tokens: number;
 
   constructor(config: ModelConfig) {
+    super(config);
     this.client = new AnthropicBedrock({
       awsAccessKey: process.env.BEDROCK_ACCESS_KEY,
       awsSecretKey: process.env.BEDROCK_SECRET_KEY,
       awsRegion: "us-west-2",
     });
-    this.name = config.name;
-    this.provider = config.provider;
-    this.inputCost = config.input_cost;
-    this.outputCost = config.output_cost;
-    this.max_turns = config.max_turns;
-    this.max_retries = config.max_retries || 3;
-    this.temperature = config.temperature;
-    this.max_tokens = config.max_tokens;
   }
 
   async generateResponse(
@@ -46,9 +31,9 @@ export class AnthropicModel implements ModelInstance {
     options: Partial<AnthropicMessageType.MessageCreateParams> = {}
   ): Promise<AnthropicMessageType.Messages.Message> {
     const params: AnthropicMessageType.MessageCreateParams = {
-      model: this.name,
+      model: this.modelName,
       messages: messages,
-      max_tokens: this.max_tokens,
+      max_tokens: this.maxTokens,
       temperature: this.temperature,
       ...options,
       stream: false,
@@ -63,10 +48,10 @@ export class AnthropicModel implements ModelInstance {
     options: Partial<AnthropicMessageType.MessageCreateParams> = {}
   ): Promise<AnthropicMessageType.Messages.Message> {
     const params: AnthropicMessageType.MessageCreateParams = {
-      model: this.name,
+      model: this.modelName,
       messages: messages,
       tools: tools,
-      max_tokens: this.max_tokens,
+      max_tokens: this.maxTokens,
       temperature: this.temperature,
       ...options,
       stream: false,
@@ -155,15 +140,20 @@ export class AnthropicModel implements ModelInstance {
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): AnthropicMessageType.Tool[] {
-    return tools.map((tool) => ({
-      name: tool.name,
-      description: tool.description ?? "",
-      input_schema: tool.inputSchema ?? {
-        type: "object",
-        properties: {},
-        required: [],
-      },
-    }));
+    const toolList: AnthropicMessageType.Tool[] = [];
+    tools.forEach((tool) => {
+      toolList.push({
+        name: tool.name,
+        description: tool.description ?? "",
+        input_schema: tool.inputSchema ?? {
+          type: "object",
+          properties: {},
+          required: [],
+        },
+      });
+    });
+
+    return toolList;
   }
 
   formatResponseToAgentRequestMessage(response: any): GenericMessage {

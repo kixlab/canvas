@@ -3,7 +3,7 @@ import { ImageContent } from "@modelcontextprotocol/sdk/types";
 const figmaInstruction = `
 1. Figma Tool Basics
 - In Figma tool calls, each design element appears as a node representing either a container (frame/component) or a leaf (shape/text).
-- Nodes provide uniform structural data while still exposing their unique properties.
+- Nodes provide uniform structural data exposing their unique properties.
 - Coordinates are global: all nodes sit relative to the canvas origin (0, 0) at the top-left.
 
 2. Node Hierarchy
@@ -46,8 +46,7 @@ ${figmaInstruction}
 
 **Instruction**
 Please analyze the following text and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
-${instruction}  
-
+Text: ${instruction}
 `;
 }
 
@@ -66,7 +65,6 @@ ${agencyPrinciples}
 
 **Figma Basics**
 ${figmaInstruction}
-
 
 **Instruction**
 Please analyze the following image and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
@@ -91,11 +89,10 @@ ${agencyPrinciples}
 **Figma Basics**
 ${figmaInstruction}
 
-
 **Instruction**
 Please analyze the following screen image and text instruction, and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 The frame size is ${width}x${height} pixels.
-${instruction}
+Text: ${instruction}
 `;
 }
 

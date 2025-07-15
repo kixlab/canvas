@@ -24,15 +24,11 @@ export async function getPageInfo() {
   const info: Record<string, any> = {
     id: page.id,
     name: page.name,
-    childrenCount: childrenNodes.length,
+    immediateChildren: {},
+    immediateChildrenCount: childrenNodes.length,
   };
 
-  for (const [type, nodes] of Object.entries(buckets)) {
-    info[type] = nodes.map((n) => {
-      const nodeInfo = distillNodeInfo(n);
-      return nodeInfo;
-    });
-  }
+  info.immediateChildren = page.children.map((n) => distillNodeInfo(n));
 
   return info;
 }
@@ -245,4 +241,14 @@ export async function getPageStructure() {
     pageName: figma.currentPage.name,
     structureTree,
   };
+}
+
+export async function retrieveDocumentJson() {
+  figma.loadAllPagesAsync();
+
+  const documentJson = await figma.currentPage.exportAsync({
+    format: 'JSON_REST_V1',
+  });
+
+  return documentJson;
 }

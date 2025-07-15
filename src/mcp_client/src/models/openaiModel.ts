@@ -4,7 +4,6 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import {
   ModelConfig,
-  ModelProvider,
   CallToolRequestParams,
   GenericMessage,
   ContentType,
@@ -15,29 +14,14 @@ import {
 } from "../types";
 import { ModelInstance } from "./baseModel";
 
-export class OpenAIModel implements ModelInstance {
+export class OpenAIModel extends ModelInstance {
   private client: OpenAI;
-  public name: string;
-  public provider: ModelProvider;
-  public inputCost: number;
-  public outputCost: number;
-  public max_turns: number;
-  public max_retries: number;
-  public temperature: number;
-  public max_tokens: number;
 
   constructor(config: ModelConfig) {
+    super(config);
     this.client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
-    this.name = config.name;
-    this.provider = config.provider;
-    this.inputCost = config.input_cost;
-    this.outputCost = config.output_cost;
-    this.max_turns = config.max_turns || 100;
-    this.max_retries = config.max_retries || 3;
-    this.temperature = config.temperature;
-    this.max_tokens = config.max_tokens;
   }
   formatResponse(response: any[]): GenericMessage[] {
     throw new Error("Method not implemented.");
@@ -53,10 +37,10 @@ export class OpenAIModel implements ModelInstance {
     > = {}
   ): Promise<any> {
     const params: OpenAIResponseType.ResponseCreateParams = {
-      model: this.name,
+      model: this.modelName,
       input: input,
       temperature: this.temperature,
-      max_output_tokens: this.max_tokens,
+      max_output_tokens: this.maxTokens,
       ...options,
       stream: false,
     };
@@ -72,11 +56,11 @@ export class OpenAIModel implements ModelInstance {
     >
   ): Promise<OpenAIResponseType.Responses.Response> {
     const params: OpenAIResponseType.ResponseCreateParams = {
-      model: this.name,
+      model: this.modelName,
       input: input,
       tools: tools,
       temperature: this.temperature,
-      max_output_tokens: this.max_tokens,
+      max_output_tokens: this.maxTokens,
       ...options,
       stream: false,
     };
@@ -163,26 +147,27 @@ export class OpenAIModel implements ModelInstance {
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): OpenAIResponseType.Tool[] {
-    return tools.map(
-      (tool) =>
-        ({
-          type: "function",
-          name: tool.name,
-          description: tool.description ?? "",
-          parameters: tool.inputSchema
-            ? {
-                ...tool.inputSchema,
-                additionalProperties: false,
-                required: tool.inputSchema.required || [],
-              }
-            : {
-                type: "object",
-                properties: {},
-                required: [],
-              },
-          strict: false,
-        } as OpenAIResponseType.Tool)
-    );
+    const toolList: OpenAIResponseType.Tool[] = [];
+    tools.forEach((tool) => {
+      toolList.push({
+        type: "function",
+        name: tool.name,
+        description: tool.description ?? "",
+        parameters: tool.inputSchema
+          ? {
+              ...tool.inputSchema,
+              additionalProperties: false,
+              required: tool.inputSchema.required || [],
+            }
+          : {
+              type: "object",
+              properties: {},
+              required: [],
+            },
+        strict: false,
+      } as OpenAIResponseType.Tool);
+    });
+    return toolList;
   }
 
   formatResponseToAgentRequestMessage(

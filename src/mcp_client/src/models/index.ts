@@ -4,15 +4,17 @@ import { ModelConfig, ModelProvider } from "../types";
 import { ModelInstance } from "./baseModel";
 import { GoogleModel } from "./googleModel";
 
-export function createModel(config: ModelConfig): ModelInstance {
-  switch (config.provider) {
+export function createModel(modelConfig: ModelConfig): ModelInstance {
+  switch (modelConfig.modelProvider) {
     case ModelProvider.OPENAI:
-      return new OpenAIModel(config);
+      return new OpenAIModel(modelConfig);
     case ModelProvider.ANTHROPIC:
-      return new AnthropicModel(config);
+      return new AnthropicModel(modelConfig);
     case ModelProvider.GOOGLE:
-      return new GoogleModel(config);
+      return new GoogleModel(modelConfig);
     default:
-      throw new Error(`Unsupported model provider: ${config.provider}`);
+      throw new Error(
+        `Unsupported model provider: ${modelConfig.modelProvider}`
+      );
   }
 }

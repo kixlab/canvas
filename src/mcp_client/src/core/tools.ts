@@ -1,6 +1,7 @@
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { CallToolRequestParams, ToolItem, ToolResponseFormat } from "../types";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { logger } from "../utils/helpers";
 
 export class Tools {
   catalogue: Map<string, ToolItem>;

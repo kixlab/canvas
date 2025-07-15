@@ -10,7 +10,6 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import {
   ModelConfig,
-  ModelProvider,
   CallToolRequestParams,
   GenericMessage,
   ContentType,
@@ -21,55 +20,36 @@ import {
 } from "../types";
 import { ModelInstance } from "./baseModel";
 import { randomUUID } from "crypto";
+import { logger } from "../utils/helpers";
 
-export class GoogleModel implements ModelInstance {
+export class GoogleModel extends ModelInstance {
   private client: GoogleGenAI;
-  public name: string;
-  public provider: ModelProvider;
-  public inputCost: number;
-  public outputCost: number;
-  public max_turns: number;
-  public max_retries: number;
-  public temperature: number;
-  public max_tokens: number;
 
   constructor(config: ModelConfig) {
+    super(config);
     this.client = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
     });
-
-    this.name = config.name;
-    this.provider = config.provider;
-    this.inputCost = config.input_cost;
-    this.outputCost = config.output_cost;
-    this.max_turns = config.max_turns || 100;
-    this.max_retries = config.max_retries || 3;
-    this.temperature = config.temperature;
-    this.max_tokens = config.max_tokens;
   }
   formatImageData(imageData: string, mimeType?: string): string {
     throw new Error("Method not implemented.");
   }
 
-  /* ---------------------------------------------------------------------- */
-  /*  Low-level generation helpers                                          */
-  /* ---------------------------------------------------------------------- */
-
   /**
    * Generic content generation without tools.
    */
   async generateResponse(
-    input: ContentListUnion, // Gemini Content[]
+    input: ContentListUnion,
     options: Partial<{
       systemInstruction: any; // Gemini Content
     }> = {}
-  ): Promise<any> /* GenerateContentResponse */ {
+  ): Promise<GenerateContentResponse> {
     return await this.client.models.generateContent({
-      model: this.name,
+      model: this.modelName,
       contents: input,
       config: {
         temperature: this.temperature,
-        maxOutputTokens: this.max_tokens,
+        maxOutputTokens: this.maxTokens,
         ...(options.systemInstruction
           ? { systemInstruction: options.systemInstruction }
           : {}),
@@ -77,9 +57,6 @@ export class GoogleModel implements ModelInstance {
     });
   }
 
-  /**
-   * Generation with function calling enabled.
-   */
   async generateResponseWithTool(
     input: ContentListUnion,
     tools: FunctionDeclaration[],
@@ -92,11 +69,11 @@ export class GoogleModel implements ModelInstance {
     const mode = options.functionCallingMode ?? FunctionCallingConfigMode.AUTO;
 
     return await this.client.models.generateContent({
-      model: this.name,
+      model: this.modelName,
       contents: input,
       config: {
         temperature: this.temperature,
-        maxOutputTokens: this.max_tokens,
+        maxOutputTokens: this.maxTokens,
         tools: [
           {
             functionDeclarations: tools,
@@ -110,6 +87,10 @@ export class GoogleModel implements ModelInstance {
               : {}),
           },
         },
+        // [DEBUG] Enable this to see internal thoughts
+        // thinkingConfig: {
+        //   includeThoughts: true,
+        // },
         ...(options.systemInstruction
           ? { systemInstruction: options.systemInstruction }
           : {}),
@@ -121,9 +102,6 @@ export class GoogleModel implements ModelInstance {
   /*  Formatting helpers                                                    */
   /* ---------------------------------------------------------------------- */
 
-  /**
-   * GenericMessage[] -> Gemini Content[]
-   */
   formatRequest(messages: GenericMessage[]): ContentListUnion[] {
     if (!messages?.length) {
       throw new Error("No messages provided");
@@ -181,8 +159,10 @@ export class GoogleModel implements ModelInstance {
   formatToolResponse(result: CallToolResult): ContentListUnion {
     // [TODO] Identify the error case
     if (!result.name || typeof result.name !== "string") {
-      console.error("Error Detected: Missing tool name in response");
-      console.log(result);
+      logger.error({
+        header: "Error Detected: Missing tool name in response",
+        body: `Result: ${JSON.stringify(result, null, 2)}`,
+      });
     }
 
     return {
@@ -193,8 +173,10 @@ export class GoogleModel implements ModelInstance {
             name:
               typeof result.name === "string" ? result.name : "unknown_tool",
             response: {
-              content: result.content,
-              structuredContent: result.structuredContent ?? {},
+              output: {
+                content: result.content,
+                structuredContent: result.structuredContent ?? {},
+              },
             },
           },
         },
@@ -208,13 +190,15 @@ export class GoogleModel implements ModelInstance {
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): FunctionDeclaration[] {
-    return tools.map(
-      (tool): FunctionDeclaration => ({
+    const toolList: FunctionDeclaration[] = [];
+    tools.forEach((tool) => {
+      toolList.push({
         name: tool.name,
         description: tool.description ?? "",
         parameters: tool.inputSchema as Record<string, Schema>,
-      })
-    );
+      });
+    });
+    return toolList;
   }
 
   /* ---------------------------------------------------------------------- */
@@ -259,7 +243,23 @@ export class GoogleModel implements ModelInstance {
     context: ContentListUnion[]
   ): void {
     // Push the *model* turn (Gemini auto-lifts first candidate).
+    if (response.candidates![0].finishReason === "MALFORMED_FUNCTION_CALL") {
+      logger.error({
+        header: "Malformed function call detected in Gemini response",
+      });
+    }
+
     if (response.candidates?.[0]?.content) {
+      // [DEBUG] For internal thought debugging
+      // response.candidates?.[0]?.content.parts!.forEach((part) => {
+      //   if (part.text) {
+      //     logger.debug({
+      //       header: "Model internal thoughts",
+      //       body: part.text,
+      //     });
+      //   }
+      // });
+
       context.push({
         role: "model",
         parts: response.candidates[0].content.parts,

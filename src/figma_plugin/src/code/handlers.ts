@@ -20,6 +20,8 @@ export async function handleCommand(command: string, params: any) {
       return await InspectionCommands.getPageStructure();
     case 'get_result_image':
       return await InspectionCommands.getResultImage(params);
+    case 'export_json':
+      return await InspectionCommands.retrieveDocumentJson();
 
     case 'clone_node':
       return await OperationCommands.cloneNode(params);

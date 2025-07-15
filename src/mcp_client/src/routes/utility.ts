@@ -1,17 +1,8 @@
 import { Request, Response } from "express";
 import { randomUUID } from "crypto";
-import {
-  ResponseData,
-  ToolResponseFormat,
-  ResponseStatus,
-  UserRequestMessage,
-} from "../types";
+import { ResponseData, ResponseStatus } from "../types";
 import { globalSession } from "../core/session";
-import { TextContent } from "@modelcontextprotocol/sdk/types";
-
-////////////////////
-// Server Handler //
-////////////////////
+import { clearPage, isPageClear, getPageImage, logger } from "../utils/helpers";
 
 // Helper function for common validation
 const validateTools = (res: Response<ResponseData>) => {
@@ -33,11 +24,11 @@ export const getSelection = async (
     if (!validateTools(res)) return;
 
     const toolCall = globalSession.state.tools!.createToolCall(
-      "get_selection",
+      "get_selection_info",
       randomUUID()
     );
     const result = await globalSession.state.tools!.callTool(toolCall);
-    const selection = result.structuredContent?.selection;
+    const selection = result.structuredContent?.nodeList;
 
     if (!selection) {
       res.status(404).json({
@@ -52,222 +43,10 @@ export const getSelection = async (
       payload: { selection },
     });
   } catch (error) {
-    console.error("Error in getSelection:", error);
-    res.status(500).json({
-      status: ResponseStatus.ERROR,
-      message: String(error),
+    logger.error({
+      header: "Error in getSelection",
+      body: error instanceof Error ? error.message : String(error),
     });
-  }
-};
-
-export const createMainScreenFrame = async (
-  req: Request,
-  res: Response<ResponseData>
-): Promise<void> => {
-  try {
-    const { x = 0, y = 0, width = 0, height = 0, name = "Frame" } = req.query;
-
-    if (!width || !height) {
-      res.status(400).json({
-        status: ResponseStatus.ERROR,
-        message: "Width and height are required",
-      });
-      return;
-    }
-
-    if (!validateTools(res)) return;
-
-    const toolCall = globalSession.state.tools!.createToolCall(
-      "create_frame",
-      randomUUID(),
-      {
-        x: Number(x),
-        y: Number(y),
-        width: Number(width),
-        height: Number(height),
-        name: String(name),
-        fillColor: { r: 1, g: 1, b: 1, a: 1 },
-      }
-    );
-
-    const result = await globalSession.state.tools!.callTool(toolCall);
-
-    if (result.isError || !result.content) {
-      res.status(500).json({
-        status: ResponseStatus.ERROR,
-        message: "Failed to create frame",
-      });
-      return;
-    }
-
-    const response = result.content.find(
-      (msg: any) => msg.type === ToolResponseFormat.TEXT
-    ) as TextContent;
-    const mainScreenFrameId = result.structuredContent?.id as string;
-
-    if (!response?.text || !mainScreenFrameId) {
-      res.status(500).json({
-        status: ResponseStatus.ERROR,
-        message: "No frame ID found in tool response",
-      });
-      return;
-    }
-
-    globalSession.setMainScreenFrame(
-      mainScreenFrameId,
-      Number(width),
-      Number(height)
-    );
-
-    res.json({
-      status: ResponseStatus.SUCCESS,
-      message: response.text,
-      payload: {
-        root_frame_id: mainScreenFrameId,
-        width: Number(width),
-        height: Number(height),
-      },
-    });
-  } catch (error) {
-    console.error("Error in createMainScreenFrame:", error);
-    res.status(500).json({
-      status: ResponseStatus.ERROR,
-      message: String(error),
-    });
-  }
-};
-
-export const createTextInMainScreenFrame = async (
-  req: Request,
-  res: Response<ResponseData>
-): Promise<void> => {
-  try {
-    const mainScreenFrameInfo = globalSession.state.mainScreenFrame;
-
-    if (!mainScreenFrameInfo.id) {
-      res.status(400).json({
-        status: ResponseStatus.ERROR,
-        message:
-          "No root_frame_id set. Please call /tool/create_root_frame first.",
-      });
-      return;
-    }
-
-    if (!validateTools(res)) return;
-
-    const toolCall = globalSession.state.tools!.createToolCall(
-      "create_text",
-      randomUUID(),
-      {
-        parentId: mainScreenFrameInfo.id,
-        x: 100,
-        y: 100,
-        text: "Hello in root!",
-      }
-    );
-
-    const result = await globalSession.state.tools!.callTool(toolCall);
-
-    res.json({
-      status: ResponseStatus.SUCCESS,
-      message: "Text created in root frame",
-      payload: {
-        frameId: mainScreenFrameInfo.id,
-        textId: result.structuredContent?.id,
-      },
-    });
-  } catch (error) {
-    console.error("Error in createTextInMainScreenFrame:", error);
-    res.status(500).json({
-      status: ResponseStatus.ERROR,
-      message: String(error),
-    });
-  }
-};
-
-export const deleteNode = async (
-  req: Request,
-  res: Response<ResponseData>
-): Promise<void> => {
-  try {
-    const { node_id } = req.body;
-
-    if (!node_id) {
-      res.status(400).json({
-        status: ResponseStatus.ERROR,
-        message: "node_id is required",
-      });
-      return;
-    }
-
-    if (!validateTools(res)) return;
-
-    const toolCall = globalSession.state.tools!.createToolCall(
-      "delete_node",
-      randomUUID(),
-      {
-        nodeIds: [node_id],
-      }
-    );
-    const result = await globalSession.state.tools!.callTool(toolCall);
-
-    res.json({
-      status: ResponseStatus.SUCCESS,
-      message: `Node with ID ${node_id} deleted successfully`,
-      payload: { nodeInfo: result.structuredContent },
-    });
-  } catch (error) {
-    console.error("Error in deleteNode:", error);
-    res.status(500).json({
-      status: ResponseStatus.ERROR,
-      message: String(error),
-    });
-  }
-};
-
-export const deleteMultipleNodes = async (
-  req: Request,
-  res: Response<ResponseData>
-): Promise<void> => {
-  try {
-    const { node_ids } = req.body;
-
-    if (!Array.isArray(node_ids)) {
-      res.status(400).json({
-        status: ResponseStatus.ERROR,
-        message: "node_ids must be an array",
-      });
-      return;
-    }
-
-    if (!validateTools(res)) return;
-
-    const toolCall = globalSession.state.tools!.createToolCall(
-      "delete_node",
-      randomUUID(),
-      {
-        nodeIds: node_ids,
-      }
-    );
-
-    const result = await globalSession.state.tools!.callTool(toolCall);
-    const typedResult = result.structuredContent as {
-      deleted: string[];
-      errors: string[] | undefined;
-      summary: { total: number; deleted: number; errors: number };
-    };
-
-    res.json({
-      status: ResponseStatus.SUCCESS,
-      message: `Deleted ${typedResult.summary.deleted} nodes successfully`,
-      payload: {
-        deleted_node_ids: typedResult.deleted,
-        errors: typedResult.errors || [],
-        summary: typedResult.summary,
-      },
-    });
-  } catch (error) {
-    console.error("Error in deleteMultipleNodes:", error);
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),
@@ -282,62 +61,86 @@ export const deleteAllTopLevelNodes = async (
   try {
     if (!validateTools(res)) return;
 
-    // Get page structure (hierarchy tree)
-    const pageStructureToolCall = globalSession.state.tools!.createToolCall(
-      "get_page_structure",
-      randomUUID()
-    );
-    const response = await globalSession.state.tools!.callTool(
-      pageStructureToolCall
-    );
-
-    if (response.isError) {
-      res.status(500).json({
-        status: ResponseStatus.ERROR,
-        message: "Failed to get page structure",
-      });
-      return;
-    }
-
-    const documentInfo = response.structuredContent || {};
-
-    const docAny = documentInfo as any;
-    const childrenArray = Array.isArray(docAny.structureTree)
-      ? docAny.structureTree
-      : Array.isArray(docAny.children)
-      ? docAny.children
-      : [];
-
-    if (childrenArray.length === 0) {
-      res.json({
-        status: ResponseStatus.SUCCESS,
-        message: "No nodes to delete",
-      });
-      return;
-    }
-
-    const topNodeIds = childrenArray.map((node: any) => node.id);
-    const deleteNodesToolCall = globalSession.state.tools!.createToolCall(
-      "delete_node",
-      randomUUID(),
-      {
-        nodeIds: topNodeIds,
-      }
-    );
-
-    const result = await globalSession.state.tools!.callTool(
-      deleteNodesToolCall
-    );
+    const cleared_ids = clearPage(globalSession.state.tools!);
 
     res.json({
       status: ResponseStatus.SUCCESS,
+      message: "All top-level nodes deleted successfully",
       payload: {
-        deleted_node_ids: topNodeIds,
-        result: result,
+        deleted_node_ids: cleared_ids,
       },
     });
+
+    return;
   } catch (error) {
-    console.error("Error in deleteAllTopLevelNodes:", error);
+    logger.error({
+      header: "Error in deleteAllTopLevelNodes",
+      body: error instanceof Error ? error.message : String(error),
+    });
+    res.status(500).json({
+      status: ResponseStatus.ERROR,
+      message: String(error),
+    });
+  }
+};
+
+export const retrievePageStatus = async (
+  req: Request,
+  res: Response<ResponseData>
+): Promise<void> => {
+  try {
+    if (!validateTools(res)) return;
+
+    const pageClear = await isPageClear(globalSession.state.tools!);
+
+    if (pageClear) {
+      res.json({
+        status: ResponseStatus.SUCCESS,
+        payload: { is_empty: true },
+      });
+    } else {
+      res.json({
+        status: ResponseStatus.SUCCESS,
+        payload: { is_empty: false },
+      });
+    }
+  } catch (error) {
+    logger.error({
+      header: "Error in retrievePageStatus",
+      body: error instanceof Error ? error.message : String(error),
+    });
+    res.status(500).json({
+      status: ResponseStatus.ERROR,
+      message: String(error),
+    });
+  }
+};
+
+export const retrievePageImage = async (
+  req: Request,
+  res: Response<ResponseData>
+): Promise<void> => {
+  try {
+    if (!validateTools(res)) return;
+    const imageURI = await getPageImage(globalSession.state.tools!);
+
+    if (!imageURI) {
+      res.status(404).json({
+        status: ResponseStatus.ERROR,
+        message: "No image data found",
+      });
+      return;
+    }
+
+    res.json({
+      status: ResponseStatus.SUCCESS,
+      payload: { image_uri: imageURI },
+    });
+  } catch (error) {
+    logger.error({
+      header: "Error in retrievePageImage",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),
@@ -388,7 +191,10 @@ export const getChannels = async (
       },
     });
   } catch (error) {
-    console.error("Error in getChannels:", error);
+    logger.error({
+      header: "Error in getChannels",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),
@@ -433,7 +239,10 @@ export const selectChannel = async (
       message: `Switched to channel: ${result.structuredContent.channel}`,
     });
   } catch (error) {
-    console.error("Error in selectChannel:", error);
+    logger.error({
+      header: "Error in selectChannel",
+      body: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({
       status: ResponseStatus.ERROR,
       message: String(error),
