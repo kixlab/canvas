@@ -7,13 +7,6 @@ import base64
 from pathlib import Path
 from dotenv import load_dotenv
 from .base_runner import BaseExperiment, ExperimentConfig, parse_common_args
-
-# ---------------------------------------------------------------------------
-# NOTE
-# We intentionally keep the auto-mode implementation local to this script so
-# that core BaseExperiment / ExperimentConfig are untouched. The flag is parsed
-# here and stored dynamically in the `config` object created below.
-# ---------------------------------------------------------------------------
 from .enums import ExperimentVariant
 
 load_dotenv()
@@ -30,8 +23,7 @@ class ReplicationExperiment(BaseExperiment):
         if self.config.batch_name:
             self.logger.info(f"Batch: {self.config.batch_name}")
         
-        timeout = aiohttp.ClientTimeout(total=None)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with aiohttp.ClientSession() as session:
 
             # ----------------------------------------------------------
             #  (1) Switch to desired Figma channel if specified
@@ -67,28 +59,6 @@ class ReplicationExperiment(BaseExperiment):
                     result_name = f"{base_id}-{self.config.model.value}-{variant.value}"
                     self.logger.info(f"[START] Generating result for: {result_name}")
                     result_dir = self.results_dir / result_name
-
-                    # --------------------------------------------------
-                    # AUTO MODE: skip prompts and handle automatically
-                    # --------------------------------------------------
-                    if getattr(self.config, "auto", False):
-                        if result_dir.exists():
-                            self.logger.info(f"[AUTO] Result already exists. Skipping: {result_name}")
-                            continue
-
-                        # Single attempt in auto mode
-                        result = await self.run_variant(
-                            session, image_path, meta_json, result_name, variant
-                        )
-                        if result is None:
-                            # Skip this sample silently in auto mode
-                            continue
-                        await self.save_results(result, result_name)
-                        continue  # move to next meta
-
-                    # --------------------------------------------------
-                    # INTERACTIVE MODE (default)
-                    # --------------------------------------------------
                     if result_dir.exists():
                         user_input = input(
                             f"[SKIP?] Result directory for '{result_name}' already exists. "
@@ -105,26 +75,7 @@ class ReplicationExperiment(BaseExperiment):
                             continue
 
                     while True:
-                        result = await self.run_variant(
-                            session, image_path, meta_json, result_name, variant
-                        )
-
-                        if result is None:
-                            user_choice = input(
-                                "[ERROR] Generation failed. Retry? [y] retry / [s] skip / [q] quit > "
-                            ).strip().lower()
-                            if user_choice == 'y':
-                                continue  # retry same sample
-                            elif user_choice == 's':
-                                self.logger.info(f"[SKIP] Skipping failed sample: {result_name}")
-                                break  # move to next sample
-                            elif user_choice == 'q':
-                                self.logger.warning("[ABORT] Stopping experiment early.")
-                                return
-                            else:
-                                print("Invalid input. Please enter y / s / q.")
-                                continue
-
+                        result = await self.run_variant(session, image_path, meta_json, result_name, variant)
                         user_input = input(
                             f"[REVIEW] Save this result?[y] yes proceed or [n] retry same sample or[q] quit > "
                         ).strip().lower()
@@ -141,6 +92,7 @@ class ReplicationExperiment(BaseExperiment):
                             print("Invalid input. Please enter y / n / q.")
 
     async def run_variant(self, session, image_path, meta_json, result_name, variant):
+        # `variant` is an ExperimentVariant enum instance
         variant_value = variant.value
 
         if variant_value == ExperimentVariant.IMAGE_ONLY.value:
@@ -203,10 +155,7 @@ class ReplicationExperiment(BaseExperiment):
             except Exception as e:
                 self.logger.warning(f"Request failed: {e}")
                 await asyncio.sleep(2)
-
-        # All attempts failed – log and return None so caller can skip this sample
-        self.logger.error(f"[SKIP] Failed to get response after 3 retries for {result_name}")
-        return None
+        raise RuntimeError("Failed to get response after retries")
 
     async def save_results(self, result, result_name):
         """Override BaseExperiment.save_results.
@@ -277,13 +226,11 @@ class ReplicationExperiment(BaseExperiment):
 def parse_args():
     parser = argparse.ArgumentParser(description="Run sample extraction experiments")
     parser = parse_common_args(parser)
-    parser.add_argument("--auto", action="store_true", help="Run in non-interactive auto-save mode")
     return parser.parse_args()
 
 async def main():
     args = parse_args()
     config = ExperimentConfig.from_args(args)
-    setattr(config, "auto", getattr(args, "auto", False))
     experiment = ReplicationExperiment(config)
     await experiment.run()
 
