@@ -27,6 +27,11 @@ class Channel(str, Enum):
     CHANNEL_4 = "channel_4"
     CHANNEL_5 = "channel_5"
 
+class TaskType(str, Enum):
+    MODIFICATION = "modification"
+    GENERATION = "generation"
+    SAMPLE = "sample"
+
 class GuidanceType(str, Enum):
     NONE = "none"
     BASIC = "basic"
