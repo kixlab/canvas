@@ -17,8 +17,8 @@ class ModelType(str, Enum):
     GPT4o = "gpt-4o"
     GPT41 = "gpt-4.1"
     CLAUDE35 = "claude-3-5-sonnet"
-    GEMINI = "gemini"
-    QWEN = "qwen"
+    GEMINI25FLASH = "gemini-2.5-flash"
+    GEMINI25PRO = "gemini-2.5-pro"
 
 class Channel(str, Enum):
     CHANNEL_1 = "channel_1"
@@ -26,11 +26,6 @@ class Channel(str, Enum):
     CHANNEL_3 = "channel_3"
     CHANNEL_4 = "channel_4"
     CHANNEL_5 = "channel_5"
-
-class TaskType(str, Enum):
-    MODIFICATION = "modification"
-    GENERATION = "generation"
-    SAMPLE = "sample"
 
 class GuidanceType(str, Enum):
     NONE = "none"

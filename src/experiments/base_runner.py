@@ -32,8 +32,6 @@ def parse_common_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
                       help="Use multi-agent (supervisor-worker) mode")
     parser.add_argument("--guidance", type=str, choices=[g.value for g in GuidanceType],
                       help="Guidance type to use")
-    parser.add_argument("--use-langsmith", action="store_true",
-                      help="Enable LangSmith logging")
     return parser
 
 @dataclass
@@ -47,7 +45,6 @@ class ExperimentConfig:
     batches_config_path: Optional[str] = None
     multi_agent: bool = False
     guidance: Optional[GuidanceType] = None
-    use_langsmith: bool = False
 
     @classmethod
     def from_args(cls, args):
@@ -60,8 +57,7 @@ class ExperimentConfig:
             task=TaskType(getattr(args, 'task', None)) if getattr(args, 'task', None) else None,
             batches_config_path=getattr(args, 'batches_config_path', None),
             multi_agent=getattr(args, 'multi_agent', False),
-            guidance=GuidanceType(getattr(args, 'guidance', None)) if getattr(args, 'guidance', None) else None,
-            use_langsmith=getattr(args, 'use_langsmith', False)
+            guidance=GuidanceType(getattr(args, 'guidance', None)) if getattr(args, 'guidance', None) else None
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -75,7 +71,6 @@ class ExperimentConfig:
             "batches_config_path": self.batches_config_path,
             "multi_agent": self.multi_agent,
             "guidance": self.guidance.value if self.guidance else None,
-            "use_langsmith": self.use_langsmith
         }
 
 class BaseExperiment:
@@ -88,11 +83,7 @@ class BaseExperiment:
         )
         self.logger.log_config(config.to_dict())
         
-    def setup_environment(self):
-        # LangSmith Setting (Optional)
-        if self.config.use_langsmith:
-            self.set_langsmith_metadata()
-        
+    def setup_environment(self):        
         self.experiment_config = load_experiment_config(self.config.config_name)
         
         self.channel_config = self.experiment_config["channels"].get(self.config.channel.value)
@@ -129,9 +120,6 @@ class BaseExperiment:
         machine = os.getenv("MACHINE_ID", "0")
         if machine:
             tags.append(f"machine={machine}")
-        
-        os.environ["LANGCHAIN_PROJECT"] = project
-        os.environ["LANGSMITH_EXPERIMENT_TAGS"] = ",".join(tags)
 
     def _load_batch_ids(self) -> Optional[set]:
         """Batch ID Load"""
