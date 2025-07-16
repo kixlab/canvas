@@ -13,6 +13,7 @@ import logging
 from config import load_experiment_config
 from .enums import ModelType, Channel, ExperimentVariant, TaskType, GuidanceType
 from .logger import ExperimentLogger
+import base64
 
 def parse_common_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     """Add common arguments to the parser."""
@@ -217,6 +218,57 @@ class BaseExperiment:
         # TODO: Implement run_*_experiment.py to inherit this
         raise NotImplementedError
 
+    async def _save_snapshots(self, payload: Dict[str, Any], result_dir: Path, result_name: str):
+        """Save each snapshot contained in the server payload.
+
+        For every snapshot object we create:
+          * Full snapshot JSON file
+          * PNG decoded from the `image_uri` if it is a base64 data URI
+          * Structure JSON for quick inspection
+        The files will be placed under `<result_dir>/snapshots/`.
+        """
+        snapshots = payload.get("snapshots") if isinstance(payload, dict) else None
+        if not snapshots:
+            return  # Nothing to do
+
+        snapshots_dir = result_dir / "snapshots"
+        snapshots_dir.mkdir(parents=True, exist_ok=True)
+
+        for snap in snapshots:
+            try:
+                turn = snap.get("turn", 0)
+                # ------------------------------------------------------------------
+                # 1) Save raw snapshot JSON
+                # ------------------------------------------------------------------
+                snapshot_json_path = snapshots_dir / f"{result_name}-snapshot-{turn}.json"
+                with open(snapshot_json_path, "w", encoding="utf-8") as f:
+                    json.dump(snap, f, indent=2, ensure_ascii=False)
+
+                # ------------------------------------------------------------------
+                # 2) Optionally save structure separately for convenience
+                # ------------------------------------------------------------------
+                structure = snap.get("structure")
+                if structure is not None:
+                    structure_path = snapshots_dir / f"{result_name}-snapshot-{turn}-structure.json"
+                    with open(structure_path, "w", encoding="utf-8") as f:
+                        json.dump(structure, f, indent=2, ensure_ascii=False)
+
+                # ------------------------------------------------------------------
+                # 3) Decode image from data URI if available
+                # ------------------------------------------------------------------
+                image_uri = snap.get("image_uri")
+                if image_uri and "," in image_uri:  # likely a data URI
+                    try:
+                        b64_data = image_uri.split(",", 1)[1]
+                        image_bytes = base64.b64decode(b64_data)
+                        img_path = snapshots_dir / f"{result_name}-snapshot-{turn}.png"
+                        with open(img_path, "wb") as img_f:
+                            img_f.write(image_bytes)
+                    except Exception as e:
+                        self.logger.warning(f"[SNAPSHOT] Failed to decode image for turn {turn}: {e}")
+            except Exception as e:
+                self.logger.warning(f"[SNAPSHOT] Error processing snapshot: {e}")
+
     async def save_results(self, results: Dict[str, Any], result_name: str):
         result_dir = self.results_dir / result_name
         result_dir.mkdir(parents=True, exist_ok=True)
@@ -248,6 +300,11 @@ class BaseExperiment:
             with open(image_url_file, "w", encoding="utf-8") as f:
                 json.dump(image_urls, f, indent=2, ensure_ascii=False)
             self.logger.info(f"Saved Figma image URLs to {image_url_file}")
+
+        if isinstance(results, dict):
+            payload = results.get("payload")
+            if payload:
+                await self._save_snapshots(payload, result_dir, result_name)
 
     async def handle_error(self, error: Exception, context: str):
         self.logger.error(f"Error in {context}: {str(error)}")

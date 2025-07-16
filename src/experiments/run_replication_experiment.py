@@ -274,6 +274,13 @@ class ReplicationExperiment(BaseExperiment):
                     json.dump(payload[key], f, indent=2, ensure_ascii=False)
                 self.logger.info(f"[SAVE] {key} saved to {file_path}")
 
+        # 5) Save snapshots if present
+        await self._save_snapshots(payload, result_dir, result_name)
+
+    async def _save_snapshots(self, payload, result_dir, result_name):
+        # Delegate to BaseExperiment implementation to avoid code duplication
+        await super()._save_snapshots(payload, result_dir, result_name)
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run sample extraction experiments")
     parser = parse_common_args(parser)
