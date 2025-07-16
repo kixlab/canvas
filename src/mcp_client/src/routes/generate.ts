@@ -62,6 +62,7 @@ export const generateFromText = async (
       image_uri,
       case_id,
       snapshots,
+      turn,
     } = await agent.run({
       requestMessage: userRequest,
       tools: sessionState.tools,
@@ -79,6 +80,7 @@ export const generateFromText = async (
         image_uri,
         case_id,
         snapshots,
+        turn,
         cost, // Cost in USD
       },
     });
@@ -148,6 +150,7 @@ export const generateFromImage = async (
       image_uri,
       case_id,
       snapshots,
+      turn,
     } = await agent.run({
       requestMessage: userRequest,
       tools: sessionState.tools,
@@ -166,6 +169,7 @@ export const generateFromImage = async (
         image_uri,
         case_id,
         snapshots,
+        turn,
       },
     });
   } catch (error) {
@@ -241,6 +245,7 @@ export const generateFromTextAndImage = async (
       image_uri,
       case_id,
       snapshots,
+      turn,
     } = await agent.run({
       requestMessage: userRequest,
       tools: sessionState.tools,
@@ -259,6 +264,7 @@ export const generateFromTextAndImage = async (
         image_uri,
         case_id,
         snapshots,
+        turn,
       },
     });
   } catch (error) {
