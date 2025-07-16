@@ -48,6 +48,7 @@ export class FeedbackAgent extends AgentInstance {
     responses: any[];
     cost: number;
     json_structure: Object;
+    turn: number;
     image_uri: string;
     snapshots: SnapshotStructure[];
   }> {
@@ -78,9 +79,10 @@ export class FeedbackAgent extends AgentInstance {
     const globalHistory: GenericMessage[] = [];
     const globalRawResponses: any[] = [];
     const globalSnapshots: SnapshotStructure[] = [];
+    let globalTurn = 0;
+    let totalCost = 0;
 
     // Step 3: Create an environment
-    let totalCost = 0;
     const {
       mainScreenFrameId,
       width: frameWidth,
@@ -112,6 +114,7 @@ export class FeedbackAgent extends AgentInstance {
       globalRawResponses.push(...designResult.responses);
       globalSnapshots.push(...designResult.snapshots);
       totalCost += designResult.cost / 1000; // Convert to USD
+      globalTurn += designResult.turnCount;
 
       // Check if we need to re-run due to insufficient turns in first iteration
       if (iteration === 0 && designResult.turnCount < MINIMUM_TURN) {
@@ -171,6 +174,7 @@ export class FeedbackAgent extends AgentInstance {
       json_structure: pageStructure,
       image_uri: resultImage,
       snapshots: globalSnapshots,
+      turn: globalTurn,
       cost: totalCost,
     };
   }
@@ -217,7 +221,7 @@ export class FeedbackAgent extends AgentInstance {
     let turn = 0;
     while (turn < maxDesignTurns) {
       logger.info({
-        header: `[Design Phase] Turn ${turn + 1} of maximum ${maxDesignTurns}`,
+        header: `[Design Phase] Turn ${turn} of maximum ${maxDesignTurns}`,
       });
       /* ----- Reason -------------------------------------------------- */
       const modelResponse = await model.generateResponseWithTool(

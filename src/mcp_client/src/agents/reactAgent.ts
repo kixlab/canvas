@@ -36,6 +36,7 @@ export class ReactAgent extends AgentInstance {
     responses: any[];
     cost: number;
     json_structure: Object;
+    turn: number;
     image_uri: string;
     snapshots: SnapshotStructure[];
   }> {
@@ -80,9 +81,7 @@ export class ReactAgent extends AgentInstance {
     while (turn < this.maxTurns) {
       // Reason: Generate response with tools
       logger.info({
-        header: `ReAct agent - loop turn ${turn + 1} of maximum ${
-          this.maxTurns
-        }`,
+        header: `ReAct agent - loop turn ${turn} of maximum ${this.maxTurns}`,
       });
       const modelResponse = await params.model.generateResponseWithTool(
         apiMessageContext,
@@ -169,6 +168,7 @@ export class ReactAgent extends AgentInstance {
       responses: rawResponses,
       json_structure: pageStructure,
       image_uri: resultImage,
+      turn: turn,
       snapshots, // Include snapshots in the result
       cost: cost / 1000, // Convert to USD
     };

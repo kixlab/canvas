@@ -27,6 +27,7 @@ export abstract class AgentInstance {
     responses: any[];
     cost: number;
     json_structure: Object;
+    turn: number;
     image_uri: string;
     snapshots: SnapshotStructure[];
   }>;
