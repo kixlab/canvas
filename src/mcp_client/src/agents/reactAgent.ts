@@ -7,6 +7,7 @@ import {
   MessageType,
   ContentType,
   ToolResponseMessage,
+  SnapshotStructure,
 } from "../types";
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
@@ -36,6 +37,7 @@ export class ReactAgent extends AgentInstance {
     cost: number;
     json_structure: Object;
     image_uri: string;
+    snapshots: SnapshotStructure[];
   }> {
     // Step 0: Check page
     logger.log({
@@ -61,6 +63,7 @@ export class ReactAgent extends AgentInstance {
     const apiMessageContext = params.model.createMessageContext();
     const formattedMessageContext = new Array<GenericMessage>();
     const rawResponses = new Array();
+    const snapshots = new Array<SnapshotStructure>();
 
     apiMessageContext.push(...initialRequest);
     formattedMessageContext.push(params.requestMessage);
@@ -127,6 +130,19 @@ export class ReactAgent extends AgentInstance {
         params.model
       );
 
+      // Save Snapshot: Capture the current state of the page
+      const screenSnapshot = await getPageImage(params.tools);
+      const structureSnapshot = await getPageStructure(params.tools);
+      snapshots.push({
+        case_id: params.metadata.caseId,
+        init: turn === 0 ? true : false, // First turn is not feedback
+        turn,
+        image_uri: screenSnapshot,
+        structure: structureSnapshot,
+        toolResults: toolResults,
+      });
+
+      // Increment turn count
       turn++;
     }
 
@@ -153,6 +169,7 @@ export class ReactAgent extends AgentInstance {
       responses: rawResponses,
       json_structure: pageStructure,
       image_uri: resultImage,
+      snapshots, // Include snapshots in the result
       cost: cost / 1000, // Convert to USD
     };
   }

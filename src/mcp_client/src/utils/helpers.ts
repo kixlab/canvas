@@ -311,15 +311,37 @@ export async function getPageStructure(tools: Tools): Promise<Object> {
     randomUUID(),
     {}
   );
-  const documentStructureResult = await tools.callTool(getPageStructureRequest);
+  const documentStructureResult = (await tools.callTool(
+    getPageStructureRequest
+  )) as any;
   if (documentStructureResult.isError) {
     throw new Error("Failed to get page structure");
   }
   if (!documentStructureResult.structuredContent) {
     throw new Error("No structured content found in the response");
   }
+  if (
+    !documentStructureResult.structuredContent.document.children ||
+    !Array.isArray(documentStructureResult.structuredContent.document.children)
+  ) {
+    throw new Error("Wrong structure format in the page structure response");
+  }
+  // Find the Main Screen frame in the document structure
+  const frameNode =
+    documentStructureResult.structuredContent.document.children.find(
+      (node: any) => node.name === "Main Screen"
+    );
 
-  return documentStructureResult.structuredContent;
+  if (!frameNode) {
+    throw new Error("Main Screen frame not found in the page structure");
+  }
+
+  // Convert the frame node to a JSON structure
+  const structureJSON = {
+    document: frameNode,
+  };
+
+  return structureJSON;
 }
 
 export async function clearPage(tools: Tools): Promise<Array<any>> {

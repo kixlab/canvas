@@ -9,6 +9,7 @@ import {
   MessageType,
   ContentType,
   ToolResponseMessage,
+  SnapshotStructure,
 } from "../types";
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
@@ -48,6 +49,7 @@ export class FeedbackAgent extends AgentInstance {
     cost: number;
     json_structure: Object;
     image_uri: string;
+    snapshots: SnapshotStructure[];
   }> {
     logger.log({
       header: "Feedback Agent Generation Started",
@@ -73,8 +75,9 @@ export class FeedbackAgent extends AgentInstance {
     let currentRequestMessage: UserRequestMessage = params.requestMessage;
 
     // Step 2: Prepare message contexts
-    const overallHistory: GenericMessage[] = [];
-    const overallRawResponses: any[] = [];
+    const globalHistory: GenericMessage[] = [];
+    const globalRawResponses: any[] = [];
+    const globalSnapshots: SnapshotStructure[] = [];
 
     // Step 3: Create an environment
     let totalCost = 0;
@@ -97,6 +100,7 @@ export class FeedbackAgent extends AgentInstance {
 
       // (1) Run design
       const designResult = await this.runDesignPhase({
+        caseId: params.metadata.caseId,
         requestMessage: currentRequestMessage,
         tools: params.tools,
         model: params.model,
@@ -104,8 +108,9 @@ export class FeedbackAgent extends AgentInstance {
         mainScreenFrameId: mainScreenFrameId,
       });
 
-      overallHistory.push(...designResult.history);
-      overallRawResponses.push(...designResult.responses);
+      globalHistory.push(...designResult.history);
+      globalRawResponses.push(...designResult.responses);
+      globalSnapshots.push(...designResult.snapshots);
       totalCost += designResult.cost / 1000; // Convert to USD
 
       // Check if we need to re-run due to insufficient turns in first iteration
@@ -133,8 +138,8 @@ export class FeedbackAgent extends AgentInstance {
         model: params.model,
       });
 
-      overallHistory.push(...feedbackResult.history);
-      overallRawResponses.push(feedbackResult.rawResponse);
+      globalHistory.push(...feedbackResult.history);
+      globalRawResponses.push(feedbackResult.rawResponse);
       totalCost += feedbackResult.cost / 1000; // Convert to USD
       const feedbackInstruction = feedbackResult.instructionText.trim();
 
@@ -161,10 +166,11 @@ export class FeedbackAgent extends AgentInstance {
 
     return {
       case_id: params.metadata.caseId,
-      history: overallHistory,
-      responses: overallRawResponses,
+      history: globalHistory,
+      responses: globalRawResponses,
       json_structure: pageStructure,
       image_uri: resultImage,
+      snapshots: globalSnapshots,
       cost: totalCost,
     };
   }
@@ -173,6 +179,7 @@ export class FeedbackAgent extends AgentInstance {
    * IMPLEMENTATION AGENT  (inner ReAct loop)
    *****************************************************************/
   private async runDesignPhase(args: {
+    caseId: string;
     requestMessage: UserRequestMessage;
     tools: Tools;
     model: ModelInstance;
@@ -183,13 +190,21 @@ export class FeedbackAgent extends AgentInstance {
     responses: any[];
     cost: number;
     turnCount: number;
+    snapshots: SnapshotStructure[];
   }> {
-    const { requestMessage, tools, model, maxDesignTurns, mainScreenFrameId } =
-      args;
+    const {
+      caseId,
+      requestMessage,
+      tools,
+      model,
+      maxDesignTurns,
+      mainScreenFrameId,
+    } = args;
 
     const apiCtx = model.createMessageContext();
     const formattedCtx: GenericMessage[] = [];
     const rawResponses: any[] = [];
+    const snapshots: SnapshotStructure[] = [];
     let cost = 0;
 
     apiCtx.push(...model.formatRequest([requestMessage]));
@@ -235,6 +250,18 @@ export class FeedbackAgent extends AgentInstance {
       }
       /* ----- Observe ------------------------------------------------- */
       this.addToolResultsToContext(toolResults, apiCtx, formattedCtx, model);
+
+      /* ----- Snapshot ------------------------------------------------- */
+      const screenSnapshot = await getPageImage(tools);
+      const structureSnapshot = await getPageStructure(tools);
+      snapshots.push({
+        case_id: caseId,
+        init: turn === 0 ? true : false,
+        turn,
+        image_uri: screenSnapshot,
+        structure: structureSnapshot,
+        toolResults: toolResults,
+      });
       turn++;
     }
     return {
@@ -242,6 +269,7 @@ export class FeedbackAgent extends AgentInstance {
       responses: rawResponses,
       cost,
       turnCount: turn,
+      snapshots,
     };
   }
 
