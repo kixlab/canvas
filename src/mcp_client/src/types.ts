@@ -165,3 +165,12 @@ export interface ResponseData {
 export type ToolList = Awaited<ReturnType<Client["listTools"]>>;
 
 export type ToolItem = ToolList["tools"][number];
+
+export interface SnapshotStructure {
+  case_id: string;
+  init: boolean;
+  turn: number;
+  image_uri: string; // Base64 encoded image
+  structure: Object; // JSON structure of the page
+  toolResults: CallToolResult[];
+}

@@ -54,13 +54,21 @@ export const generateFromText = async (
     const agent = createAgent(agentConfig);
     const model = createModel(modelConfig);
 
-    const { history, responses, cost, json_structure, image_uri, case_id } =
-      await agent.run({
-        requestMessage: userRequest,
-        tools: sessionState.tools,
-        model: model,
-        metadata: { caseId: metadata.case_id },
-      });
+    const {
+      history,
+      responses,
+      cost,
+      json_structure,
+      image_uri,
+      case_id,
+      snapshots,
+      turn,
+    } = await agent.run({
+      requestMessage: userRequest,
+      tools: sessionState.tools,
+      model: model,
+      metadata: { caseId: metadata.case_id },
+    });
 
     res.json({
       status: ResponseStatus.SUCCESS,
@@ -71,6 +79,8 @@ export const generateFromText = async (
         json_structure,
         image_uri,
         case_id,
+        snapshots,
+        turn,
         cost, // Cost in USD
       },
     });
@@ -132,13 +142,21 @@ export const generateFromImage = async (
     const agent = createAgent(agentConfig);
     const model = createModel(modelConfig);
 
-    const { history, responses, cost, json_structure, image_uri, case_id } =
-      await agent.run({
-        requestMessage: userRequest,
-        tools: sessionState.tools,
-        model: model,
-        metadata: { caseId: metadata.case_id },
-      });
+    const {
+      history,
+      responses,
+      cost,
+      json_structure,
+      image_uri,
+      case_id,
+      snapshots,
+      turn,
+    } = await agent.run({
+      requestMessage: userRequest,
+      tools: sessionState.tools,
+      model: model,
+      metadata: { caseId: metadata.case_id },
+    });
 
     res.json({
       status: ResponseStatus.SUCCESS,
@@ -150,6 +168,8 @@ export const generateFromImage = async (
         json_structure,
         image_uri,
         case_id,
+        snapshots,
+        turn,
       },
     });
   } catch (error) {
@@ -217,13 +237,21 @@ export const generateFromTextAndImage = async (
     const agent = createAgent(agentConfig);
     const model = createModel(modelConfig);
 
-    const { history, responses, cost, json_structure, image_uri, case_id } =
-      await agent.run({
-        requestMessage: userRequest,
-        tools: sessionState.tools,
-        model: model,
-        metadata: { caseId: metadata.case_id },
-      });
+    const {
+      history,
+      responses,
+      cost,
+      json_structure,
+      image_uri,
+      case_id,
+      snapshots,
+      turn,
+    } = await agent.run({
+      requestMessage: userRequest,
+      tools: sessionState.tools,
+      model: model,
+      metadata: { caseId: metadata.case_id },
+    });
 
     res.json({
       status: ResponseStatus.SUCCESS,
@@ -235,6 +263,8 @@ export const generateFromTextAndImage = async (
         json_structure,
         image_uri,
         case_id,
+        snapshots,
+        turn,
       },
     });
   } catch (error) {

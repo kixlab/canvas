@@ -7,6 +7,7 @@ import {
   MessageType,
   ContentType,
   ToolResponseMessage,
+  SnapshotStructure,
 } from "../types";
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
@@ -35,7 +36,9 @@ export class ReactAgent extends AgentInstance {
     responses: any[];
     cost: number;
     json_structure: Object;
+    turn: number;
     image_uri: string;
+    snapshots: SnapshotStructure[];
   }> {
     // Step 0: Check page
     logger.log({
@@ -61,6 +64,7 @@ export class ReactAgent extends AgentInstance {
     const apiMessageContext = params.model.createMessageContext();
     const formattedMessageContext = new Array<GenericMessage>();
     const rawResponses = new Array();
+    const snapshots = new Array<SnapshotStructure>();
 
     apiMessageContext.push(...initialRequest);
     formattedMessageContext.push(params.requestMessage);
@@ -77,9 +81,7 @@ export class ReactAgent extends AgentInstance {
     while (turn < this.maxTurns) {
       // Reason: Generate response with tools
       logger.info({
-        header: `ReAct agent - loop turn ${turn + 1} of maximum ${
-          this.maxTurns
-        }`,
+        header: `ReAct agent - loop turn ${turn} of maximum ${this.maxTurns}`,
       });
       const modelResponse = await params.model.generateResponseWithTool(
         apiMessageContext,
@@ -127,6 +129,19 @@ export class ReactAgent extends AgentInstance {
         params.model
       );
 
+      // Save Snapshot: Capture the current state of the page
+      const screenSnapshot = await getPageImage(params.tools);
+      const structureSnapshot = await getPageStructure(params.tools);
+      snapshots.push({
+        case_id: params.metadata.caseId,
+        init: turn === 0 ? true : false, // First turn is not feedback
+        turn,
+        image_uri: screenSnapshot,
+        structure: structureSnapshot,
+        toolResults: toolResults,
+      });
+
+      // Increment turn count
       turn++;
     }
 
@@ -153,6 +168,8 @@ export class ReactAgent extends AgentInstance {
       responses: rawResponses,
       json_structure: pageStructure,
       image_uri: resultImage,
+      turn: turn,
+      snapshots, // Include snapshots in the result
       cost: cost / 1000, // Convert to USD
     };
   }

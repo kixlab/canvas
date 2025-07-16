@@ -1,4 +1,9 @@
-import { UserRequestMessage, GenericMessage, AgentMetadata } from "../types";
+import {
+  UserRequestMessage,
+  GenericMessage,
+  AgentMetadata,
+  SnapshotStructure,
+} from "../types";
 import { ModelInstance } from "../models/baseModel";
 import { Tools } from "../core/tools";
 
@@ -22,6 +27,8 @@ export abstract class AgentInstance {
     responses: any[];
     cost: number;
     json_structure: Object;
+    turn: number;
     image_uri: string;
+    snapshots: SnapshotStructure[];
   }>;
 }
