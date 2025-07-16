@@ -3,6 +3,7 @@ import { AnthropicModel } from "./anthropicModel";
 import { ModelConfig, ModelProvider } from "../types";
 import { ModelInstance } from "./baseModel";
 import { GoogleModel } from "./googleModel";
+import { OllamaModel } from "./ollamaModel";
 
 export function createModel(modelConfig: ModelConfig): ModelInstance {
   switch (modelConfig.modelProvider) {
@@ -12,6 +13,8 @@ export function createModel(modelConfig: ModelConfig): ModelInstance {
       return new AnthropicModel(modelConfig);
     case ModelProvider.GOOGLE:
       return new GoogleModel(modelConfig);
+    case ModelProvider.OLLAMA:
+      return new OllamaModel(modelConfig);
     default:
       throw new Error(
         `Unsupported model provider: ${modelConfig.modelProvider}`

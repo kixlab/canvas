@@ -721,11 +721,13 @@
                     <div class="preset-form">
                         <label for="model-preset">Model:</label>
                         <select id="model-preset">
+                            <!-- [modelName, provider, inputCost, outputCost, maxTokens, maxTurns] -->
                             <option value="models/gemini-2.5-flash|google|0.0003|0.0025|65536|100">Gemini 2.5 Flash</option>
                             <option value="models/gemini-2.5-pro|google|0.00125|0.01|65536|100">Gemini 2.5 Pro</option>
                             <option value="gpt-4.1-2025-04-14|openai|0.002|0.008|32768|100">GPT-4.1 (2025-04-14)</option>
                             <option value="anthropic.claude-3-5-sonnet-20241022-v2:0|anthropic|0.003|0.015|4096|100">Claude 3.5 Sonnet</option>
                             <option value="gpt-4o-2024-08-06|openai|0.0025|0.0125|4096|100">GPT-4o (2024-08-06)</option>
+                            <option value="llama3.1|ollama|0|0|4096|100">Llama3.1</option>
                         </select>
                         
                         <label for="agent-preset">Agent:</label>
