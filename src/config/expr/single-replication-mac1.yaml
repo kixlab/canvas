@@ -6,17 +6,18 @@ batches_config_path: ../dataset/batches/replication/batches.yaml
 
 channels:
   channel_1:
-    api_base_url: http://localhost:3000
+    figma_file_key: 
+    api_base_url: 
   channel_2:
-    api_base_url: http://localhost:3000
+    api_base_url: http://localhost:3010
   channel_3:
-    api_base_url: http://localhost:3001
+    api_base_url: http://localhost:3011
   channel_4:
-    api_base_url: http://localhost:3002
+    api_base_url: http://localhost:3012
   channel_5:
-    api_base_url: http://localhost:3003
+    api_base_url: http://localhost:3013
   channel_6:
-    api_base_url: http://localhost:3004
+    api_base_url: http://localhost:3014
 
 models:
   gpt-4o:

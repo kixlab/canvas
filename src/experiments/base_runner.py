@@ -100,7 +100,6 @@ class BaseExperiment:
         self.results_dir.mkdir(parents=True, exist_ok=True)
         
         self.api_base_url = self.channel_config["api_base_url"]
-        self.figma_file_key = self.channel_config["figma_file_key"]
         self.figma_api_token = os.getenv("FIGMA_API_TOKEN")
         self.figma_base_url = "https://api.figma.com/v1"
         self.headers = {"X-Figma-Token": self.figma_api_token}
@@ -190,30 +189,6 @@ class BaseExperiment:
         except Exception:
             return {}
 
-    async def fetch_figma_hierarchy(self) -> dict:
-        url = f"{self.figma_base_url}/files/{self.figma_file_key}"
-        async with aiohttp.ClientSession(headers=self.headers) as session:
-            async with session.get(url) as resp:
-                data = await resp.json()
-                self.logger.info("[Figma] Retrieved hierarchy.")
-                return data
-
-    async def export_figma_images(self, node_ids: list[str], format: str = "png", scale: int = 1) -> dict:
-        url = f"{self.figma_base_url}/images/{self.figma_file_key}"
-        params = {"ids": ",".join(node_ids), "format": format, "scale": scale}
-        async with aiohttp.ClientSession(headers=self.headers) as session:
-            async with session.get(url, params=params) as resp:
-                data = await resp.json()
-                self.logger.info(f"[Figma] Exported images for {len(node_ids)} nodes.")
-                return data.get("images", {})
-
-    async def save_figma_export(self, hierarchy: dict, image_urls: dict, file_prefix: str = "figma_export") -> None:
-        result = {"hierarchy": hierarchy, "image_urls": image_urls}
-        out_path = self.results_dir / f"{file_prefix}.json"
-        with open(out_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=2, ensure_ascii=False)
-        self.logger.info(f"[Save] Figma export saved to {out_path}")
-
     async def run(self):
         # TODO: Implement run_*_experiment.py to inherit this
         raise NotImplementedError
@@ -269,42 +244,104 @@ class BaseExperiment:
             except Exception as e:
                 self.logger.warning(f"[SNAPSHOT] Error processing snapshot: {e}")
 
-    async def save_results(self, results: Dict[str, Any], result_name: str):
+    async def save_results(self, result, result_name):
+        """
+        Utilises the payload returned by the MCP client instead of re-querying
+        the Figma REST API. Saves:
+          1. Full raw response from the server
+          2. json_structure as independent JSON file
+          3. Decoded PNG of the returned image_uri
+          4. history and raw model responses for further debugging
+        """
+
+        self.logger.info(f"[SAVE] Processing result for {result_name}")
+
         result_dir = self.results_dir / result_name
         result_dir.mkdir(parents=True, exist_ok=True)
 
-        json_response_file = result_dir / f"{result_name}-json-response.json"
-        with open(json_response_file, "w", encoding="utf-8") as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-        self.logger.info(f"Saved results to {json_response_file}")
+        # 1) Save full raw response
+        raw_response_file = result_dir / f"{result_name}-raw-response.json"
+        with open(raw_response_file, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
+        self.logger.info(f"[SAVE] Raw response saved to {raw_response_file}")
 
-        hierarchy = await self.fetch_figma_hierarchy()
-        hierarchy_file = result_dir / f"{result_name}-figma-hierarchy.json"
-        with open(hierarchy_file, "w", encoding="utf-8") as f:
-            json.dump(hierarchy, f, indent=2, ensure_ascii=False)
-        self.logger.info(f"Saved Figma hierarchy to {hierarchy_file}")
+        # Guard – make sure payload exists
+        if not isinstance(result, dict) or result.get("status") != "success":
+            self.logger.warning("[SAVE] Result status is not 'success'. Skipping payload extraction.")
+            return
 
-        try:
-            top_level_nodes = [
-                node["id"]
-                for node in hierarchy.get("document", {}).get("children", [])
-                if node.get("type") == "FRAME"
-            ]
-        except Exception as e:
-            self.logger.warning(f"[Figma] Failed to extract frame node IDs: {e}")
-            top_level_nodes = []
+        payload = result.get("payload", {})
 
-        if top_level_nodes:
-            image_urls = await self.export_figma_images(top_level_nodes)
-            image_url_file = result_dir / f"{result_name}-figma-images.json"
-            with open(image_url_file, "w", encoding="utf-8") as f:
-                json.dump(image_urls, f, indent=2, ensure_ascii=False)
-            self.logger.info(f"Saved Figma image URLs to {image_url_file}")
+        # 2) Save json_structure
+        json_structure = payload.get("json_structure")
+        if json_structure is not None:
+            json_structure_file = result_dir / f"{result_name}-json-structure.json"
+            with open(json_structure_file, "w", encoding="utf-8") as f:
+                json.dump(json_structure, f, indent=2, ensure_ascii=False)
+            self.logger.info(f"[SAVE] json_structure saved to {json_structure_file}")
+        else:
+            self.logger.warning("[SAVE] No json_structure found in payload.")
 
-        if isinstance(results, dict):
-            payload = results.get("payload")
-            if payload:
-                await self._save_snapshots(payload, result_dir, result_name)
+        # 3) Save base64 image as PNG
+        image_uri = payload.get("image_uri")
+        if image_uri:
+            try:
+                # Extract base64 portion
+                if "," in image_uri:
+                    b64_data = image_uri.split(",", 1)[1]
+                else:
+                    b64_data = image_uri
+                image_bytes = base64.b64decode(b64_data)
+                image_path = result_dir / f"{result_name}-canvas.png"
+                with open(image_path, "wb") as f:
+                    f.write(image_bytes)
+                self.logger.info(f"[SAVE] Canvas image saved to {image_path}")
+            except Exception as e:
+                self.logger.warning(f"[SAVE] Failed to decode image_uri: {e}")
+        else:
+            self.logger.warning("[SAVE] No image_uri found in payload.")
+
+        # 4) Save history & model responses if present
+        for key in ("history", "responses"):
+            if key in payload:
+                file_path = result_dir / f"{result_name}-{key}.json"
+                with open(file_path, "w", encoding="utf-8") as f:
+                    json.dump(payload[key], f, indent=2, ensure_ascii=False)
+                self.logger.info(f"[SAVE] {key} saved to {file_path}")
+
+        # 5) Save snapshots if present
+        await self._save_snapshots(payload, result_dir, result_name)
 
     async def handle_error(self, error: Exception, context: str):
         self.logger.error(f"Error in {context}: {str(error)}")
+
+    # ----------------------------------------------------------------------
+    #  Lock helpers for safe parallel execution
+    # ----------------------------------------------------------------------
+    def _acquire_lock(self, lock_name: str):
+        """Attempt to create a .lock file atomically.
+
+        Returns the Path of the lock file if acquired successfully, otherwise
+        returns None to indicate the lock is already held by another process.
+        """
+        lock_path = self.results_dir / f"{lock_name}.lock"
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            return lock_path
+        except FileExistsError:
+            # Another process already created the lock.
+            return None
+        except Exception as e:
+            # Any unexpected error is treated as lock acquisition failure.
+            if hasattr(self, "logger"):
+                self.logger.warning(f"[LOCK] Unexpected error acquiring lock {lock_path}: {e}")
+            return None
+
+    def _release_lock(self, lock_path):
+        """Safely remove a previously acquired lock file."""
+        try:
+            lock_path.unlink(missing_ok=True)
+        except Exception as e:
+            if hasattr(self, "logger"):
+                self.logger.warning(f"[LOCK] Failed to release lock {lock_path}: {e}")

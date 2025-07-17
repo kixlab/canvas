@@ -23,16 +23,22 @@ export OPENAI_API_KEY="your_openai_key"
 
 ## Running Experiments
 
-### UI Generation Experiments
+### UI Replication Experiments
 
 ```bash
-python -m experiments.run_generation_experiment \
-  --config-name=single-generation \
-  --model=gpt-4o \
-  --variants=image_only \
-  --channel=channel_2 \
-  --batch-name=batch_1
+python -m experiments.run_replication_experiment \
+  --config-name single-replication \
+  --model gpt-4.1 \
+  --variants image_only \
+  --channel channel_3 \
+  --auto
 ```
+python -m experiments.run_replication_experiment \
+  --config-name single-replication-mac1 \
+  --model gemini-2.5-flash \
+  --variants image_only \
+  --channel channel_3 \
+  --auto
 
 ### UI Modification Experiments
 
@@ -55,7 +61,6 @@ python -m experiments.run_sample_extraction  \
   --channel=channel_2 \
   --batch-name=batch_1
 ```
-
 
 ## Command Line Arguments
 
@@ -102,10 +107,8 @@ results_dir: "/path/to/results"
 channels:
   channel_1:
     api_base_url: "http://localhost:8000"
-    figma_file_key: "your_figma_file_key"
   channel_2:
     api_base_url: "http://localhost:8001"
-    figma_file_key: "your_figma_file_key"
 ```
 
 ### Batches File Structure

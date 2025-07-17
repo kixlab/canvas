@@ -69,21 +69,32 @@ class ReplicationExperiment(BaseExperiment):
                     result_dir = self.results_dir / result_name
 
                     # --------------------------------------------------
-                    # AUTO MODE: skip prompts and handle automatically
+                    # AUTO MODE: skip prompts and handle automatically (with lock)
                     # --------------------------------------------------
                     if getattr(self.config, "auto", False):
-                        if result_dir.exists():
-                            self.logger.info(f"[AUTO] Result already exists. Skipping: {result_name}")
+                        # Acquire lock to prevent concurrent processing of the same sample
+                        lock_path = self._acquire_lock(result_name)
+                        if lock_path is None:
+                            self.logger.info(f"[AUTO] Another process already working on {result_name}. Skipping.")
                             continue
+                        try:
+                            # If results already exist, no need to regenerate
+                            if result_dir.exists():
+                                self.logger.info(f"[AUTO] Result already exists. Skipping: {result_name}")
+                                continue  # finally clause will release lock
 
-                        # Single attempt in auto mode
-                        result = await self.run_variant(
-                            session, image_path, meta_json, result_name, variant
-                        )
-                        if result is None:
-                            # Skip this sample silently in auto mode
-                            continue
-                        await self.save_results(result, result_name)
+                            # Single attempt in auto mode
+                            result = await self.run_variant(
+                                session, image_path, meta_json, result_name, variant
+                            )
+                            if result is None:
+                                # Skip this sample silently in auto mode
+                                continue  # lock released in finally
+
+                            await self.save_results(result, result_name)
+                        finally:
+                            # Always release lock regardless of outcome
+                            self._release_lock(lock_path)
                         continue  # move to next meta
 
                     # --------------------------------------------------
@@ -207,79 +218,6 @@ class ReplicationExperiment(BaseExperiment):
         # All attempts failed – log and return None so caller can skip this sample
         self.logger.error(f"[SKIP] Failed to get response after 3 retries for {result_name}")
         return None
-
-    async def save_results(self, result, result_name):
-        """Override BaseExperiment.save_results.
-
-        Utilises the payload returned by the MCP client instead of re-querying
-        the Figma REST API. Saves:
-          1. Full raw response from the server
-          2. json_structure as independent JSON file
-          3. Decoded PNG of the returned image_uri
-          4. history and raw model responses for further debugging
-        """
-
-        self.logger.info(f"[SAVE] Processing result for {result_name}")
-
-        result_dir = self.results_dir / result_name
-        result_dir.mkdir(parents=True, exist_ok=True)
-
-        # 1) Save full raw response
-        raw_response_file = result_dir / f"{result_name}-raw-response.json"
-        with open(raw_response_file, "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=2, ensure_ascii=False)
-        self.logger.info(f"[SAVE] Raw response saved to {raw_response_file}")
-
-        # Guard – make sure payload exists
-        if not isinstance(result, dict) or result.get("status") != "success":
-            self.logger.warning("[SAVE] Result status is not 'success'. Skipping payload extraction.")
-            return
-
-        payload = result.get("payload", {})
-
-        # 2) Save json_structure
-        json_structure = payload.get("json_structure")
-        if json_structure is not None:
-            json_structure_file = result_dir / f"{result_name}-json-structure.json"
-            with open(json_structure_file, "w", encoding="utf-8") as f:
-                json.dump(json_structure, f, indent=2, ensure_ascii=False)
-            self.logger.info(f"[SAVE] json_structure saved to {json_structure_file}")
-        else:
-            self.logger.warning("[SAVE] No json_structure found in payload.")
-
-        # 3) Save base64 image as PNG
-        image_uri = payload.get("image_uri")
-        if image_uri:
-            try:
-                # Extract base64 portion
-                if "," in image_uri:
-                    b64_data = image_uri.split(",", 1)[1]
-                else:
-                    b64_data = image_uri
-                image_bytes = base64.b64decode(b64_data)
-                image_path = result_dir / f"{result_name}-canvas.png"
-                with open(image_path, "wb") as f:
-                    f.write(image_bytes)
-                self.logger.info(f"[SAVE] Canvas image saved to {image_path}")
-            except Exception as e:
-                self.logger.warning(f"[SAVE] Failed to decode image_uri: {e}")
-        else:
-            self.logger.warning("[SAVE] No image_uri found in payload.")
-
-        # 4) Save history & model responses if present
-        for key in ("history", "responses"):
-            if key in payload:
-                file_path = result_dir / f"{result_name}-{key}.json"
-                with open(file_path, "w", encoding="utf-8") as f:
-                    json.dump(payload[key], f, indent=2, ensure_ascii=False)
-                self.logger.info(f"[SAVE] {key} saved to {file_path}")
-
-        # 5) Save snapshots if present
-        await self._save_snapshots(payload, result_dir, result_name)
-
-    async def _save_snapshots(self, payload, result_dir, result_name):
-        # Delegate to BaseExperiment implementation to avoid code duplication
-        await super()._save_snapshots(payload, result_dir, result_name)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run sample extraction experiments")
