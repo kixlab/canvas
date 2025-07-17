@@ -1,3 +1,4 @@
+from __future__ import annotations
 from evaluation.metrics import register_metric
 from typing import Dict, Any
 

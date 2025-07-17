@@ -1,3 +1,4 @@
+from __future__ import annotations
 from evaluation.metrics import register_metric
 from evaluation.metrics.tool_usage_metric import _tool_usage_metric  # reuse parsing logic
 from typing import Dict, Any

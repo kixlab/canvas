@@ -1,10 +1,21 @@
 ## Evaluation
 
+### Setup
+
+The evaluation pipeline **requires** the conda environment defined in `evaluation/environment.yml` (exported from the original research environment).
+
+```bash
+# create and activate the evaluation environment
+conda env create -f evaluation/environment.yml
+conda activate canvasbench-eval
+```
+
 ### Metric Overview
 - Visual Completeness
     - Canvas Fill Ratio
     - Pixel Fidelity (SSIM)
     - Semantic Match (BLIP Score)
+    - Visual Saliency (AUC-Borji)
 - Structural Completeness
     - Element Count Ratio
     - Layout Overlap (IoU)
@@ -46,6 +57,14 @@
     - Returns this similarity as the BLIP score.
   - **Purpose:** Goes beyond visual similarity to assess whether the generated image conveys similar meaning/content as the GT.
   - **Note:** This metric can be skipped with the `--skip_blip` flag in `eval_pipeline.py`.
+
+- **Visual Saliency (AUC-Borji)**
+  - **Definition:** Measures similarity of human visual attention patterns between GT and generated images using saliency maps and the AUC-Borji metric.
+  - **Implementation Summary:**
+    - Leverages an attentive ConvLSTM‐based saliency model adapted from the [UEyes-CHI2023](https://github.com/YueJiang-nj/UEyes-CHI2023) repository (ported to PyTorch in `evaluation/visual_saliency/`).
+    - Generates saliency maps for both GT and generated images.
+    - Returns a score in the range \(0\,1\] (higher is better).
+  - **Purpose:** Evaluates whether the generated layout attracts visual attention similarly to the GT, capturing perceptual saliency beyond pixel or structural similarity.
 
 #### Structural Completeness
 
@@ -109,10 +128,7 @@
 
 ### For single sample
 ```
-cd src/evaluation
-```
-```
-python eval_pipeline.py \
+python -m evaluation.eval_pipeline \
   --base_dir dataset_sample \
   --model gpt-4o \
   --variant image_only \
@@ -123,10 +139,7 @@ python eval_pipeline.py \
 
 ### For multiple sample (dir level)
 ```
-cd src/evaluation
-```
-```
-python eval_pipeline.py \
+python -m evaluation.eval_pipeline \
   --base_dir dataset_sample \
   --model gpt-4o \
   --variant image_only \
