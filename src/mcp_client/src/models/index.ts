@@ -3,8 +3,7 @@ import { AnthropicModel } from "./anthropicModel";
 import { ModelConfig, ModelProvider } from "../types";
 import { ModelInstance } from "./baseModel";
 import { GoogleModel } from "./googleModel";
-import { OllamaModel } from "./ollamaModel";
-import { OllamaRESTModel } from "./ollamaRestModel";
+import { OllamaRESTModel } from "./ollamaModel";
 
 export function createModel(modelConfig: ModelConfig): ModelInstance {
   switch (modelConfig.modelProvider) {
@@ -15,8 +14,10 @@ export function createModel(modelConfig: ModelConfig): ModelInstance {
     case ModelProvider.GOOGLE:
       return new GoogleModel(modelConfig);
     case ModelProvider.OLLAMA:
-      // return new OllamaModel(modelConfig);
-      return new OllamaRESTModel(modelConfig);
+      return new OllamaRESTModel({
+        ...modelConfig,
+        baseUrl: process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434",
+      });
     default:
       throw new Error(
         `Unsupported model provider: ${modelConfig.modelProvider}`

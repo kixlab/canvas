@@ -1,13 +1,14 @@
-import { OllamaRESTModel } from "../models/ollamaRestModel";
+import { OllamaRESTModel } from "../models/ollamaModel";
 import { ModelProvider } from "../types";
 
 const ollamaModel = new OllamaRESTModel({
-  modelName: "llama3.1",
+  modelName: "mistral-small3.2:24b",
   temperature: 0.0,
   maxTokens: 4096,
   modelProvider: ModelProvider.OLLAMA,
   inputCost: 0,
   outputCost: 0,
+  baseUrl: process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434",
 });
 
 ollamaModel

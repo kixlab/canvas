@@ -1,12 +1,3 @@
-/* -------------------------------------------------------------------------- */
-/*  ollamaModel.ts                                                            */
-/* -------------------------------------------------------------------------- */
-import ollama, {
-  ChatResponse,
-  Message as OllamaMessage,
-  Tool as OllamaTool,
-  Ollama,
-} from "ollama"; // see README usage
 import { randomUUID } from "crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
@@ -21,228 +12,272 @@ import {
   IntermediateRequestMessage,
 } from "../types";
 import { ModelInstance } from "./baseModel";
-import { logger } from "../utils/helpers"; // optional—keeps identical logging surface
+import { logger } from "../utils/helpers";
+
+export type MessageRole = "system" | "user" | "assistant" | "tool";
+
+/** A single tool request emitted by the model */
+export interface ToolCall {
+  id?: string; // only present when several calls are returned
+  function: {
+    name: string;
+    /** Parsed JSON – *not* stringified JSON */
+    arguments: Record<string, unknown>;
+  };
+}
+
+/** One chat message in a request or response */
+export interface ChatMessage {
+  role: MessageRole;
+  content: string;
+  thinking?: string;
+  images?: string[] | null;
+  tool_calls?: ToolCall[];
+  tool_name?: string; // set by caller when returning tool output
+}
+
+/** A “function” tool definition */
+export interface FunctionTool {
+  type: "function";
+  function: {
+    name: string;
+    description?: string;
+    parameters: Record<string, unknown>; // JSON Schema object
+  };
+}
+
+export type ToolDefinition = FunctionTool;
+
+/** Body of POST /api/chat when `stream:false` */
+export interface ChatRequest {
+  model: string;
+  messages: ChatMessage[];
+  tools?: ToolDefinition[];
+  think?: boolean;
+  format?: "json" | Record<string, unknown>;
+  options?: Record<string, unknown>;
+  stream?: boolean; // we always send false
+  keep_alive?: string | number;
+}
+
+/** Non-streamed response (i.e. final chunk) */
+export interface ChatResponse {
+  model: string;
+  created_at: string; // ISO timestamp
+  message: ChatMessage;
+  done: true /* always true because we disabled streaming */;
+  done_reason?: string;
+  total_duration?: number;
+  load_duration?: number;
+  prompt_eval_count?: number;
+  prompt_eval_duration?: number;
+  eval_count?: number;
+  eval_duration?: number;
+}
 
 /* -------------------------------------------------------------------------- */
-/*  Model implementation                                                      */
+/*  Model Implementation                                                      */
 /* -------------------------------------------------------------------------- */
-export class OllamaModel extends ModelInstance {
-  /** No explicit per-instance client is required – the default export is
-   *  already a ready-to-use singleton.  If you need a custom host (e.g.
-   *  remote Ollama server or SSH tunnel) create it via:
-   *        import { Ollama } from 'ollama';
-   *        this.client = new Ollama({ host: process.env.OLLAMA_HOST })
-   *  For now we rely on the canonical client shipped by the SDK. */
-  // private client = new Ollama({ host: process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434' });
+export class OllamaRESTModel extends ModelInstance {
+  baseUrl: string;
 
-  private client;
-  constructor(config: ModelConfig) {
+  constructor(config: ModelConfig & { baseUrl: string }) {
+    if (!config.baseUrl) {
+      throw new Error("Ollama REST model requires a baseUrl in config");
+    }
     super(config);
-    this.client = new Ollama({
-      host: process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434",
-    });
+    this.baseUrl = config.baseUrl;
   }
 
-  /* -------------------------------- Core ---------------------------------- */
+  /* ------------------------------ Core ----------------------------------- */
+
+  async chatRequest(body: ChatRequest): Promise<ChatResponse> {
+    const res = await fetch(`${this.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Ollama API error ${res.status}: ${await res.text()}`);
+    }
+    return (await res.json()) as ChatResponse;
+  }
 
   async generateResponse(
-    input: OllamaMessage[],
-    /** Extra chat parameters – forwarded as-is. */
-    options: Partial<Parameters<typeof ollama.chat>[0]> = {}
+    input: ChatMessage[],
+    opts: Partial<Omit<ChatRequest, "model" | "messages" | "stream">> = {}
   ): Promise<ChatResponse> {
-    return await ollama.chat({
+    console.log("Ollama REST generateResponse", this.baseUrl);
+
+    return await this.chatRequest({
       model: this.modelName,
       messages: input,
       stream: false,
-      // Runtime options live in the nested `options` object
       options: {
         temperature: this.temperature,
-        num_predict: this.maxTokens,
-        ...(options.options ?? {}),
+        num_ctx: 32000,
+        // num_predict: this.maxTokens,
+        // ...(opts.options ?? {}),
       },
-      ...options,
+      ...opts,
     });
   }
 
   async generateResponseWithTool(
-    input: OllamaMessage[],
-    tools: OllamaTool[],
-    options: Partial<Parameters<typeof ollama.chat>[0]> = {}
+    input: ChatMessage[],
+    tools: ToolDefinition[],
+    opts: Partial<
+      Omit<ChatRequest, "model" | "messages" | "tools" | "stream">
+    > = {}
   ): Promise<ChatResponse> {
-    return await ollama.chat({
+    return await this.chatRequest({
       model: this.modelName,
       messages: input,
       tools,
-      stream: false, // simplification; streaming not yet wired here
+      stream: false,
       options: {
         temperature: this.temperature,
         num_predict: this.maxTokens,
-        ...(options.options ?? {}),
+        ...(opts.options ?? {}),
       },
-      ...options,
+      ...opts,
     });
   }
 
-  /* ---------------------------- Format helpers ---------------------------- */
+  /* ---------------------- Formatting helpers ---------------------------- */
 
-  /** Convert MCP GenericMessage → Ollama message objects */
-  formatRequest(messages: GenericMessage[]): OllamaMessage[] {
+  formatRequest(messages: GenericMessage[]): ChatMessage[] {
     if (!messages?.length) throw new Error("No messages provided");
 
-    return messages.map((msg) => {
-      const role =
-        msg.role === RoleType.ASSISTANT
+    return messages.map((m) => {
+      const role: MessageRole =
+        m.role === RoleType.ASSISTANT
           ? "assistant"
-          : msg.role === RoleType.SYSTEM
+          : m.role === RoleType.SYSTEM
           ? "system"
-          : msg.role === RoleType.TOOL
+          : m.role === RoleType.TOOL
           ? "tool"
           : "user";
 
-      const textParts: string[] = [];
+      const text: string[] = [];
       const images: string[] = [];
 
-      for (const item of msg.content) {
-        switch (item.type) {
-          case ContentType.TEXT:
-            textParts.push(item.text);
-            break;
-          case ContentType.IMAGE:
-            images.push(this.stripDataUrl(item.data));
-            break;
-          /* Ollama currently has no first-class audio support – ignore/throw. */
-          default:
-            throw new Error(
-              `Unsupported content type for Ollama: ${item.type}`
-            );
-        }
-      }
+      m.content.forEach((part) => {
+        if (part.type === ContentType.TEXT) text.push(part.text);
+        else if (part.type === ContentType.IMAGE)
+          images.push(this.stripDataUrl(part.data));
+        else
+          throw new Error(`Unsupported content type for Ollama: ${part.type}`);
+      });
 
-      const message: OllamaMessage = {
-        role,
-        content: textParts.join("\n"),
-      };
+      const chatMsg: ChatMessage = { role, content: text.join("\n") };
+      if (images.length) chatMsg.images = images;
+      if (role === "tool" && (m as any).tool_name)
+        chatMsg.tool_name = (m as any).tool_name;
 
-      if (images.length) message.images = images;
-      return message;
+      return chatMsg;
     });
   }
 
-  /** Extract function-call requests from an Ollama response */
-  formatCallToolRequest(response: ChatResponse): CallToolRequestParams[] {
-    const calls = response.message.tool_calls ?? []; //
-    return calls.map((call) => {
+  formatCallToolRequest(resp: ChatResponse): CallToolRequestParams[] {
+    const calls = resp.message.tool_calls ?? [];
+    return calls.map((c) => {
       const id = randomUUID();
       return {
         id,
         call_id: id,
-        name: call.function?.name ?? "unknown_tool",
-        arguments: call.function?.arguments ?? {},
+        name: c.function.name,
+        arguments: c.function.arguments,
       };
     });
   }
 
-  /** Convert MCP tool list → Ollama tool declarations */
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
-  ): OllamaTool[] {
-    return tools.map((tool) => ({
+  ): ToolDefinition[] {
+    return tools.map((t) => ({
       type: "function",
       function: {
-        name: tool.name,
-        description: tool.description ?? "",
+        name: t.name,
+        description: t.description ?? "",
         parameters:
-          tool.inputSchema && Object.keys(tool.inputSchema).length
-            ? (tool.inputSchema as Record<string, unknown>)
+          t.inputSchema && Object.keys(t.inputSchema).length
+            ? (t.inputSchema as Record<string, unknown>)
             : { type: "object", properties: {}, required: [] },
       },
     }));
   }
 
-  /** Convert a tool’s result → message object usable in the next chat turn */
-  formatToolResponse(result: CallToolResult): OllamaMessage {
-    // if (!result.name) {
-    //   logger.error({ header: "Missing tool name in result", body: result });
-    // }
-    const textContent = `
-**tool name**
-${result.name}
-
-**content**
-${result.content}
-
-**data**
-${JSON.stringify(result.structuredContent ?? {})}
-`;
+  formatToolResponse(result: CallToolResult): ChatMessage {
+    if (!result.name)
+      logger.error({
+        header: "Tool result missing name",
+        body: JSON.stringify(result, null, 2),
+      });
 
     return {
       role: "tool",
-      // tool_name: typeof result.name === "string" ? result.name : "unknown_tool",
-      content: textContent,
+      tool_name: typeof result.name === "string" ? result.name : "unknown_tool",
+      content:
+        typeof result.content === "string"
+          ? result.content
+          : JSON.stringify(result.content ?? {}),
     };
   }
 
-  formatImageData(imageData: string, mimeType = "image/png"): string {
-    return this.stripDataUrl(imageData); // Ollama expects bare base64, not a data-URL
+  formatImageData(b64: string): string {
+    return this.stripDataUrl(b64); // Ollama wants raw base64
   }
 
-  /* ------------- Translate Ollama responses → MCP GenericMessage ---------- */
-
-  formatResponseToAgentRequestMessage(response: ChatResponse): GenericMessage {
-    const calls = this.formatCallToolRequest(response);
-
+  /* -------- ChatResponse → GenericMessage utilities -------- */
+  formatResponseToAgentRequestMessage(resp: ChatResponse): GenericMessage {
+    const calls = this.formatCallToolRequest(resp);
     return {
-      id: randomUUID(), // Ollama responses lack IDs, so generate one
-      timestamp: new Date(response.created_at).getTime(),
+      id: randomUUID(),
+      timestamp: new Date(resp.created_at).getTime(),
       type: MessageType.AGENT_REQUEST,
       role: RoleType.ASSISTANT,
-      content: [{ type: ContentType.TEXT, text: response.message.content }],
+      content: [{ type: ContentType.TEXT, text: resp.message.content }],
       calls,
     } as AgentRequestMessage;
   }
 
   formatResponseToIntermediateRequestMessage(
-    response: ChatResponse
+    resp: ChatResponse
   ): GenericMessage {
-    /* Identical text, but surfaced as an intermediate user message
-       so the agent can decide whether to call tools again or finish. */
     return {
       id: randomUUID(),
-      timestamp: new Date(response.created_at).getTime(),
+      timestamp: new Date(resp.created_at).getTime(),
       type: MessageType.INTERMEDIATE_REQUEST,
       role: RoleType.USER,
-      content: [{ type: ContentType.TEXT, text: response.message.content }],
+      content: [{ type: ContentType.TEXT, text: resp.message.content }],
     } as IntermediateRequestMessage;
   }
 
-  /* ------------------------ Context-management helpers -------------------- */
-
-  createMessageContext(): OllamaMessage[] {
+  /* ---------------- Context management -------------------- */
+  createMessageContext(): ChatMessage[] {
     return [];
   }
 
-  addToApiMessageContext(response: ChatResponse, ctx: OllamaMessage[]): void {
-    if (response.message) ctx.push(response.message);
+  addToApiMessageContext(resp: ChatResponse, ctx: ChatMessage[]): void {
+    ctx.push(resp.message);
   }
 
   addToFormattedMessageContext(
-    response: ChatResponse,
+    resp: ChatResponse,
     ctx: GenericMessage[]
   ): void {
-    ctx.push(this.formatResponseToAgentRequestMessage(response));
+    ctx.push(this.formatResponseToAgentRequestMessage(resp));
   }
 
-  /* ------------------------------ Billing --------------------------------- */
-
-  /** Ollama’s API does **not** provide token-level usage metrics yet, so cost
-   *  tracking cannot be implemented.  We return `0` */
-  getCostFromResponse(_response: ChatResponse): number {
+  /* ---------------- Billing (not supported) --------------- */
+  getCostFromResponse(_r: ChatResponse): number {
     return 0;
   }
 
-  /* ------------------------------- Utils ---------------------------------- */
-
-  private stripDataUrl(data: string): string {
+  /* ---------------- Utility ------------------------------- */
+  private stripDataUrl(data: string) {
     return data.replace(/^data:[^;]+;base64,/, "");
   }
 }
