@@ -88,11 +88,6 @@ export class ReactAgent extends AgentInstance {
         toolsArray
       );
 
-      logger.log({
-        header: "Model response generated",
-        body: JSON.stringify(modelResponse, null, 2),
-      });
-
       rawResponses.push(modelResponse);
       cost += params.model.getCostFromResponse(modelResponse);
 
