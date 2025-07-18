@@ -4,6 +4,7 @@ import { ModelConfig, ModelProvider } from "../types";
 import { ModelInstance } from "./baseModel";
 import { GoogleModel } from "./googleModel";
 import { OllamaRESTModel } from "./ollamaModel";
+import { TogetherModel } from "./togetherModel";
 
 export function createModel(modelConfig: ModelConfig): ModelInstance {
   switch (modelConfig.modelProvider) {
@@ -18,6 +19,8 @@ export function createModel(modelConfig: ModelConfig): ModelInstance {
         ...modelConfig,
         baseUrl: process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434",
       });
+    case ModelProvider.TOGETHER:
+      return new TogetherModel(modelConfig);
     default:
       throw new Error(
         `Unsupported model provider: ${modelConfig.modelProvider}`
