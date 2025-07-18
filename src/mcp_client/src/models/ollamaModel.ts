@@ -230,19 +230,6 @@ export class OllamaRESTModel extends ModelInstance {
     return this.stripDataUrl(b64); // Ollama wants raw base64
   }
 
-  /* -------- ChatResponse → GenericMessage utilities -------- */
-  formatResponseToAgentRequestMessage(resp: ChatResponse): GenericMessage {
-    const calls = this.formatCallToolRequest(resp);
-    return {
-      id: randomUUID(),
-      timestamp: new Date(resp.created_at).getTime(),
-      type: MessageType.AGENT_REQUEST,
-      role: RoleType.ASSISTANT,
-      content: [{ type: ContentType.TEXT, text: resp.message.content }],
-      calls,
-    } as AgentRequestMessage;
-  }
-
   formatResponseToIntermediateRequestMessage(
     resp: ChatResponse
   ): GenericMessage {
@@ -268,7 +255,16 @@ export class OllamaRESTModel extends ModelInstance {
     resp: ChatResponse,
     ctx: GenericMessage[]
   ): void {
-    ctx.push(this.formatResponseToAgentRequestMessage(resp));
+    const calls = this.formatCallToolRequest(resp);
+
+    ctx.push({
+      id: randomUUID(),
+      timestamp: new Date(resp.created_at).getTime(),
+      type: MessageType.AGENT_REQUEST,
+      role: RoleType.ASSISTANT,
+      content: [{ type: ContentType.TEXT, text: resp.message.content }],
+      calls,
+    } as AgentRequestMessage);
   }
 
   /* ---------------- Billing (not supported) --------------- */

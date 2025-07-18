@@ -12,7 +12,6 @@ import {
   MessageType,
 } from "../types";
 import { ModelInstance } from "./baseModel";
-import { DEBUGGING_TOOL_KEYWORD } from "../utils/config";
 
 export class AnthropicModel extends ModelInstance {
   private client: AnthropicBedrock;
@@ -123,15 +122,18 @@ export class AnthropicModel extends ModelInstance {
   formatToolResponse(
     result: CallToolResult
   ): AnthropicMessageType.MessageParam {
+    const textJSON = JSON.stringify({
+      content: result.content,
+      structuredContent: result.structuredContent ?? {},
+    });
+
     return {
       role: "user",
       content: [
         {
           type: "tool_result" as const,
           tool_use_id: result.id,
-          content: JSON.stringify(
-            result.structuredContent ?? result.content ?? {}
-          ),
+          content: textJSON,
         } as AnthropicMessageType.ToolResultBlockParam,
       ],
     };
@@ -154,26 +156,6 @@ export class AnthropicModel extends ModelInstance {
     });
 
     return toolList;
-  }
-
-  formatResponseToAgentRequestMessage(response: any): GenericMessage {
-    if (!response || !response.content) {
-      throw new Error("Invalid response format");
-    }
-
-    const textContent = response.content
-      .filter((c: any) => c.type === "text")
-      .map((c: any) => c.text)
-      .join("\n");
-
-    return {
-      id: response.id,
-      timestamp: Date.now(),
-      type: MessageType.AGENT_REQUEST,
-      role: RoleType.ASSISTANT,
-      content: [{ type: ContentType.TEXT, text: textContent }],
-      calls: this.formatCallToolRequest(response),
-    } as AgentRequestMessage;
   }
 
   formatResponseToIntermediateRequestMessage(

@@ -40,7 +40,6 @@ export abstract class ModelInstance {
   ): any[];
   abstract formatToolResponse(response: CallToolResult): any;
   abstract formatImageData(imageData: string, mimeType?: string): string;
-  abstract formatResponseToAgentRequestMessage(response: any): GenericMessage;
   abstract formatResponseToIntermediateRequestMessage(
     response: any
   ): GenericMessage;

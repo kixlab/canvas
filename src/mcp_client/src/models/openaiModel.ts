@@ -23,9 +23,6 @@ export class OpenAIModel extends ModelInstance {
       apiKey: process.env.OPENAI_API_KEY,
     });
   }
-  formatResponse(response: any[]): GenericMessage[] {
-    throw new Error("Method not implemented.");
-  }
 
   async generateResponse(
     input: OpenAIResponseType.ResponseInput,
@@ -168,23 +165,6 @@ export class OpenAIModel extends ModelInstance {
       } as OpenAIResponseType.Tool);
     });
     return toolList;
-  }
-
-  formatResponseToAgentRequestMessage(
-    response: OpenAIResponseType.Responses.Response
-  ): GenericMessage {
-    const toolRequests = this.formatCallToolRequest(response);
-
-    return {
-      id: response.id,
-      timestamp: response.created_at,
-      type: MessageType.AGENT_REQUEST,
-      role: RoleType.ASSISTANT,
-      content: [
-        { type: ContentType.TEXT, text: (response as any).output_text },
-      ],
-      calls: toolRequests,
-    } as AgentRequestMessage;
   }
 
   formatResponseToIntermediateRequestMessage(

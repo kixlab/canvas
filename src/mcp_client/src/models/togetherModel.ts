@@ -199,22 +199,6 @@ export class TogetherModel extends ModelInstance {
   /* Message-level conversions                                    */
   /* ──────────────────────────────────────────────────────────── */
 
-  formatResponseToAgentRequestMessage(
-    response: ChatCompletion
-  ): GenericMessage {
-    const assistantMsg = response.choices?.[0]?.message;
-    const text = assistantMsg?.content ?? "";
-
-    return {
-      id: response.id,
-      timestamp: response.created,
-      role: RoleType.ASSISTANT,
-      type: MessageType.AGENT_REQUEST,
-      content: [{ type: ContentType.TEXT, text }],
-      calls: this.formatCallToolRequest(response),
-    } as AgentRequestMessage;
-  }
-
   formatResponseToIntermediateRequestMessage(
     response: ChatCompletion
   ): GenericMessage {
