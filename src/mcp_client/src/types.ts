@@ -149,6 +149,7 @@ export enum ModelProvider {
   ANTHROPIC = "anthropic",
   GOOGLE = "google",
   OLLAMA = "ollama",
+  TOGETHER = "together",
 }
 
 export enum ResponseStatus {

@@ -3,6 +3,11 @@
 - 2. Collect the access keys from the IAM credential (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html).
 - 3. Configure AWS keys as environment variable (https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#configuration).
 
+## Setting Up Ollama Server
+- 1. Setup a local Ollama server in the environment.
+- 2. Configure a localhost address and the port for the Ollama. 
+- 3. Serve the Ollama server and define the Ollama address as an environment variable in the `.env` inside `src/mcp_client/src/.env`.
+
 ## Environment variable structure
 ```text
 PORT=3000
@@ -12,6 +17,8 @@ GEMINI_API_KEY=
 
 BEDROCK_ACESSS_KEY=
 BEDROCK_SECRET_KEY=
+
+OLLAMA_BASE_URL=
 ```
 
 ## Loading a server

@@ -31,9 +31,6 @@ export class GoogleModel extends ModelInstance {
       apiKey: process.env.GEMINI_API_KEY,
     });
   }
-  formatImageData(imageData: string, mimeType?: string): string {
-    throw new Error("Method not implemented.");
-  }
 
   /**
    * Generic content generation without tools.
@@ -119,7 +116,7 @@ export class GoogleModel extends ModelInstance {
             return {
               inlineData: {
                 mimeType: item.mimeType ?? "image/png",
-                data: this.stripDataUrl(item.data),
+                data: this.formatImageData(item.data, item.mimeType),
               },
             };
           case ContentType.AUDIO:
@@ -148,9 +145,9 @@ export class GoogleModel extends ModelInstance {
     return response.functionCalls.map((call) => {
       const uuid = randomUUID();
       return {
-        id: call.id ?? `${call.name ?? "tool_call"}` + `-${uuid}`,
+        id: call.id ?? `${call.name ?? "tool_call"}` + `-${uuid}`, // Google may not provide an ID
         call_id: uuid,
-        name: call.name ?? uuid,
+        name: call.name ?? uuid, // Google instead uses `name` as the identifier
         arguments: call.args ?? {},
       };
     });
@@ -205,21 +202,9 @@ export class GoogleModel extends ModelInstance {
   /*  Message-level helpers                                                 */
   /* ---------------------------------------------------------------------- */
 
-  formatResponseToAgentRequestMessage(response: any): GenericMessage {
-    const text = response.text ?? ""; // Convenience accessor in SDK
-    const calls = this.formatCallToolRequest(response);
-
-    return {
-      id: response.responseId ?? "",
-      timestamp: Date.now(),
-      type: MessageType.AGENT_REQUEST,
-      role: RoleType.ASSISTANT,
-      content: [{ type: ContentType.TEXT, text }],
-      calls,
-    } as AgentRequestMessage;
-  }
-
-  formatResponseToIntermediateRequestMessage(response: any): GenericMessage {
+  formatResponseToIntermediateRequestMessage(
+    response: GenerateContentResponse
+  ): GenericMessage {
     const text = response.text ?? "";
     return {
       id: response.responseId ?? "",
@@ -271,7 +256,16 @@ export class GoogleModel extends ModelInstance {
     response: GenerateContentResponse,
     context: GenericMessage[]
   ): void {
-    context.push(this.formatResponseToAgentRequestMessage(response));
+    const calls = this.formatCallToolRequest(response);
+
+    context.push({
+      id: response.responseId ?? "",
+      timestamp: Date.now(),
+      type: MessageType.AGENT_REQUEST,
+      role: RoleType.ASSISTANT,
+      content: [{ type: ContentType.TEXT, text: response.text ?? "" }],
+      calls,
+    } as AgentRequestMessage);
   }
 
   /* ---------------------------------------------------------------------- */
@@ -302,6 +296,12 @@ export class GoogleModel extends ModelInstance {
   /**
    * Remove a data-URL prefix (`data:<mime>;base64,`) if present.
    */
+
+  formatImageData(imageData: string, mimeType: string): string {
+    imageData = imageData.replace(/^data:image\/[^;]+;base64,/, "");
+    return imageData;
+  }
+
   private stripDataUrl(data: string): string {
     return data.replace(/^data:[^;]+;base64,/, "");
   }
