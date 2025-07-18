@@ -1,17 +1,3 @@
-/**********************************************************************
- * llamaModel.ts
- *
- * Together-AI implementation of ModelInstance for Meta-Llama models.
- * --------------------------------------------------------------------
- *  ❗ Notes / gaps
- *  –  Together’s SDK does **not** yet expose audio-or-image helpers
- *     for chat models → image/audio branches are left as TODOs.
- *  –  The SDK does not return token-level logprobs via the TypeScript
- *     client (only in raw JSON) so `getCostFromResponse` ignores them.
- *  –  Streaming support is omitted for brevity; add `stream:true`
- *     where needed and handle the AsyncIterable if your agent streams.
- *********************************************************************/
-
 import Together from "together-ai";
 import { randomUUID } from "crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -134,7 +120,6 @@ export class TogetherModel extends ModelInstance {
   }
 
   /** Extract function-call requests from Together response */
-  // TODO
   formatCallToolRequest(response: ChatCompletion): CallToolRequestParams[] {
     const toolCalls = response.choices?.[0]?.message?.tool_calls ?? [];
     if (!Array.isArray(toolCalls)) return [];
