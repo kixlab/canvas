@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from typing import Dict
+from typing import Dict, Optional, Any
 from pathlib import Path
 
 from evaluation.metrics import register_metric
@@ -68,14 +66,14 @@ def kl_divergence(map1: np.ndarray, map2: np.ndarray) -> float:
 
 @register_metric("visual_saliency")
 def _visual_saliency_metric(
-    gt_img: str | None = None,
-    gen_img: str | None = None,
-    gt_json: str | None = None,
-    gen_json: str | None = None,
+    gt_img: Optional[str] = None,
+    gen_img: Optional[str] = None,
+    gt_json: Optional[str] = None,
+    gen_json: Optional[str] = None,
     *,
-    out_dir: str | None = None,
-    case_id: str | None = None,
-) -> Dict[str, float | None]:
+    out_dir: Optional[str] = None,
+    case_id: Optional[str] = None,
+) -> Dict[str, Optional[float]]:
     """Compute saliency similarity metrics (CC, SIM, KL) for a GT/GEN image pair.
 
     If out_dir is provided, the function also saves saliency maps, overlay images,

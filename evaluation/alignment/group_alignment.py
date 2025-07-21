@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from typing import Dict, List, Tuple, Any, DefaultDict, Sequence
+from typing import Dict, List, Tuple, Any, DefaultDict, Sequence, Optional
 from collections import defaultdict
 import json
 import os
@@ -99,12 +97,12 @@ def match_alignment_groups(gt_groups: List[AlignmentGroup], gen_groups: List[Ali
 
 def compute_alignment_score(
     gt_json_path: str,
-    gen_json_path: str | None = None,
+    gen_json_path: Optional[str] = None,
     tol: float = TOLERANCE,
-    out_dir: str | None = None,
+    out_dir: Optional[str] = None,
     case_id: str = "caseX",
-    gt_img_path: str | None = None,
-    gen_img_path: str | None = None,
+    gt_img_path: Optional[str] = None,
+    gen_img_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Compute Precision, Recall, F1 for alignment between GT and generated layouts."""
 
