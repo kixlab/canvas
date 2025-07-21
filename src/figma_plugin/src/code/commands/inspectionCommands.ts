@@ -254,7 +254,7 @@ export async function retrieveDocumentJson() {
   return documentJson;
 }
 
-export async function importDocumentJSON(params: { documentJson: string }) {
+export async function importDocumentJson(params: { documentJson: string }) {
   const { documentJson } = params ?? {};
   if (!documentJson) {
     throw new Error('No "documentJson" param supplied');
@@ -265,7 +265,9 @@ export async function importDocumentJSON(params: { documentJson: string }) {
   try {
     parsed = JSON.parse(documentJson);
   } catch (err) {
-    throw new Error('[importDocumentJSON] Invalid JSON – ' + getErrorMessage(err));
+    throw new Error(
+      '[importDocumentJSON] Invalid JSON – ' + getErrorMessage(err)
+    );
   }
 
   if (!parsed?.document?.children || !Array.isArray(parsed.document.children)) {

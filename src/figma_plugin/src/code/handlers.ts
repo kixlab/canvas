@@ -22,6 +22,8 @@ export async function handleCommand(command: string, params: any) {
       return await InspectionCommands.getResultImage(params);
     case 'export_json':
       return await InspectionCommands.retrieveDocumentJson();
+    case 'import_json':
+      return await InspectionCommands.importDocumentJson(params);
 
     case 'clone_node':
       return await OperationCommands.cloneNode(params);

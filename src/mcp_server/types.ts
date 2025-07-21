@@ -141,4 +141,5 @@ export type FigmaCommand =
   | "set_item_spacing"
   | "check_connection_status"
   | "get_result_image"
-  | "export_json";
+  | "export_json"
+  | "import_json";
