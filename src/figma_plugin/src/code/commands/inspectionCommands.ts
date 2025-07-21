@@ -254,16 +254,16 @@ export async function retrieveDocumentJson() {
   return documentJson;
 }
 
-export async function importDocumentJson(params: { documentJson: string }) {
-  const { documentJson } = params ?? {};
-  if (!documentJson) {
-    throw new Error('No "documentJson" param supplied');
+export async function importDocumentJson(params: { jsonString: string }) {
+  const { jsonString } = params ?? {};
+  if (!jsonString) {
+    throw new Error('No "jsonString" param supplied');
   }
 
   // ---------- Parse & validate ------------------------------------------------
   let parsed: any;
   try {
-    parsed = JSON.parse(documentJson);
+    parsed = JSON.parse(jsonString);
   } catch (err) {
     throw new Error(
       '[importDocumentJSON] Invalid JSON – ' + getErrorMessage(err)
