@@ -255,19 +255,19 @@ export function registerInspectionTools(server: McpServer) {
     "import_json",
     "[ONLY FOR DEBUGGING] Render an entire Figma document from a JSON string into the current page",
     {
-      documentJson: z
+      jsonString: z
         .string()
         .describe("The raw REST-v1 document JSON string to import and render"),
     },
-    async ({ documentJson }) => {
+    async ({ jsonString }) => {
       try {
         const result = await sendCommandToFigma("import_json", {
-          documentJson,
+          jsonString,
         });
 
         return createSuccessResponse({
           messages: [
-            `Successfully imported document – new root node id "${result.rootNodeId}".`,
+            `Successfully imported document – new root node id "${result.rootFrameId}".`,
           ],
           dataItem: result,
         });

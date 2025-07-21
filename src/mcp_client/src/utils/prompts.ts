@@ -96,8 +96,10 @@ Text: ${instruction}
 `;
 }
 
-export function getModificationWithoutOraclePrompt(
-  instruction: string
+export function getTextImageBasedModificationPrompt(
+  instruction: string,
+  width: number,
+  height: number
 ): string {
   return `
 **Context**
@@ -105,62 +107,16 @@ You are a UI-design agent with access to Figma via tool calls.
 Follow the **Instruction** to generate a UI design.
 Refer to the **Agency Principles** and **UI Design Principles** for guidance.
 
-1. Persistence  
-Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
+**Agency Principles**
+${agencyPrinciples}
 
-2. Tool use  
-Interact with the canvas via the provided Figma-control tools.
-
-**Modification Task**
-You are given an existing UI design and need to modify it according to the instruction.
+**Figma Basics**
+${figmaInstruction}
 
 **Instruction**
-Please analyze the provided screen image and modify the UI according to the following instruction:
-${instruction}
-`;
-}
-
-export function getModificationWithOracleHierarchyPrompt(
-  instruction: string
-): string {
-  return `
-**Context**
-You are a UI-design agent working inside Figma.
-
-1. Persistence  
-Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
-
-2. Tool use  
-Interact with the canvas via the provided Figma-control tools.
-
-**Oracle Hierarchy Mode**
-You have access to perfect hierarchy information of the UI elements.
-
-**Instruction**
-Please analyze the provided screen image with hierarchy information and modify the UI according to the following instructions:
-${instruction}
-`;
-}
-
-export function getModificationWithOraclePerfectCanvasPrompt(
-  instruction: string
-): string {
-  return `
-**Context**
-You are a UI-design agent working inside Figma.
-
-1. Persistence  
-Keep iterating until the user's visual specification is fully met and confirmed. Do not end the turn early.
-
-2. Tool use  
-Interact with the canvas via the provided Figma-control tools.
-
-**Oracle Perfect Canvas Mode**
-You have access to perfect canvas information, including all element properties and relationships.
-
-**Instruction**
-Please analyze the provided screen image with perfect canvas information and modify the UI according to the following instructions:
-${instruction}
+Please analyze the following screen image and text instruction, and modify the UI design to match the image and the instruction inside the existing "Main Screen" frame in the Figma, exactly.
+The frame size is ${width}x${height} pixels.
+Text: ${instruction}
 `;
 }
 

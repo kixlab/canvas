@@ -287,6 +287,7 @@ export async function importDocumentJson(params: { documentJson: string }) {
 
   rootNode.x = 0;
   rootNode.y = 0;
+  rootNode.name = 'Main Screen';
 
   page.appendChild(rootNode);
 
@@ -295,7 +296,7 @@ export async function importDocumentJson(params: { documentJson: string }) {
 
   return {
     success: true,
-    rootNodeId: rootNode.id,
+    rootFrameId: rootNode.id,
     message: 'Document JSON imported successfully',
   };
 }
