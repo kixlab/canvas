@@ -14,14 +14,13 @@ import { Tools } from "../core/tools";
 import { AgentInstance } from "./baseAgent";
 import {
   switchParentId,
-  intializeMainScreenFrame,
   getPageStructure,
   clearPage,
   isPageClear,
   getPageImage,
   logger,
 } from "../utils/helpers";
-import { MINIMUM_TURN } from "../utils/config";
+import { MINIMUM_MODIFICATION_TURN } from "../utils/config";
 
 export class ModificationAgent extends AgentInstance {
   async run(params: {
@@ -163,10 +162,10 @@ export class ModificationAgent extends AgentInstance {
     }
 
     // Check if we need to re-run due to insufficient turns
-    if (turn < MINIMUM_TURN) {
+    if (turn < MINIMUM_MODIFICATION_TURN) {
       logger.error({
         header: `Minimum turn requirement not met. Re-running the process...`,
-        body: `Completed with only ${turn} turns (less than ${MINIMUM_TURN})`,
+        body: `Completed with only ${turn} turns (less than ${MINIMUM_MODIFICATION_TURN})`,
       });
 
       // Clear the page and re-run

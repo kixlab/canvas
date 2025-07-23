@@ -75,13 +75,13 @@ function sanitisePathData(path: string): string {
   return (
     path
       // 1. space *after* command letter (if next char isn’t whitespace/comma)
-      .replace(/([MLHVCSQTAZmlhvcsqtaz])(?=[^\s,])/g, "$1 ")
+      .replace(/([MLHVCSQTAZmlhvcsqtaz])(?=[^\s,])/g, '$1 ')
       // 2. space *before* command letter (if prev char isn’t whitespace/comma)
-      .replace(/([^\s,])([MLHVCSQTAZmlhvcsqtaz])/g, "$1 $2")
+      .replace(/([^\s,])([MLHVCSQTAZmlhvcsqtaz])/g, '$1 $2')
       // 3. space before a minus-sign that follows a digit or dot
-      .replace(/([0-9.])(-)/g, "$1 $2")
+      .replace(/([0-9.])(-)/g, '$1 $2')
       // 4. collapse whitespace noise
-      .replace(/\s+/g, " ")
+      .replace(/\s+/g, ' ')
       .trim()
   );
 }
@@ -97,10 +97,14 @@ function deltaDeg(a: number, b: number): number {
   return Math.abs(((a - b + 180) % 360) - 180);
 }
 
+export function tideFloat(n: number, eps = 1e-6): number {
+  return Math.abs(n) < eps ? 0 : Number(n.toFixed(6));
+}
+
 // ─── helper ────────────────────────────────────────────────────────────────
 function wantsAbsolute(staticNode: FetchedNode): boolean {
   return (
-    (staticNode as any).layoutPositioning === "ABSOLUTE" ||
+    (staticNode as any).layoutPositioning === 'ABSOLUTE' ||
     (staticNode as any).ignoreAutoLayout === true
   );
 }
@@ -113,16 +117,16 @@ function finaliseAbsolutePositioning(
   try {
     if (
       !wantsAbsolute(staticChild) || // not requested
-      !("layoutMode" in liveParent) || // parent not a frame
-      liveParent.layoutMode === "NONE" || // parent not auto-layout
-      !("layoutPositioning" in liveChild) // property not supported
+      !('layoutMode' in liveParent) || // parent not a frame
+      liveParent.layoutMode === 'NONE' || // parent not auto-layout
+      !('layoutPositioning' in liveChild) // property not supported
     ) {
       return;
     }
 
     // 1 — switch to ABSOLUTE *now that the parent is valid*
-    if ("layoutPositioning" in liveChild) {
-      (liveChild as any).layoutPositioning = "ABSOLUTE";
+    if ('layoutPositioning' in liveChild) {
+      (liveChild as any).layoutPositioning = 'ABSOLUTE';
     }
 
     // 2 — apply the stored matrix translation as x / y (parent-space)
@@ -139,7 +143,7 @@ function finaliseAbsolutePositioning(
       liveChild.y = y - liveParent.y;
     }
   } catch (err) {
-    console.warn("finaliseAbsolutePositioning →", err);
+    console.warn('finaliseAbsolutePositioning →', err);
   }
 }
 
@@ -151,10 +155,10 @@ function formatPaint(p: any): Paint | undefined {
 
   switch (p.type) {
     /* ────────── SOLID ────────── */
-    case "SOLID": {
+    case 'SOLID': {
       if (!p.color) return; // invalid
       return {
-        type: "SOLID",
+        type: 'SOLID',
         color: rgb(p.color),
         opacity: p.opacity ?? p.color.a ?? 1,
         visible: p.visible ?? true,
@@ -163,11 +167,11 @@ function formatPaint(p: any): Paint | undefined {
     }
 
     /* ────────── IMAGE ────────── */
-    case "IMAGE": {
+    case 'IMAGE': {
       return {
-        type: "IMAGE",
+        type: 'IMAGE',
         imageHash: p.imageHash,
-        scaleMode: p.scaleMode ?? "FILL",
+        scaleMode: p.scaleMode ?? 'FILL',
         imageTransform: p.imageTransform ?? [
           [1, 0, 0],
           [0, 1, 0],
@@ -178,10 +182,10 @@ function formatPaint(p: any): Paint | undefined {
     }
 
     /* ────────── GRADIENTS ────────── */
-    case "GRADIENT_LINEAR":
-    case "GRADIENT_RADIAL":
-    case "GRADIENT_ANGULAR":
-    case "GRADIENT_DIAMOND": {
+    case 'GRADIENT_LINEAR':
+    case 'GRADIENT_RADIAL':
+    case 'GRADIENT_ANGULAR':
+    case 'GRADIENT_DIAMOND': {
       if (!Array.isArray(p.gradientStops) || p.gradientStops.length < 2) return;
 
       const transform: Transform =
@@ -210,7 +214,7 @@ function formatPaint(p: any): Paint | undefined {
 }
 
 const assignPaints = (
-  key: "fills" | "strokes",
+  key: 'fills' | 'strokes',
   target: GeometryMixin,
   source: any
 ) => {
@@ -244,11 +248,9 @@ export async function createNode(
   const liveNode = await instantiateNode(staticNode);
   if (!liveNode) return null;
 
-  /* 2 — vector geometry must exist before we resize the liveNode ------------------------- */
-  applyVectorData(liveNode, staticNode);
-
   // 2 – apply every group of properties that the API exposes
-  applyCommonProps(liveNode, staticNode); // name, visibility, rotation, opacity
+  applyCommonProps(liveNode, staticNode); // name, visibility, opacity
+  applyVectorData(liveNode, staticNode);
   applyTransform(liveNode, staticNode, staticParentNode); // x, y, w, h, resize, relativeTransform
   applyGeometry(liveNode, staticNode); // fills, strokes, effects, corner radius…
   applyBackground(liveNode, staticNode);
@@ -260,7 +262,7 @@ export async function createNode(
   applyBlend(liveNode, staticNode); // blendMode, opacity, masks
 
   // 3 – recurse for children. Groups & boolean ops need a special path
-  if (Array.isArray(staticNode.children) && "appendChild" in liveNode) {
+  if (Array.isArray(staticNode.children) && 'appendChild' in liveNode) {
     for (const staticChildNode of staticNode.children) {
       const liveChildNode = await createNode(
         staticChildNode,
@@ -274,7 +276,7 @@ export async function createNode(
     }
 
     // If the JSON layer was a GROUP, convert the temporary Frame
-    if (staticNode.type === "GROUP") {
+    if (staticNode.type === 'GROUP') {
       const group = figma.group(
         (liveNode as FrameNode).children,
         liveNode.parent as PageNode | (BaseNode & ChildrenMixin)
@@ -285,7 +287,7 @@ export async function createNode(
     }
 
     // If the JSON layer was a BOOLEAN_OPERATION, convert the temporary Frame
-    if (staticNode.type === "BOOLEAN_OPERATION") {
+    if (staticNode.type === 'BOOLEAN_OPERATION') {
       const boolNode = applyBoolean(liveNode, staticNode, parentNode);
       if (boolNode) {
         // re-apply properties that must live on the final node
@@ -328,40 +330,45 @@ async function instantiateNode(
 
 function applyVectorData(liveNode: SceneNode, staticNode: FetchedNode) {
   try {
-    if (staticNode.type !== "VECTOR") return; // bail on non-vectors
-
+    if (staticNode.type !== 'VECTOR') return; // bail on non‑vectors
     const vector = liveNode as VectorNode;
 
-    // Prefer fill geometry → fallback to stroke geometry → bail if none
-    const geo =
-      (staticNode.fillGeometry?.length
-        ? staticNode.fillGeometry
-        : staticNode.strokeGeometry) ?? [];
-    if (!geo.length) return;
+    // ───────────────────── pick geometry ─────────────────────
+    const hasFillGeo =
+      Array.isArray(staticNode.fillGeometry) && staticNode.fillGeometry.length;
+    const geo: any[] = hasFillGeo
+      ? staticNode.fillGeometry // normal filled vector
+      : (staticNode.strokeGeometry ?? []); // outline (possibly collapsed)
 
-    // Convert Figma REST JSON → Plugin API VectorPath[]
+    if (!geo.length) return; // nothing to draw
+
+    // ───────────────────── vector paths (always) ─────────────────────
     vector.vectorPaths = geo.map((g: any) => ({
-      windingRule: (g.windingRule as WindingRule) ?? "NONZERO",
+      windingRule: (g.windingRule as WindingRule) ?? 'NONZERO',
       data: sanitisePathData(g.path as string),
     }));
 
-    // Basic stroke props that live on VectorNode itself
-    if ("strokeCap" in staticNode) vector.strokeCap = staticNode.strokeCap;
-    if ("strokeJoin" in staticNode) vector.strokeJoin = staticNode.strokeJoin;
-    if ("strokeWeight" in staticNode)
-      vector.strokeWeight = staticNode.strokeWeight;
+    // ───────────────────── paint strategy ─────────────────────
+    const strokePaints = Array.isArray(staticNode.strokes)
+      ? clone(staticNode.strokes)
+      : [];
+
+    // prepend so original fills (if any) draw on top of the outline
+    staticNode.fills = strokePaints.concat(staticNode.fills ?? []);
+    staticNode.strokes = []; // prevent re‑applying as stroke
+    delete staticNode.strokeWeight; // no weight on a filled outline
   } catch (e) {
-    console.error("Error applying vector data:", e);
+    console.error('applyVectorData →', e);
   }
 }
 
 function applyCommonProps(liveNode: SceneNode, staticNode: FetchedNode) {
   try {
     liveNode.name = staticNode.name ?? staticNode.type;
-    if ("visible" in staticNode) liveNode.visible = staticNode.visible;
-    if ("opacity" in staticNode) (liveNode as any).opacity = staticNode.opacity;
+    if ('visible' in staticNode) liveNode.visible = staticNode.visible;
+    if ('opacity' in staticNode) (liveNode as any).opacity = staticNode.opacity;
   } catch (e) {
-    console.error("Error applying common props:", e);
+    console.error('Error applying common props:', e);
   }
 }
 
@@ -373,26 +380,26 @@ function applyTransform(
   try {
     /* 0 – flags --------------------------------------------------------- */
     const parentIsAutoLayout =
-      typeof staticParentNode.layoutMode === "string" &&
-      staticParentNode.layoutMode !== "NONE";
+      typeof staticParentNode.layoutMode === 'string' &&
+      staticParentNode.layoutMode !== 'NONE';
 
     const absoluteLater = parentIsAutoLayout && wantsAbsolute(staticNode);
 
     /* 1 – size (unchanged) --------------------------------------------- */
     const w =
-      staticNode.absoluteBoundingBox?.width ??
       staticNode.size?.x ??
+      staticNode.absoluteBoundingBox?.width ??
       liveNode.width;
     const h =
-      staticNode.absoluteBoundingBox?.height ??
       staticNode.size?.y ??
+      staticNode.absoluteBoundingBox?.height ??
       liveNode.height;
 
     if (
-      "resize" in liveNode &&
+      'resize' in liveNode &&
       w != null &&
       h != null &&
-      liveNode.type !== "VECTOR"
+      liveNode.type !== 'VECTOR'
     ) {
       (liveNode as LayoutMixin).resize(w, h);
     }
@@ -400,37 +407,49 @@ function applyTransform(
     /* 2 – position / rotation ------------------------------------------ */
     const canEditXYNow = !parentIsAutoLayout && !absoluteLater;
     const isRoot =
-      staticParentNode.type === "DOCUMENT" || staticParentNode.type === "PAGE";
+      staticParentNode.type === 'DOCUMENT' || staticParentNode.type === 'PAGE';
 
     if (
       canEditXYNow &&
       Array.isArray(staticNode.relativeTransform) &&
       staticNode.relativeTransform.length === 2 &&
-      !isRoot
+      !isRoot &&
+      'relativeTransform' in liveNode
     ) {
-      const T = staticNode.relativeTransform as Transform;
-      liveNode.x = T[0][2];
-      liveNode.y = T[1][2];
-      const angleCW = -degFromMatrix(T);
-      if (angleCW) liveNode.rotation = angleCW;
-      return;
-    }
+      const M = staticNode.relativeTransform as Transform;
 
+      /* 2 a – sanitise tiny float noise (Figma rejects 1.000000000002 …) */
+      const safe: Transform = [
+        [tideFloat(M[0][0]), tideFloat(M[0][1]), tideFloat(M[0][2])],
+        [tideFloat(M[1][0]), tideFloat(M[1][1]), tideFloat(M[1][2])],
+      ];
+
+      try {
+        (liveNode as any).relativeTransform = safe;
+        return;
+      } catch (error) {
+        console.error(
+          'Error applying relativeTransform:',
+          error,
+          '→ falling back to absolute positioning'
+        );
+      }
+    }
     /* 3 – legacy fallback (same gate) ---------------------------------- */
     if (canEditXYNow && staticNode.absoluteBoundingBox) {
       const { x, y } = staticNode.absoluteBoundingBox as XYWH;
       liveNode.x = x - (staticParentNode.absoluteBoundingBox?.x ?? 0);
       liveNode.y = y - (staticParentNode.absoluteBoundingBox?.y ?? 0);
-      if (typeof staticNode.rotation === "number") {
+      if (typeof staticNode.rotation === 'number') {
         const raw =
           Math.abs(staticNode.rotation) <= 2 * Math.PI
             ? (staticNode.rotation * 180) / Math.PI
             : staticNode.rotation;
-        liveNode.rotation = -raw;
+        liveNode.rotation = raw;
       }
     }
   } catch (e) {
-    console.error("Error applying transform:", e);
+    console.error('Error applying transform:', e);
   }
 }
 
@@ -442,56 +461,63 @@ function applyGeometry(liveNode: SceneNode, staticNode: FetchedNode) {
       { x: 0.0, y: 1.0 }, // width-direction (any non-collinear third point works)
     ];
 
-    if ("fills" in liveNode) {
-      assignPaints("fills", liveNode as GeometryMixin, staticNode);
+    if ('fills' in liveNode) {
+      assignPaints('fills', liveNode as GeometryMixin, staticNode);
     }
-    if ("strokes" in liveNode) {
-      assignPaints("strokes", liveNode as GeometryMixin, staticNode);
+    if ('strokes' in liveNode) {
+      assignPaints('strokes', liveNode as GeometryMixin, staticNode);
     }
 
-    if ("strokeWeight" in staticNode && "strokeWeight" in liveNode) {
+    if ('strokeWeight' in staticNode && 'strokeWeight' in liveNode) {
       (liveNode as GeometryMixin).strokeWeight = staticNode.strokeWeight;
     }
-    if ("cornerRadius" in liveNode) {
+    if ('cornerRadius' in liveNode) {
       const tgt = liveNode as unknown as CornerMixin;
 
-      // 1 · bulk array from REST   ──────────────────────────────
-      if (Array.isArray(staticNode.rectangleCornerRadii)) {
-        const [tl, tr, br, bl] = staticNode.rectangleCornerRadii;
-        if ("topLeftRadius" in staticNode) tgt.topLeftRadius = tl;
-        if ("topRightRadius" in staticNode) tgt.topRightRadius = tr;
-        if ("bottomRightRadius" in staticNode) tgt.bottomRightRadius = br;
-        if ("bottomLeftRadius" in staticNode) tgt.bottomLeftRadius = bl;
-      } else {
-        // 2 · individual props from REST ───────────────────────
-        if ("topLeftRadius" in staticNode)
-          tgt.topLeftRadius = staticNode.topLeftRadius;
-        if ("topRightRadius" in staticNode)
-          tgt.topRightRadius = staticNode.topRightRadius;
-        if ("bottomRightRadius" in staticNode)
-          tgt.bottomRightRadius = staticNode.bottomRightRadius;
-        if ("bottomLeftRadius" in staticNode)
-          tgt.bottomLeftRadius = staticNode.bottomLeftRadius;
-      }
+      // Helper to coerce undefined → 0 (Figma rejects NaN/undefined)
+      const asNum = (v: any) => (typeof v === 'number' ? v : 0);
 
-      // 3 · fallback to uniform radius (keeps old behaviour) ───
+      // 1 · bulk array from REST (rectangleCornerRadii[4])
       if (
-        !("rectangleCornerRadii" in staticNode) &&
-        !("topLeftRadius" in staticNode) &&
-        "cornerRadius" in staticNode
+        Array.isArray(staticNode.rectangleCornerRadii) &&
+        staticNode.rectangleCornerRadii.length === 4
       ) {
-        tgt.cornerRadius = staticNode.cornerRadius;
+        const [tl, tr, br, bl] = staticNode.rectangleCornerRadii.map(asNum);
+        tgt.topLeftRadius = tl; // ← always assign – frame nodes usually
+        tgt.topRightRadius = tr; //    *don’t* carry the per‑corner
+        tgt.bottomRightRadius = br; //    props in the REST payload
+        tgt.bottomLeftRadius = bl;
+      } else {
+        // 2 · individual props from REST (topLeftRadius …)
+        if (staticNode.topLeftRadius !== undefined)
+          tgt.topLeftRadius = asNum(staticNode.topLeftRadius);
+        if (staticNode.topRightRadius !== undefined)
+          tgt.topRightRadius = asNum(staticNode.topRightRadius);
+        if (staticNode.bottomRightRadius !== undefined)
+          tgt.bottomRightRadius = asNum(staticNode.bottomRightRadius);
+        if (staticNode.bottomLeftRadius !== undefined)
+          tgt.bottomLeftRadius = asNum(staticNode.bottomLeftRadius);
       }
 
-      // Optional smoothing (supported by CornerMixin)
-      if ("cornerSmoothing" in staticNode)
+      // 3 · uniform fallback (legacy behaviour)
+      if (
+        staticNode.rectangleCornerRadii === undefined &&
+        staticNode.topLeftRadius === undefined &&
+        staticNode.cornerRadius !== undefined
+      ) {
+        tgt.cornerRadius = asNum(staticNode.cornerRadius);
+      }
+
+      // 4 · optional smoothing
+      if (staticNode.cornerSmoothing !== undefined) {
         tgt.cornerSmoothing = staticNode.cornerSmoothing;
+      }
     }
-    if ("effects" in staticNode && "effects" in liveNode) {
+    if ('effects' in staticNode && 'effects' in liveNode) {
       (liveNode as GeometryMixin).effects = staticNode.effects;
     }
   } catch (e) {
-    console.error("Error applying geometry:", e);
+    console.error('Error applying geometry:', e);
   }
 }
 
@@ -501,43 +527,43 @@ function applyBackground(liveNode: SceneNode, staticNode: FetchedNode) {
     staticNode.backgroundColor != null ||
     (Array.isArray(staticNode.background) &&
       staticNode.background.length > 0) ||
-    typeof staticNode.backgroundStyleId === "string";
+    typeof staticNode.backgroundStyleId === 'string';
   if (!hasBgInput) return;
 
   /* ───────────────── 1 · PAGE nodes ───────────────── */
-  if (liveNode.type === "PAGE" || staticNode.type === "PAGE") {
+  if (liveNode.type === 'PAGE' || staticNode.type === 'PAGE') {
     if (staticNode.backgroundColor) {
       const { r, g, b } = staticNode.backgroundColor;
       (liveNode as PageNode).backgroundColor = { r, g, b };
     }
     if (
-      typeof staticNode.backgroundStyleId === "string" &&
-      "backgroundStyleId" in liveNode
+      typeof staticNode.backgroundStyleId === 'string' &&
+      'backgroundStyleId' in liveNode
     ) {
       try {
         // since API 1.105 pages can reference a paint style
         (liveNode as any).backgroundStyleId = staticNode.backgroundStyleId;
       } catch (err) {
-        console.error("Error applying background style:", err);
+        console.error('Error applying background style:', err);
       }
     }
     return;
   }
 
   /* ─────── 2 · nodes that expose `backgrounds` (Frame / Component / Instance) ─────── */
-  if ("background" in liveNode) {
+  if ('background' in liveNode) {
     const frameLike = liveNode as FrameNode | ComponentNode | InstanceNode;
 
     /* 2 a – paint style */
     if (
-      typeof staticNode.backgroundStyleId === "string" &&
-      "backgroundStyleId" in frameLike
+      typeof staticNode.backgroundStyleId === 'string' &&
+      'backgroundStyleId' in frameLike
     ) {
       try {
         (frameLike as any).backgroundStyleId = staticNode.backgroundStyleId;
       } catch {
         console.error(
-          "Error applying background style:",
+          'Error applying background style:',
           staticNode.backgroundStyleId
         );
       }
@@ -559,37 +585,37 @@ function applyBackground(liveNode: SceneNode, staticNode: FetchedNode) {
     if (
       staticNode.backgroundColor &&
       (!frameLike.background || frameLike.background.length === 0) &&
-      typeof staticNode.backgroundStyleId !== "string"
+      typeof staticNode.backgroundStyleId !== 'string'
     ) {
       const { r, g, b, a } = staticNode.backgroundColor;
       frameLike.background = [
-        { type: "SOLID", color: { r, g, b }, opacity: a ?? 1 },
+        { type: 'SOLID', color: { r, g, b }, opacity: a ?? 1 },
       ];
     }
     return;
   }
 
   /* ───────────── 3 · Geometry nodes (RECTANGLE, VECTOR, …) ───────────── */
-  if ("fills" in liveNode) {
+  if ('fills' in liveNode) {
     const geo = liveNode as GeometryMixin & { fillStyleId?: string };
 
     const jsonHasPaint =
       (Array.isArray(staticNode.fills) && staticNode.fills.length > 0) ||
-      typeof staticNode.fillStyleId === "string";
+      typeof staticNode.fillStyleId === 'string';
     const liveHasPaint =
       (Array.isArray(geo.fills) && geo.fills.length > 0) ||
-      typeof geo.fillStyleId === "string";
+      typeof geo.fillStyleId === 'string';
 
     /* fallback */
     if (!liveHasPaint && staticNode.backgroundColor) {
       const { r, g, b, a } = staticNode.backgroundColor;
-      geo.fills = [{ type: "SOLID", color: { r, g, b }, opacity: a ?? 1 }];
+      geo.fills = [{ type: 'SOLID', color: { r, g, b }, opacity: a ?? 1 }];
     }
   }
 }
 
 function applyStrokeProps(liveNode: SceneNode, staticNode: FetchedNode) {
-  if (!("strokes" in liveNode)) return; // nothing to do
+  if (!('strokes' in liveNode)) return; // nothing to do
 
   const target = liveNode as unknown as {
     strokeCap?: StrokeCap;
@@ -599,23 +625,91 @@ function applyStrokeProps(liveNode: SceneNode, staticNode: FetchedNode) {
     strokeMiterLimit?: number;
   };
 
-  if ("strokeCap" in staticNode) target.strokeCap = staticNode.strokeCap;
-  if ("strokeJoin" in staticNode) target.strokeJoin = staticNode.strokeJoin;
-  if ("strokeAlign" in staticNode) target.strokeAlign = staticNode.strokeAlign;
-  if ("dashPattern" in staticNode) target.dashPattern = staticNode.dashPattern;
-  if ("strokeMiterLimit" in staticNode)
+  if ('strokeCap' in staticNode) target.strokeCap = staticNode.strokeCap;
+  if ('strokeJoin' in staticNode) target.strokeJoin = staticNode.strokeJoin;
+  if ('strokeAlign' in staticNode) target.strokeAlign = staticNode.strokeAlign;
+  if ('dashPattern' in staticNode) target.dashPattern = staticNode.dashPattern;
+  if ('strokeMiterLimit' in staticNode)
     target.strokeMiterLimit = staticNode.strokeMiterLimit;
+
+  const dash = Array.isArray(staticNode.dashPattern)
+    ? staticNode.dashPattern
+    : Array.isArray((staticNode as any).strokeDashes)
+      ? (staticNode as any).strokeDashes
+      : undefined;
+
+  // only assign when we really have a pattern (API rejects empty writes)
+  if (dash && dash.length) {
+    // `dashPattern` is typed ReadonlyArray – clone to satisfy the runtime
+    target.dashPattern = [...dash];
+  }
+
+  const indivdualWeights = staticNode.individualStrokeWeights;
+  if (!indivdualWeights || typeof indivdualWeights !== 'object') return; // nothing to do
+
+  // Normalise to plain numbers or leave undefined → keep existing weight
+  const top =
+    typeof indivdualWeights.top === 'number' ? indivdualWeights.top : undefined;
+  const right =
+    typeof indivdualWeights.right === 'number'
+      ? indivdualWeights.right
+      : undefined;
+  const bottom =
+    typeof indivdualWeights.bottom === 'number'
+      ? indivdualWeights.bottom
+      : undefined;
+  const left =
+    typeof indivdualWeights.left === 'number'
+      ? indivdualWeights.left
+      : undefined;
+
+  // New composite setter (API ≥1.106) …
+  if ('individualStrokeWeights' in liveNode) {
+    (liveNode as any).individualStrokeWeights = {
+      top:
+        top ??
+        (liveNode as any).individualStrokeWeights?.top ??
+        (liveNode as any).strokeWeight ??
+        0,
+      right:
+        right ??
+        (liveNode as any).individualStrokeWeights?.right ??
+        (liveNode as any).strokeWeight ??
+        0,
+      bottom:
+        bottom ??
+        (liveNode as any).individualStrokeWeights?.bottom ??
+        (liveNode as any).strokeWeight ??
+        0,
+      left:
+        left ??
+        (liveNode as any).individualStrokeWeights?.left ??
+        (liveNode as any).strokeWeight ??
+        0,
+    };
+    return;
+  }
+
+  // … older per‑side fields (typings before Feb‑2024)
+  if ('strokeTopWeight' in liveNode && top !== undefined)
+    (liveNode as any).strokeTopWeight = top;
+  if ('strokeRightWeight' in liveNode && right !== undefined)
+    (liveNode as any).strokeRightWeight = right;
+  if ('strokeBottomWeight' in liveNode && bottom !== undefined)
+    (liveNode as any).strokeBottomWeight = bottom;
+  if ('strokeLeftWeight' in liveNode && left !== undefined)
+    (liveNode as any).strokeLeftWeight = left;
 }
 
 function applyShapeProps(liveNode: SceneNode, staticNode: FetchedNode) {
   switch (staticNode.type) {
     /* ──────────────── ELLIPSE ──────────────── */
-    case "ELLIPSE": {
-      if ("arcData" in staticNode) {
+    case 'ELLIPSE': {
+      if ('arcData' in staticNode) {
         const src = staticNode.arcData;
         // REST % (0-100)  → plugin 0-1
         const inner =
-          typeof src.innerRadius === "number" && src.innerRadius > 1
+          typeof src.innerRadius === 'number' && src.innerRadius > 1
             ? src.innerRadius / 100
             : (src.innerRadius ?? 0);
         (liveNode as EllipseNode).arcData = {
@@ -628,10 +722,10 @@ function applyShapeProps(liveNode: SceneNode, staticNode: FetchedNode) {
     }
 
     /* ─────────────── RECTANGLE ─────────────── */
-    case "RECTANGLE": {
+    case 'RECTANGLE': {
       const r = liveNode as RectangleNode;
 
-      if ("cornerSmoothing" in staticNode)
+      if ('cornerSmoothing' in staticNode)
         r.cornerSmoothing = staticNode.cornerSmoothing;
 
       if (Array.isArray(staticNode.rectangleCornerRadii)) {
@@ -641,32 +735,39 @@ function applyShapeProps(liveNode: SceneNode, staticNode: FetchedNode) {
         r.bottomRightRadius = br;
         r.bottomLeftRadius = bl;
       } else {
-        if ("topLeftRadius" in staticNode)
+        if ('topLeftRadius' in staticNode)
           r.topLeftRadius = staticNode.topLeftRadius;
-        if ("topRightRadius" in staticNode)
+        if ('topRightRadius' in staticNode)
           r.topRightRadius = staticNode.topRightRadius;
-        if ("bottomRightRadius" in staticNode)
+        if ('bottomRightRadius' in staticNode)
           r.bottomRightRadius = staticNode.bottomRightRadius;
-        if ("bottomLeftRadius" in staticNode)
+        if ('bottomLeftRadius' in staticNode)
           r.bottomLeftRadius = staticNode.bottomLeftRadius;
       }
       break;
     }
 
     /* ──────────────── POLYGON ──────────────── */
-    case "POLYGON": {
+    case 'POLYGON': {
       const p = liveNode as PolygonNode;
-      if ("pointCount" in staticNode) p.pointCount = staticNode.pointCount; // :contentReference[oaicite:1]{index=1}
-      if ("cornerRadius" in staticNode)
-        p.cornerRadius = staticNode.cornerRadius;
+      if ('pointCount' in staticNode) p.pointCount = staticNode.pointCount; // :contentReference[oaicite:1]{index=1}
+      if ('cornerRadius' in staticNode) {
+        p.cornerRadius =
+          staticNode.cornerRadius > 1
+            ? staticNode.cornerRadius / 100
+            : staticNode.cornerRadius;
+      }
+      if ('cornerSmoothing' in staticNode) {
+        p.cornerSmoothing = staticNode.cornerSmoothing;
+      }
       break;
     }
 
     /* ───────────────── STAR ────────────────── */
-    case "STAR": {
+    case 'STAR': {
       const s = liveNode as StarNode;
-      if ("pointCount" in staticNode) s.pointCount = staticNode.pointCount; // :contentReference[oaicite:2]{index=2}
-      if ("innerRadius" in staticNode)
+      if ('pointCount' in staticNode) s.pointCount = staticNode.pointCount; // :contentReference[oaicite:2]{index=2}
+      if ('innerRadius' in staticNode)
         s.innerRadius =
           staticNode.innerRadius > 1
             ? staticNode.innerRadius / 100
@@ -675,7 +776,7 @@ function applyShapeProps(liveNode: SceneNode, staticNode: FetchedNode) {
     }
 
     /* ──────────────── LINE ─────────────────── */
-    case "LINE":
+    case 'LINE':
       /* nothing extra – stroke props were handled above */
       break;
   }
@@ -685,11 +786,11 @@ async function applyText(
   liveNode: SceneNode,
   staticNode: FetchedNode
 ): Promise<void> {
-  if (staticNode.type !== "TEXT") return;
+  if (staticNode.type !== 'TEXT') return;
   const txt = liveNode as TextNode;
 
   /* ───── helpers ───── */
-  const FALLBACK_FAMILY = "Inter";
+  const FALLBACK_FAMILY = 'Inter';
 
   async function loadFontOrFallback(requested: FontName): Promise<FontName> {
     try {
@@ -704,7 +805,7 @@ async function applyText(
         await figma.loadFontAsync(sameStyle);
         return sameStyle;
       } catch {
-        const regular: FontName = { family: FALLBACK_FAMILY, style: "Regular" };
+        const regular: FontName = { family: FALLBACK_FAMILY, style: 'Regular' };
         await figma.loadFontAsync(regular);
         return regular;
       }
@@ -713,9 +814,9 @@ async function applyText(
 
   const toPaints = (fills: any[] = []): Paint[] =>
     fills
-      .filter((p) => p.type === "SOLID" && p.color)
+      .filter((p) => p.type === 'SOLID' && p.color)
       .map((p) => ({
-        type: "SOLID",
+        type: 'SOLID',
         color: { r: p.color.r, g: p.color.g, b: p.color.b },
         opacity: p.opacity ?? p.color.a ?? 1,
       })) as Paint[];
@@ -741,75 +842,93 @@ async function applyText(
   const safe = (fn: FontName) => fontMap.get(JSON.stringify(fn))!;
 
   /* ───── 1 · basic node values ───── */
-  txt.characters = staticNode.characters ?? "";
+  txt.characters = staticNode.characters ?? '';
   txt.fontName = safe(lookupFont(rootStyle));
-  if ("fontSize" in rootStyle) txt.fontSize = rootStyle.fontSize;
+  if ('fontSize' in rootStyle) txt.fontSize = rootStyle.fontSize;
 
   /* ───── 2 · auto-resize BEFORE alignment ───── */
   txt.textAutoResize = (staticNode.textAutoResize ??
     rootStyle.textAutoResize ??
-    "NONE") as any; // NONE | WIDTH | HEIGHT | TRUNCATE
+    'NONE') as any; // NONE | WIDTH | HEIGHT | TRUNCATE
 
   /* ───── 3 · resolve & apply alignment ───── */
+
   const resolveAlignment = (): {
-    h: "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
-    v: "TOP" | "CENTER" | "BOTTOM";
+    h: 'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED';
+    v: 'TOP' | 'CENTER' | 'BOTTOM';
   } => {
-    const h = (
-      staticNode.textAlignHorizontal ??
-      rootStyle.textAlignHorizontal ??
-      "LEFT"
-    ).toUpperCase();
-    const v = (
-      staticNode.textAlignVertical ??
-      rootStyle.textAlignVertical ??
-      "TOP"
-    ).toUpperCase();
-    const horiz: any = ["LEFT", "CENTER", "RIGHT", "JUSTIFIED"].includes(h)
+    const hRaw =
+      staticNode.textAlignHorizontal ?? rootStyle.textAlignHorizontal ?? 'LEFT';
+    const vRaw =
+      staticNode.textAlignVertical ?? rootStyle.textAlignVertical ?? 'TOP';
+
+    const normaliseAlign = (raw: any) => {
+      if (typeof raw !== 'string') return undefined;
+      const up = raw.toUpperCase();
+      // REST can return "MIDDLE"; plugin API expects "CENTER"
+      return up === 'MIDDLE' ? 'CENTER' : up;
+    };
+
+    const h = normaliseAlign(hRaw);
+    const v = normaliseAlign(vRaw);
+
+    const horiz: any = ['LEFT', 'CENTER', 'RIGHT', 'JUSTIFIED'].includes(h!)
       ? h
-      : "LEFT";
-    const vert: any = ["TOP", "CENTER", "BOTTOM"].includes(v) ? v : "TOP";
+      : 'LEFT';
+    const vert: any = ['TOP', 'CENTER', 'BOTTOM'].includes(v!) ? v : 'TOP';
     return { h: horiz, v: vert };
   };
-
   const { h, v } = resolveAlignment();
   txt.textAlignHorizontal = h; // works for every resize mode
-  if (txt.textAutoResize === "NONE") {
+  if (txt.textAutoResize === 'NONE') {
     txt.textAlignVertical = v;
   }
 
   /* ───── 4 · additional node-level props ───── */
-  if ("textCase" in rootStyle) {
+  if ('textCase' in rootStyle) {
     try {
       txt.textCase = rootStyle.textCase;
     } catch {
       /* small-caps not supported */
     }
   }
-  if ("textDecoration" in rootStyle)
+  if ('textDecoration' in rootStyle)
     txt.textDecoration = rootStyle.textDecoration;
-  if ("paragraphIndent" in rootStyle)
+  if ('paragraphIndent' in rootStyle)
     txt.paragraphIndent = rootStyle.paragraphIndent;
-  if ("paragraphSpacing" in rootStyle)
+  if ('paragraphSpacing' in rootStyle)
     txt.paragraphSpacing = rootStyle.paragraphSpacing;
 
-  if (rootStyle.lineHeightUnit === "AUTO") {
-    txt.lineHeight = { unit: "AUTO" };
-  } else if ("lineHeightPx" in rootStyle) {
-    txt.lineHeight = { value: rootStyle.lineHeightPx, unit: "PIXELS" };
-  } else if ("lineHeightPercent" in rootStyle) {
-    txt.lineHeight = { value: rootStyle.lineHeightPercent, unit: "PERCENT" };
+  if (rootStyle.lineHeightUnit === 'AUTO') {
+    txt.lineHeight = { unit: 'AUTO' };
+  } else if ('lineHeightPx' in rootStyle) {
+    txt.lineHeight = { value: rootStyle.lineHeightPx, unit: 'PIXELS' };
+  } else if ('lineHeightPercent' in rootStyle) {
+    txt.lineHeight = { value: rootStyle.lineHeightPercent, unit: 'PERCENT' };
   }
 
-  if ("letterSpacing" in rootStyle) {
+  if ('letterSpacing' in rootStyle) {
     txt.letterSpacing = {
       value: rootStyle.letterSpacing,
-      unit: rootStyle.letterSpacingUnit === "PERCENT" ? "PERCENT" : "PIXELS",
+      unit: rootStyle.letterSpacingUnit === 'PERCENT' ? 'PERCENT' : 'PIXELS',
     };
   }
 
+  if (
+    (staticNode.leadingTrim !== undefined ||
+      rootStyle.leadingTrim !== undefined) &&
+    'leadingTrim' in txt
+  ) {
+    try {
+      (txt as any).leadingTrim =
+        staticNode.leadingTrim ?? rootStyle.leadingTrim;
+    } catch (err) {
+      console.warn('applyText → could not set leadingTrim:', err);
+    }
+  }
+
   /* root-level fills (if geometry pass didn’t set them) */
-  if ("fills" in staticNode && (!txt.fills || txt.fills.length === 0)) {
+  if ('fills' in staticNode && (!txt.fills || txt.fills.length === 0)) {
     const paints = toPaints(staticNode.fills);
     if (paints.length) txt.fills = paints;
   }
@@ -826,35 +945,35 @@ async function applyText(
       if (o) {
         const sf = safe(lookupFont(o));
         txt.setRangeFontName(start, end, sf);
-        if ("fontSize" in o) txt.setRangeFontSize(start, end, o.fontSize);
-        if ("textCase" in o) {
+        if ('fontSize' in o) txt.setRangeFontSize(start, end, o.fontSize);
+        if ('textCase' in o) {
           try {
             txt.setRangeTextCase(start, end, o.textCase);
           } catch {}
         }
-        if ("textDecoration" in o)
+        if ('textDecoration' in o)
           txt.setRangeTextDecoration(start, end, o.textDecoration);
 
         // line-height per range
-        if (o.lineHeightUnit === "AUTO") {
-          txt.setRangeLineHeight(start, end, { unit: "AUTO" });
-        } else if ("lineHeightPx" in o) {
+        if (o.lineHeightUnit === 'AUTO') {
+          txt.setRangeLineHeight(start, end, { unit: 'AUTO' });
+        } else if ('lineHeightPx' in o) {
           txt.setRangeLineHeight(start, end, {
             value: o.lineHeightPx,
-            unit: "PIXELS",
+            unit: 'PIXELS',
           });
-        } else if ("lineHeightPercent" in o) {
+        } else if ('lineHeightPercent' in o) {
           txt.setRangeLineHeight(start, end, {
             value: o.lineHeightPercent,
-            unit: "PERCENT",
+            unit: 'PERCENT',
           });
         }
 
         // tracking per range
-        if ("letterSpacing" in o) {
+        if ('letterSpacing' in o) {
           txt.setRangeLetterSpacing(start, end, {
             value: o.letterSpacing,
-            unit: o.letterSpacingUnit === "PERCENT" ? "PERCENT" : "PIXELS",
+            unit: o.letterSpacingUnit === 'PERCENT' ? 'PERCENT' : 'PIXELS',
           });
         }
 
@@ -862,7 +981,7 @@ async function applyText(
         if (Array.isArray(o.fills) && o.fills.length) {
           txt.setRangeFills(start, end, toPaints(o.fills));
         }
-        if ("inheritFillStyleId" in o) {
+        if ('inheritFillStyleId' in o) {
           try {
             txt.setRangeFillStyleId(start, end, o.inheritFillStyleId);
           } catch {}
@@ -875,65 +994,65 @@ async function applyText(
 
 function applyAutoLayout(liveNode: SceneNode, staticNode: FetchedNode) {
   try {
-    if ("clipsContent" in liveNode) {
+    if ('clipsContent' in liveNode) {
       const clip =
         (staticNode as any).clipsContent ?? (staticNode as any).clipContent; // legacy alias
-      if (typeof clip === "boolean") {
+      if (typeof clip === 'boolean') {
         (liveNode as FrameNode).clipsContent = clip;
       }
     }
 
-    if (!("layoutMode" in staticNode) || !("layoutMode" in liveNode)) return;
+    if (!('layoutMode' in staticNode) || !('layoutMode' in liveNode)) return;
     const frame = liveNode as FrameNode;
 
     /* 0 — basic direction -------------------------------------------------- */
     frame.layoutMode = staticNode.layoutMode; // NONE | HORIZONTAL | …
-    const isContainer = frame.layoutMode !== "NONE"; // only TRUE for real A-L frames
+    const isContainer = frame.layoutMode !== 'NONE'; // only TRUE for real A-L frames
 
     /* 1 — container-only props -------------------------------------------- */
     if (isContainer) {
       // Modern sizing: allow HUG / FIXED, silently downgrade an illegal FILL
       if (
-        "layoutSizingHorizontal" in staticNode &&
-        staticNode.layoutSizingHorizontal !== "FILL"
+        'layoutSizingHorizontal' in staticNode &&
+        staticNode.layoutSizingHorizontal !== 'FILL'
       ) {
         frame.layoutSizingHorizontal = staticNode.layoutSizingHorizontal as any;
       }
       if (
-        "layoutSizingVertical" in staticNode &&
-        staticNode.layoutSizingVertical !== "FILL"
+        'layoutSizingVertical' in staticNode &&
+        staticNode.layoutSizingVertical !== 'FILL'
       ) {
         frame.layoutSizingVertical = staticNode.layoutSizingVertical as any;
       }
 
       // Legacy props for back-compat
-      if ("primaryAxisSizingMode" in staticNode)
+      if ('primaryAxisSizingMode' in staticNode)
         frame.primaryAxisSizingMode = staticNode.primaryAxisSizingMode;
-      if ("counterAxisSizingMode" in staticNode)
+      if ('counterAxisSizingMode' in staticNode)
         frame.counterAxisSizingMode = staticNode.counterAxisSizingMode;
 
       // Alignment, wrapping, gaps, grid …
-      if ("primaryAxisAlignItems" in staticNode)
+      if ('primaryAxisAlignItems' in staticNode)
         frame.primaryAxisAlignItems = staticNode.primaryAxisAlignItems;
-      if ("counterAxisAlignItems" in staticNode)
+      if ('counterAxisAlignItems' in staticNode)
         frame.counterAxisAlignItems = staticNode.counterAxisAlignItems;
-      if ("layoutWrap" in staticNode) frame.layoutWrap = staticNode.layoutWrap; // WRAP / NO_WRAP :contentReference[oaicite:4]{index=4}
-      if ("counterAxisSpacing" in staticNode)
+      if ('layoutWrap' in staticNode) frame.layoutWrap = staticNode.layoutWrap; // WRAP / NO_WRAP :contentReference[oaicite:4]{index=4}
+      if ('counterAxisSpacing' in staticNode)
         frame.counterAxisSpacing = staticNode.counterAxisSpacing ?? 0;
 
       /* Grid-flow props (only when layoutMode === "GRID") */
-      if (staticNode.layoutMode === "GRID") {
-        if ("gridRowCount" in staticNode)
+      if (staticNode.layoutMode === 'GRID') {
+        if ('gridRowCount' in staticNode)
           frame.gridRowCount = staticNode.gridRowCount;
-        if ("gridColumnCount" in staticNode)
+        if ('gridColumnCount' in staticNode)
           frame.gridColumnCount = staticNode.gridColumnCount;
-        if ("gridRowGap" in staticNode)
+        if ('gridRowGap' in staticNode)
           frame.gridRowGap = staticNode.gridRowGap;
-        if ("gridColumnGap" in staticNode)
+        if ('gridColumnGap' in staticNode)
           frame.gridColumnGap = staticNode.gridColumnGap;
-        if ("gridColumnsSizing" in staticNode)
+        if ('gridColumnsSizing' in staticNode)
           frame.gridColumnsSizing = staticNode.gridColumnsSizing;
-        if ("gridRowsSizing" in staticNode)
+        if ('gridRowsSizing' in staticNode)
           frame.gridRowsSizing = staticNode.gridRowsSizing;
       }
 
@@ -965,7 +1084,7 @@ function applyAutoLayout(liveNode: SceneNode, staticNode: FetchedNode) {
     // If the liveNode is *not* an auto-layout container we bail out here;
     // its sizing will be handled in applyConstraints (see below).
   } catch (err) {
-    console.error("applyAutoLayout →", err);
+    console.error('applyAutoLayout →', err);
   }
 }
 
@@ -976,9 +1095,9 @@ function applyConstraints(
 ) {
   try {
     // --- 1. Persist the original JSON constraints for reference -----------
-    if ("constraints" in staticNode) {
+    if ('constraints' in staticNode) {
       liveNode.setPluginData?.(
-        "__constraints",
+        '__constraints',
         JSON.stringify(staticNode.constraints)
       );
     }
@@ -986,64 +1105,64 @@ function applyConstraints(
     // --- 2. Handle layoutAlign / layoutGrow safely ------------------------
     const parentIsAutoLayout =
       parent &&
-      "layoutMode" in parent &&
-      (parent as FrameNode).layoutMode !== "NONE";
+      'layoutMode' in parent &&
+      (parent as FrameNode).layoutMode !== 'NONE';
 
     if (parentIsAutoLayout) {
       // existing: layoutAlign / layoutGrow …
-      if ("layoutAlign" in staticNode && "layoutAlign" in liveNode)
+      if ('layoutAlign' in staticNode && 'layoutAlign' in liveNode)
         (liveNode as any).layoutAlign = staticNode.layoutAlign;
-      if ("layoutGrow" in staticNode && "layoutGrow" in liveNode)
+      if ('layoutGrow' in staticNode && 'layoutGrow' in liveNode)
         (liveNode as any).layoutGrow = staticNode.layoutGrow;
 
       // NEW: children-only sizing
       if (
-        "layoutSizingHorizontal" in staticNode &&
-        "layoutSizingHorizontal" in liveNode
+        'layoutSizingHorizontal' in staticNode &&
+        'layoutSizingHorizontal' in liveNode
       )
         (liveNode as any).layoutSizingHorizontal =
           staticNode.layoutSizingHorizontal;
       if (
-        "layoutSizingVertical" in staticNode &&
-        "layoutSizingVertical" in liveNode
+        'layoutSizingVertical' in staticNode &&
+        'layoutSizingVertical' in liveNode
       )
         (liveNode as any).layoutSizingVertical =
           staticNode.layoutSizingVertical;
     }
   } catch (err) {
-    console.error("applyConstraints →", err);
+    console.error('applyConstraints →', err);
   }
 }
 
 function resolveMaskType(staticNode: FetchedNode): MaskType {
-  if (typeof staticNode.maskType === "string") {
+  if (typeof staticNode.maskType === 'string') {
     const t = staticNode.maskType.toUpperCase();
-    if (t === "ALPHA" || t === "VECTOR" || t === "LUMINANCE")
+    if (t === 'ALPHA' || t === 'VECTOR' || t === 'LUMINANCE')
       return t as MaskType;
   }
-  if (staticNode.isMaskOutline === true) return "VECTOR";
-  return "ALPHA";
+  if (staticNode.isMaskOutline === true) return 'VECTOR';
+  return 'ALPHA';
 }
 
 function applyBlend(liveNode: SceneNode, staticNode: FetchedNode) {
   try {
     // ── existing logic ───────────────────────────────
-    if ("opacity" in staticNode && "opacity" in liveNode) {
+    if ('opacity' in staticNode && 'opacity' in liveNode) {
       (liveNode as GeometryMixin).opacity = staticNode.opacity;
     }
-    if ("blendMode" in staticNode && "blendMode" in liveNode) {
+    if ('blendMode' in staticNode && 'blendMode' in liveNode) {
       (liveNode as BlendMixin).blendMode = staticNode.blendMode;
     }
-    if ("isMask" in staticNode && "isMask" in liveNode) {
+    if ('isMask' in staticNode && 'isMask' in liveNode) {
       (liveNode as GeometryMixin).isMask = staticNode.isMask;
     }
 
-    if ("maskType" in liveNode) {
+    if ('maskType' in liveNode) {
       (liveNode as unknown as { maskType: MaskType }).maskType =
         resolveMaskType(staticNode);
     }
   } catch (e) {
-    console.error("Error applying blend / maskType:", e);
+    console.error('Error applying blend / maskType:', e);
   }
 }
 
@@ -1053,7 +1172,7 @@ function applyBoolean(
   parentNode: BaseNode & ChildrenMixin // real parent on the canvas
 ): BooleanOperationNode | void {
   try {
-    if (staticNode.type !== "BOOLEAN_OPERATION") return;
+    if (staticNode.type !== 'BOOLEAN_OPERATION') return;
 
     // 1 – Validate we have enough shapes to combine
     const shapes = (placeholder as ChildrenMixin).children as SceneNode[];
@@ -1065,7 +1184,7 @@ function applyBoolean(
     }
 
     // 2 – Pick the helper that matches the JSON operator
-    const op = (staticNode.booleanOperation ?? "UNION").toUpperCase();
+    const op = (staticNode.booleanOperation ?? 'UNION').toUpperCase();
     const opMap: Record<
       string,
       (nodes: SceneNode[], p: BaseNode & ChildrenMixin) => BooleanOperationNode
@@ -1083,13 +1202,13 @@ function applyBoolean(
       z >= 0 ? builder(shapes, parentNode, z) : builder(shapes, parentNode);
 
     // 4 – Transfer metadata & clean up placeholder
-    boolNode.name = staticNode.name ?? "Boolean";
-    if ("touching" in staticNode)
+    boolNode.name = staticNode.name ?? 'Boolean';
+    if ('touching' in staticNode)
       (boolNode as any).touching = staticNode.touching; // still supported in 2025 typings
     if (placeholder.parent) placeholder.remove();
 
     return boolNode;
   } catch (err) {
-    console.error("applyBoolean →", err);
+    console.error('applyBoolean →', err);
   }
 }

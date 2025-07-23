@@ -104,8 +104,8 @@ export function getTextImageBasedModificationPrompt(
   return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls.
-Follow the **Instruction** to generate a UI design.
-Refer to the **Agency Principles** and **UI Design Principles** for guidance.
+Follow the **Instruction** to modify a UI design.
+Refer to the **Agency Principles** and **Figma Basics** for guidance.
 
 **Agency Principles**
 ${agencyPrinciples}
@@ -114,7 +114,7 @@ ${agencyPrinciples}
 ${figmaInstruction}
 
 **Instruction**
-Please analyze the following screen image and text instruction, and modify the UI design to match the image and the instruction inside the existing "Main Screen" frame in the Figma, exactly.
+Please analyze the provided screen image and text instruction, then update the UI design within the existing “Main Screen” frame in Figma to precisely match the image and the instruction.
 The frame size is ${width}x${height} pixels.
 Text: ${instruction}
 `;
