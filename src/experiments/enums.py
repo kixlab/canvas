@@ -26,6 +26,8 @@ class Channel(str, Enum):
     CHANNEL_3 = "channel_3"
     CHANNEL_4 = "channel_4"
     CHANNEL_5 = "channel_5"
+    CHANNEL_6 = "channel_6"
+    CHANNEL_7 = "channel_7"
 
 class TaskType(str, Enum):
     MODIFICATION = "modification"

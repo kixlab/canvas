@@ -118,6 +118,7 @@ export enum AgentType {
   REACT = "react",
   VISUAL = "visual",
   FEEDBACK = "feedback",
+  MODIFICATION = "modification",
 }
 
 export interface ServerConfig {

@@ -19,7 +19,7 @@ def parse_common_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
     """Add common arguments to the parser."""
     parser.add_argument("--model", type=str, required=True, choices=[m.value for m in ModelType],
                       help="Model to use (e.g. gpt-4, qwen)")
-    parser.add_argument("--variants", type=str, required=True,
+    parser.add_argument("--variants", type=str,
                       help="Comma-separated list of variants")
     parser.add_argument("--channel", type=str, required=True, choices=[c.value for c in Channel],
                       help="Channel name from config.yaml")
@@ -38,7 +38,7 @@ def parse_common_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
 @dataclass
 class ExperimentConfig:
     model: ModelType
-    variants: List[ExperimentVariant]
+    variants: Optional[List[ExperimentVariant]]
     channel: Channel
     config_name: str
     batch_name: Optional[str] = None
@@ -51,7 +51,7 @@ class ExperimentConfig:
     def from_args(cls, args):
         return cls(
             model=ModelType(args.model),
-            variants=[ExperimentVariant(v) for v in args.variants.split(",")],
+            variants=[ExperimentVariant(v) for v in args.variants.split(",")] if getattr(args, 'variants', None) else None,
             channel=Channel(args.channel),
             config_name=args.config_name,
             batch_name=getattr(args, 'batch_name', None),
@@ -64,7 +64,7 @@ class ExperimentConfig:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "model": self.model.value,
-            "variants": [v.value for v in self.variants],
+            "variants": [v.value for v in self.variants] if self.variants else None,
             "channel": self.channel.value,
             "config_name": self.config_name,
             "batch_name": self.batch_name,
@@ -78,8 +78,9 @@ class BaseExperiment:
     def __init__(self, config: ExperimentConfig):
         self.config = config
         self.setup_environment()
+        variant_str = f"-{config.variants[0].value}" if config.variants else ""
         self.logger = ExperimentLogger(
-            experiment_id=f"{config.config_name}-{config.model.value}-{config.variants[0].value}",
+            experiment_id=f"{config.config_name}-{config.model.value}{variant_str}",
             log_dir=self.results_dir
         )
         self.logger.log_config(config.to_dict())

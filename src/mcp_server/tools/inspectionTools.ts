@@ -250,4 +250,33 @@ export function registerInspectionTools(server: McpServer) {
       }
     }
   );
+
+  server.tool(
+    "import_json",
+    "[ONLY FOR DEBUGGING] Render an entire Figma document from a JSON string into the current page",
+    {
+      jsonString: z
+        .string()
+        .describe("The raw REST-v1 document JSON string to import and render"),
+    },
+    async ({ jsonString }) => {
+      try {
+        const result = await sendCommandToFigma("import_json", {
+          jsonString,
+        });
+
+        return createSuccessResponse({
+          messages: [
+            `Successfully imported document – new root node id "${result.rootFrameId}".`,
+          ],
+          dataItem: result,
+        });
+      } catch (error) {
+        return createErrorResponse({
+          error,
+          context: "import_json",
+        });
+      }
+    }
+  );
 }

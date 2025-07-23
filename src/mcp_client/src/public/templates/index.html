@@ -722,8 +722,6 @@
                         <label for="model-preset">Model:</label>
                         <select id="model-preset">
                             <!-- [modelName, provider, inputCost, outputCost, maxTokens, maxTurns] -->
-                            <option value="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8|together|0.0027|0.0085|4096|100">Llama 4 Maverick [Together]</option>
-                            <option value="meta-llama/Llama-4-Scout-17B-16E-Instruct|together|0.0018|0.0059|4096|100">Llama 4 Scout [Together]</option>
                             <option value="models/gemini-2.5-flash|google|0.0003|0.0025|65536|100">Gemini 2.5 Flash</option>
                             <option value="models/gemini-2.5-pro|google|0.00125|0.01|65536|100">Gemini 2.5 Pro</option>
                             <option value="gpt-4.1-2025-04-14|openai|0.002|0.008|32768|100">GPT-4.1 (2025-04-14)</option>
@@ -731,13 +729,15 @@
                             <option value="gpt-4o-2024-08-06|openai|0.0025|0.0125|4096|100">GPT-4o (2024-08-06)</option>
                             <option value="llama4:16x17b|ollama|0|0|4096|100">Llama 4 (Scout) [Ollama]</option>
                             <option value="mistral-small3.2:24b|ollama|0|0|4096|100">Mistral Small 3.2 (24B) [Ollama]</option>
+                            <option value="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8|together|0.0027|0.0085|4096|100">Llama 4 Maverick [Together]</option>
+                            <option value="meta-llama/Llama-4-Scout-17B-16E-Instruct|together|0.0018|0.0059|4096|100">Llama 4 Scout [Together]</option>
                         </select>
                         
                         <label for="agent-preset">Agent:</label>
                         <select id="agent-preset">
                             <option value="react">ReAct</option>
                             <option value="feedback">Feedback</option>
-                            <option value="visual">Visual</option>
+                            <option value="modification">Modification</option>
                         </select>
                         
                         <label for="temperature-preset">Temperature:</label>
@@ -758,6 +758,7 @@
                     <div class="task-type-option active" data-task-type="text">Text Only</div>
                     <div class="task-type-option" data-task-type="image">Image Only</div>
                     <div class="task-type-option" data-task-type="text-image">Text + Image</div>
+                    <div class="task-type-option" data-task-type="modify">Modify</div>
                 </div>
                 
                 <!-- Text-only Task Form -->
@@ -800,6 +801,29 @@
                     <div class="form-group">
                         <input type="text" id="text-image-input" class="task-input" placeholder="Type your instruction..." required>
                         <button type="submit" id="text-image-submit" class="button primary">Generate</button>
+                    </div>
+                </form>
+                
+                <!-- Modify Task Form -->
+                <form id="modify-task-form" class="task-form" style="display:none;">
+                    <div class="file-input-container">
+                        <label class="file-label">
+                            <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16">
+                                <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+                            </svg>
+                            Select Image
+                            <input type="file" id="modify-image-upload" class="file-input" accept="image/*" required>
+                        </label>
+                        <span id="modify-image-file-name" class="file-name"></span>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="modify-text-input" class="task-input" placeholder="Type your modification instruction..." required>
+                    </div>
+                    <div class="form-group">
+                        <textarea id="modify-base-json" class="task-input" placeholder="Base JSON structure (optional)" rows="4" style="resize: vertical; font-family: SFMono-Regular, Consolas, monospace; font-size: 12px;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" id="modify-submit" class="button primary">Modify</button>
                     </div>
                 </form>
                 
@@ -1453,6 +1477,11 @@
             document.getElementById('text-image-file-name').textContent = fileName;
         });
         
+        document.getElementById('modify-image-upload').addEventListener('change', function(e) {
+            const fileName = e.target.files.length > 0 ? e.target.files[0].name : '';
+            document.getElementById('modify-image-file-name').textContent = fileName;
+        });
+        
         // Task form handlers
         document.getElementById('text-task-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1564,6 +1593,50 @@
                 displayTaskResult({ status: 'error', message: error.message });
             } finally {
                 resetButton(submitButton);
+            }
+        });
+
+        document.getElementById('modify-task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('modify-text-input').value;
+            const imageFile = document.getElementById('modify-image-upload').files[0];
+            const baseJsonString = document.getElementById('modify-base-json').value;
+            
+            if (!message || !imageFile || !baseJsonString){
+                alert("Please fill in all fields before submitting.");
+                return;
+            }
+            
+            const submitButton = document.getElementById('modify-submit');
+            showLoading(submitButton);
+            
+            try {
+                const metadata = getMetadataFromPresets();
+                log("Submitting modify task", { message, image: imageFile.name, baseJsonString, metadata });
+                
+                const formData = new FormData();
+                formData.append('message', message);
+                formData.append('image', imageFile);
+                formData.append('baseJsonString', baseJsonString);
+                formData.append('metadata', JSON.stringify(metadata));
+                
+                const response = await fetch('/modify/text-image', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log("Server response:", data);
+                displayTaskResult(data);
+            } catch (error) {
+                console.error("Request error:", error);
+                displayTaskResult({ status: 'error', message: error.message });
+            } finally {
+                resetButton(submitButton, 'Modify');
             }
         });
     

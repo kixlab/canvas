@@ -8,6 +8,7 @@ import {
   getAbsoluteGeometry,
 } from '../utils';
 import { MinimalNodeMatch, ImageFormat } from '../types';
+import { createNode } from '../bridge';
 
 export async function getPageInfo() {
   await figma.currentPage.loadAsync();
@@ -251,4 +252,51 @@ export async function retrieveDocumentJson() {
   });
 
   return documentJson;
+}
+
+export async function importDocumentJson(params: { jsonString: string }) {
+  const { jsonString } = params ?? {};
+  if (!jsonString) {
+    throw new Error('No "jsonString" param supplied');
+  }
+
+  // ---------- Parse & validate ------------------------------------------------
+  let parsed: any;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch (err) {
+    throw new Error(
+      '[importDocumentJSON] Invalid JSON – ' + getErrorMessage(err)
+    );
+  }
+
+  if (!parsed?.document?.children || !Array.isArray(parsed.document.children)) {
+    throw new Error('[importDocumentJSON] document.children not found');
+  }
+
+  // ---------- Render ----------------------------------------------------------
+  const page = figma.currentPage;
+
+  // Optional: clear page – comment out if you want additive behaviour
+  // page.findAll().forEach(n => n.remove());
+
+  const rootNode = await createNode(parsed.document, page, page);
+  if (!rootNode) {
+    throw new Error('[importDocumentJSON] Failed to create node from JSON');
+  }
+
+  rootNode.x = 0;
+  rootNode.y = 0;
+  rootNode.name = 'Main Screen';
+
+  page.appendChild(rootNode);
+
+  // Give a tiny bit of feedback in the UI (for live-run inside Figma)
+  // figma.notify('✅ JSON imported');
+
+  return {
+    success: true,
+    rootFrameId: rootNode.id,
+    message: 'Document JSON imported successfully',
+  };
 }

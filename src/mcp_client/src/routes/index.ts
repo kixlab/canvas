@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import * as generateRoutes from "./generate";
+import * as modifyRoutes from "./modify";
 import * as toolRoutes from "./utility";
 
 // Configure multer for file uploads
@@ -26,7 +27,11 @@ export const createRoutes = () => {
     upload.single("image"),
     generateRoutes.generateFromTextAndImage
   );
-
+  router.post(
+    "/modify/text-image",
+    upload.single("image"),
+    modifyRoutes.modifyFromTextAndImage
+  );
   // Tool routes
   router.post("/tool/get_selection", toolRoutes.getSelection);
   router.post(
