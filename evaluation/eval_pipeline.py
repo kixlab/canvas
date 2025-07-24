@@ -1,5 +1,8 @@
 # ruff: noqa: E501
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import os
 import json
 from pathlib import Path

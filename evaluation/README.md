@@ -126,6 +126,39 @@ conda activate canvasbench-eval
 
 ---
 
+### Evaluation Workflow
+
+The evaluation is typically a two-step process to ensure both speed and reproducibility, especially for computationally expensive metrics like the BLIP score.
+
+#### Step 1: (Optional) Pre-compute BLIP Scores
+
+The `semantic_match` metric relies on the BLIP model, which is slow and requires a GPU. To avoid this bottleneck during the main evaluation and ensure results are reproducible across different machines, you should pre-compute the scores once.
+
+In a **GPU-enabled environment**, run the following command:
+```bash
+python -m evaluation.semantic.precompute_blip \
+  --task <task_name> \
+  --variant <variant_name>
+```
+*   This will find all ground-truth and generated images for the specified task/variant.
+*   It will then generate captions for all images in batches (using FP16 for speed) and compute the similarity scores.
+*   The results are saved to `precomputed_blip_scores.json` inside the corresponding output directory (e.g., `dataset/eval_outputs/<task>/<variant>/`).
+*   This script is fully deterministic, meaning it will produce the same results every time it is run.
+
+#### Step 2: Run the Main Evaluation Pipeline
+
+Once BLIP scores are pre-computed, you can run the main evaluation pipeline. It will automatically detect and use the `precomputed_blip_scores.json` file.
+
+```bash
+# Example: Run evaluation for all metrics
+python -m evaluation.eval_pipeline \
+  --task <task_name> \
+  --variant <variant_name>
+```
+
+If you wish to run the pipeline without the semantic match score (e.g., if you haven't pre-computed them), you can use the `--skip_blip` flag. The pipeline will then skip this metric.
+
+
 ### Evaluation Pipeline (`eval_pipeline.py`)
 
 The `eval_pipeline.py` script is the primary tool for running the evaluation suite. It collects model generation results, computes all relevant metrics, and saves them in a structured JSON format.
