@@ -1,0 +1,75 @@
+# Configuration for the evaluation pipeline
+
+# 1. Path Templates
+# These templates define the directory structure for inputs and outputs.
+# Variables: {base_dir}, {task}, {variant}, {gt_id}, {case_id}, {snapshot_stem}, {output_dir}
+paths:
+  gt_dir: "{base_dir}/benchmarks/replication_gt"
+  results_dir: "{base_dir}/results/{task}/{variant}"
+  output_dir: "{base_dir}/eval_outputs/{task}/{variant}"
+  saliency_vis_dir: "{output_dir}/saliency_visualizations"
+  vis_results_dir: "{output_dir}/evaluation_results_vis"
+
+# 2. Filename Conventions
+# Defines the naming patterns for various files used in the evaluation.
+filenames:
+  # Output files
+  results_json: "evaluation_results.json"
+  results_with_snapshots_json: "evaluation_results_with_snapshots.json"
+
+  # Ground Truth files
+  gt_image: "{gt_id}.png"
+  gt_json: "{gt_id}.json"
+
+  # Generated files (main)
+  gen_image: "{case_id}-canvas.png"
+  gen_json: "{case_id}-json-structure.json"
+
+  # Generated files (snapshots)
+  snapshots_dir: "snapshots"
+  snapshot_image_glob: "{case_id}-snapshot-*.png"
+  snapshot_json: "{snapshot_stem}-structure.json"
+
+  # Visualization outputs
+  vis_bar_plot: "{metric}_bar.png"
+  vis_box_plot: "{metric}_box.png"
+
+
+# 3. Metric Configuration
+metrics:
+  # Metrics considered essential for a result to be "complete" (--skip_all flag)
+  required_metrics:
+    - "ssim"
+    - "element_count_ratio"
+    - "layout_overlap"
+    - "alignment_f1"
+
+  # Metrics to add to the required set if not skipped by flags
+  optional_required_metrics:
+    semantic_match: "semantic_match"
+    visual_saliency: "visual_saliency_cc"
+
+  # Composite metrics are calculated from a set of base metrics.
+  composite_metrics:
+    visual_completeness:
+      components:
+        - "canvas_fill_ratio"
+        - "ssim"
+        - "semantic_match"
+      digits: 4
+    struct_completeness:
+      components:
+        - "element_count_ratio"
+        - "layout_overlap"
+        - "alignment_f1"
+      digits: 3
+
+# 4. Visualization Settings
+visualization:
+  skip_keys: # Keys to ignore when gathering data for plots
+    - "id"
+    - "model"
+    - "gt_caption"
+    - "gen_caption"
+    - "snapshot_num"
+  dpi: 150 

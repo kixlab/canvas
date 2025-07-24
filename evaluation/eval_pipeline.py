@@ -7,14 +7,20 @@ from typing import List, Tuple, Dict, Optional, DefaultDict, Any
 from dataclasses import dataclass, field
 import argparse
 
+
 import pkgutil
 import importlib
-import matplotlib.pyplot as plt
 
+# External plotting libs are optional – code falls back gracefully if missing.
+try:
+    import matplotlib.pyplot as plt  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover – plotting optional
+    plt = None  # type: ignore
 
 from collections import defaultdict
 
 from evaluation.metrics import get_metrics
+from evaluation.config import config
 
 
 PREVIOUS_RESULTS_FILE = "evaluation_results.json"
@@ -64,9 +70,10 @@ class EvaluationCase:
 class EvaluationPipeline:
     """Orchestrates the evaluation process for generation tasks."""
 
-    def __init__(self, config: argparse.Namespace):
+    def __init__(self, cli_config: argparse.Namespace):
         """Initialize the pipeline with configuration."""
-        self.config = config
+        self.cli_config = cli_config
+        self.app_config = config
         self._setup_paths()
         self._discover_and_load_metrics()
 
@@ -74,34 +81,35 @@ class EvaluationPipeline:
         self.prev_by_key = {
             (r.get("id"), r.get("snapshot_num")): r for r in self.previous_results
         }
-        self.results: List[Dict[str, any]] = self.previous_results.copy() if config.skip_all else []
+        self.results: List[Dict[str, any]] = self.previous_results.copy() if cli_config.skip_all else []
         self.new_processed_count = 0
 
     def _setup_paths(self):
         """Configure input and output directories based on config."""
-        self.base_dir = Path(self.config.base_dir).expanduser().resolve()
+        self.base_dir = Path(self.cli_config.base_dir).expanduser().resolve()
         if not self.base_dir.exists():
             for parent in Path(__file__).resolve().parents:
-                candidate = parent / self.config.base_dir
+                candidate = parent / self.cli_config.base_dir
                 if candidate.exists():
                     self.base_dir = candidate.resolve()
                     break
         if not self.base_dir.exists():
-            raise FileNotFoundError(f"Base directory not found: {self.config.base_dir}")
+            raise FileNotFoundError(f"Base directory not found: {self.cli_config.base_dir}")
 
-        self.gt_dir = self.base_dir / "benchmarks" / "replication_gt"
-        self.results_dir = self.base_dir / "results" / self.config.task / self.config.variant
-
-        self.output_dir = self.base_dir / "eval_outputs" / self.config.task / self.config.variant
+        path_vars = {"base_dir": str(self.base_dir), "task": self.cli_config.task, "variant": self.cli_config.variant}
+        
+        self.gt_dir = Path(self.app_config.paths.gt_dir.format(**path_vars))
+        self.results_dir = Path(self.app_config.paths.results_dir.format(**path_vars))
+        self.output_dir = Path(self.app_config.paths.output_dir.format(**path_vars))
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        if self.config.eval_snapshots:
-            self.output_path = self.output_dir / "evaluation_results_with_snapshots.json"
+        if self.cli_config.eval_snapshots:
+            self.output_path = self.output_dir / self.app_config.filenames.results_with_snapshots_json
         else:
-            self.output_path = self.output_dir / "evaluation_results.json"
+            self.output_path = self.output_dir / self.app_config.filenames.results_json
 
-        self.saliency_vis_dir = self.output_dir / "saliency_visualizations"
-        if self.config.save_saliency_vis:
+        self.saliency_vis_dir = self.output_dir / self.app_config.paths.saliency_vis_dir.format(output_dir=self.output_dir)
+        if self.cli_config.save_saliency_vis:
             self.saliency_vis_dir.mkdir(exist_ok=True)
 
     def _discover_and_load_metrics(self):
@@ -117,11 +125,11 @@ class EvaluationPipeline:
         """Execute the full evaluation pipeline."""
         cases = self._collect_evaluation_cases()
 
-        if self.config.ids:
-            ids_set = set(self.config.ids)
+        if self.cli_config.ids:
+            ids_set = set(self.cli_config.ids)
             cases = [c for c in cases if c.gt_id in ids_set]
             if not cases:
-                raise ValueError(f"No matching samples found for ids: {self.config.ids}")
+                raise ValueError(f"No matching samples found for ids: {self.cli_config.ids}")
 
         for case in cases:
             self._process_case(case)
@@ -130,7 +138,7 @@ class EvaluationPipeline:
         self._calculate_aggregate_metrics()
         self._save_results(final=True)
 
-        if self.config.vis:
+        if self.cli_config.vis:
             self._generate_visualizations()
 
         print(f"\nEvaluation complete. Results saved to:\n{self.output_path}")
@@ -143,12 +151,12 @@ class EvaluationPipeline:
 
         cases: List[EvaluationCase] = []
         for item in self.results_dir.iterdir():
-            if not item.is_dir() or not item.name.endswith(f"-{self.config.variant}"):
+            if not item.is_dir() or not item.name.endswith(f"-{self.cli_config.variant}"):
                 continue
-            if self.config.model and f"-{self.config.model}-" not in f"{item.name}-":
+            if self.cli_config.model and f"-{self.cli_config.model}-" not in f"{item.name}-":
                 continue
 
-            prefix = item.name[: -(len(self.config.variant) + 1)]
+            prefix = item.name[: -(len(self.cli_config.variant) + 1)]
             tokens = prefix.split("-")
             if len(tokens) < 3:
                 continue
@@ -157,15 +165,15 @@ class EvaluationPipeline:
             model_name = "-".join(tokens[2:])
             case_id = item.name
 
-            gt_img_path = self.gt_dir / f"{gt_id}.png"
-            gt_json_path = self.gt_dir / f"{gt_id}.json"
+            gt_img_path = self.gt_dir / self.app_config.filenames.gt_image.format(gt_id=gt_id)
+            gt_json_path = self.gt_dir / self.app_config.filenames.gt_json.format(gt_id=gt_id)
 
             if not gt_json_path.exists():
                 continue
             
             # Main result
-            gen_img_path = item / f"{case_id}-canvas.png"
-            gen_json_path = item / f"{case_id}-json-structure.json"
+            gen_img_path = item / self.app_config.filenames.gen_image.format(case_id=case_id)
+            gen_json_path = item / self.app_config.filenames.gen_json.format(case_id=case_id)
             if gen_img_path.exists() and gen_json_path.exists():
                 cases.append(EvaluationCase(
                     case_id=case_id, gt_id=gt_id, model_name=model_name, snapshot_num=None,
@@ -176,17 +184,18 @@ class EvaluationPipeline:
                 ))
 
             # Snapshots
-            if self.config.eval_snapshots:
-                snapshots_dir = item / "snapshots"
+            if self.cli_config.eval_snapshots:
+                snapshots_dir = item / self.app_config.filenames.snapshots_dir
                 if snapshots_dir.is_dir():
-                    for snapshot_img_path in sorted(snapshots_dir.glob(f"{case_id}-snapshot-*.png")):
+                    glob_pattern = self.app_config.filenames.snapshot_image_glob.format(case_id=case_id)
+                    for snapshot_img_path in sorted(snapshots_dir.glob(glob_pattern)):
                         snapshot_stem = snapshot_img_path.stem
                         try:
                             snapshot_num = int(snapshot_stem.split("-snapshot-")[-1])
                         except (ValueError, IndexError):
                             continue
                 
-                        snapshot_json_path = snapshots_dir / f"{snapshot_stem}-structure.json"
+                        snapshot_json_path = snapshots_dir / self.app_config.filenames.snapshot_json.format(snapshot_stem=snapshot_stem)
                         if snapshot_json_path.exists():
                             cases.append(EvaluationCase(
                                 case_id=case_id, gt_id=gt_id, model_name=model_name, snapshot_num=snapshot_num,
@@ -204,7 +213,7 @@ class EvaluationPipeline:
         
         metric.setdefault("snapshot_num", None)
 
-        if self.config.skip_all and self._is_result_complete(metric):
+        if self.cli_config.skip_all and self._is_result_complete(metric):
             return
 
         for name, func in self.metric_funcs.items():
@@ -220,7 +229,7 @@ class EvaluationPipeline:
                 }
                 if name == "visual_saliency":
                     kwargs.update({
-                        "out_dir": str(self.saliency_vis_dir) if self.config.save_saliency_vis else None,
+                        "out_dir": str(self.saliency_vis_dir) if self.cli_config.save_saliency_vis else None,
                         "case_id": case.case_id,
                         "snapshot_num": case.snapshot_num,
                     })
@@ -250,17 +259,18 @@ class EvaluationPipeline:
         """Check if a metric computation should be skipped based on config and state."""
         if gt_img_path is None and name in {"ssim", "semantic_match", "visual_saliency"}:
             return True
-        if self.config.skip_visual_saliency and name == "visual_saliency":
-            if "visual_saliency_cc" not in metric:
+        if self.cli_config.skip_visual_saliency and name == "visual_saliency":
+            if self.app_config.metrics.optional_required_metrics['visual_saliency'] not in metric:
                 print(f"[Warning] visual_saliency metrics not found for {metric['id']} (snap: {metric['snapshot_num']}) - skipping.")
             return True
-        if self.config.skip_blip and name == "semantic_match":
-            if "semantic_match" not in metric:
+        if self.cli_config.skip_blip and name == "semantic_match":
+            if self.app_config.metrics.optional_required_metrics['semantic_match'] not in metric:
                 print(f"[Warning] semantic_match not found for {metric['id']} (snap: {metric['snapshot_num']}) - skipping.")
             return True
         
-        is_blip_present = "semantic_match" in metric
-        is_vis_sal_present = "visual_saliency_cc" in metric
+        # Check if already computed
+        is_blip_present = self.app_config.metrics.optional_required_metrics['semantic_match'] in metric
+        is_vis_sal_present = self.app_config.metrics.optional_required_metrics['visual_saliency'] in metric
         if name == "semantic_match" and is_blip_present: return True
         if name == "visual_saliency" and is_vis_sal_present: return True
         if name not in {"semantic_match", "visual_saliency"} and name in metric:
@@ -270,9 +280,11 @@ class EvaluationPipeline:
 
     def _is_result_complete(self, result: Dict[str, Any]) -> bool:
         """Check if a result dict contains all required metrics."""
-        required = {"ssim", "element_count_ratio", "layout_overlap", "alignment_f1"}
-        if not self.config.skip_blip: required.add("semantic_match")
-        if not self.config.skip_visual_saliency: required.add("visual_saliency_cc")
+        required = set(self.app_config.metrics.required_metrics)
+        if not self.cli_config.skip_blip:
+            required.add(self.app_config.metrics.optional_required_metrics['semantic_match'])
+        if not self.cli_config.skip_visual_saliency:
+            required.add(self.app_config.metrics.optional_required_metrics['visual_saliency'])
         return all(key in result for key in required)
 
     def _run_tool_metrics(self):
@@ -290,23 +302,13 @@ class EvaluationPipeline:
     def _calculate_aggregate_metrics(self):
         """Calculate composite scores like visual and structural completeness."""
         for metric in self.results:
-            try:
-                if all(k in metric for k in ("canvas_fill_ratio", "ssim", "semantic_match")) and \
-                   all(metric.get(k) is not None for k in ("canvas_fill_ratio", "ssim", "semantic_match")):
-                    metric["visual_completeness"] = round(
-                        (float(metric["canvas_fill_ratio"]) + float(metric["ssim"]) + float(metric["semantic_match"])) / 3, 4
-                    )
-            except (TypeError, ValueError):
-                metric.setdefault("visual_completeness", None)
-
-            try:
-                if all(k in metric for k in ("element_count_ratio", "layout_overlap", "alignment_f1")) and \
-                   all(metric.get(k) is not None for k in ("element_count_ratio", "layout_overlap", "alignment_f1")):
-                    metric["struct_completeness"] = round(
-                        (float(metric["element_count_ratio"]) + float(metric["layout_overlap"]) + float(metric["alignment_f1"])) / 3, 3
-                    )
-            except (TypeError, ValueError):
-                metric.setdefault("struct_completeness", None)
+            for comp_name, comp_conf in self.app_config.metrics.composite_metrics.items():
+                try:
+                    if all(k in metric and metric.get(k) is not None for k in comp_conf.components):
+                        score = sum(float(metric[k]) for k in comp_conf.components) / len(comp_conf.components)
+                        metric[comp_name] = round(score, comp_conf.digits)
+                except (TypeError, ValueError):
+                    metric.setdefault(comp_name, None)
 
     def _load_previous_results(self) -> List[Dict[str, any]]:
         """Load previous results from the output JSON file if it exists."""
@@ -359,11 +361,11 @@ class EvaluationPipeline:
             print("[VIS] No results to visualize.")
             return
 
-        vis_dir = self.output_dir / "evaluation_results_vis"
+        vis_dir = self.output_dir / self.app_config.paths.vis_results_dir.format(output_dir=self.output_dir)
         vis_dir.mkdir(exist_ok=True)
 
         metric_data: DefaultDict[str, DefaultDict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
-        skip_keys = {"id", "model", "gt_caption", "gen_caption", "snapshot_num"}
+        skip_keys = set(self.app_config.visualization.skip_keys)
 
         for entry in self.results:
             model_name = entry.get("model", "unknown")
@@ -382,10 +384,10 @@ class EvaluationPipeline:
             plt.figure(figsize=(max(6, len(models) * 1.2), 4))
             plt.bar(models, means, color="skyblue")
             plt.ylabel(metric)
-            plt.title(f"Mean {metric} per model ({self.config.variant})")
+            plt.title(f"Mean {metric} per model ({self.cli_config.variant})")
             plt.xticks(rotation=45, ha="right")
             plt.tight_layout()
-            plt.savefig(vis_dir / f"{metric}_bar.png", dpi=150)
+            plt.savefig(vis_dir / self.app_config.filenames.vis_bar_plot.format(metric=metric), dpi=self.app_config.visualization.dpi)
             plt.close()
 
             # Box plot (distribution)
@@ -393,10 +395,10 @@ class EvaluationPipeline:
             plt.figure(figsize=(max(6, len(models) * 1.2), 4))
             plt.boxplot(data, labels=models, vert=True, patch_artist=True)
             plt.ylabel(metric)
-            plt.title(f"{metric} distribution per model ({self.config.variant})")
+            plt.title(f"{metric} distribution per model ({self.cli_config.variant})")
             plt.xticks(rotation=45, ha="right")
             plt.tight_layout()
-            plt.savefig(vis_dir / f"{metric}_box.png", dpi=150)
+            plt.savefig(vis_dir / self.app_config.filenames.vis_box_plot.format(metric=metric), dpi=self.app_config.visualization.dpi)
             plt.close()
         
         print(f"[VIS] Saved visualization plots → {vis_dir}")
@@ -431,7 +433,7 @@ def main():
     if args.ids:
         args.ids = [s.strip() for s in args.ids.split(",") if s.strip()]
 
-    pipeline = EvaluationPipeline(config=args)
+    pipeline = EvaluationPipeline(cli_config=args)
     pipeline.run()
 
 
