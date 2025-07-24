@@ -24,4 +24,8 @@ def register_metric(name: str):
 
 def get_metrics() -> Dict[str, MetricFunc]:
     """Return registered metric functions."""
-    return _METRICS.copy() 
+    return _METRICS.copy()
+
+
+from . import tool
+_METRICS["tool"] = tool.extract_tool_metrics
