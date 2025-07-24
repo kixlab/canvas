@@ -9,6 +9,7 @@ from pathlib import Path
 from tqdm import tqdm
 import numpy as np
 import random
+from typing import List, Dict
 
 # --- Deterministic Settings for Reproducibility ---
 def set_seed(seed: int):
@@ -31,7 +32,7 @@ def postprocess_caption(caption: str, prompt: str) -> str:
         return caption[len(prompt):].strip()
     return caption
 
-def collect_image_paths(base_dir: Path, task: str, variant: str) -> list[dict]:
+def collect_image_paths(base_dir: Path, task: str, variant: str) -> List[Dict]:
     """Collect all GT and generated image paths to be captioned."""
     results_dir = base_dir / "results" / task / variant
     gt_dir = base_dir / "benchmarks" / "replication_gt"
@@ -59,7 +60,7 @@ def collect_image_paths(base_dir: Path, task: str, variant: str) -> list[dict]:
             
     return image_tasks
 
-def precompute_captions(image_tasks: list[dict], model, processor, device, batch_size: int) -> dict:
+def precompute_captions(image_tasks: List[Dict], model, processor, device, batch_size: int) -> Dict:
     """Generate captions for all images in batches."""
     captions = {}
     

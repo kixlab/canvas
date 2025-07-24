@@ -30,12 +30,19 @@ filenames:
   snapshot_image_glob: "{case_id}-snapshot-*.png"
   snapshot_json: "{snapshot_stem}-structure.json"
 
+  # Human tool path data
+  human_tool_path_csv: "dataset/benchmarks/modification_gt/human-tool-path.csv"
+
   # Visualization outputs
   vis_bar_plot: "{metric}_bar.png"
   vis_box_plot: "{metric}_box.png"
 
+# 4. Model Weights
+weights:
+  saliency_model: "/home/seooyxx/kixlab/samsung-cxi-mcp-server/tools/UEyes-CHI2023/model_weights/saliency_models/UMSI++/umsi++.hdf5"
 
-# 3. Metric Configuration
+
+# 5. Metric Configuration
 metrics:
   # Metrics considered essential for a result to be "complete" (--skip_all flag)
   required_metrics:

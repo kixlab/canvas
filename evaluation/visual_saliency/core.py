@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Tuple, Optional
-
+from evaluation.config import config
 from .util import get_model_by_name
 
 __all__ = [
@@ -21,9 +21,7 @@ __all__ = [
 
 # Model identifier used by `get_model_by_name`
 _MODEL_NAME: str = "UMSI"
-_WEIGHTS_PATH: Path = Path(
-    "/home/seooyxx/kixlab/samsung-cxi-mcp-server/tools/UEyes-CHI2023/model_weights/saliency_models/UMSI++/umsi++.hdf5"
-)
+_WEIGHTS_PATH: Path = Path(config.weights.saliency_model)
 _MODEL_INP_SIZE: Tuple[int, int] = (256, 256)  # (H, W)
 _IMAGENET_MEAN_BGR = np.array([103.939, 116.779, 123.68], dtype=np.float32)
 _MODEL = None

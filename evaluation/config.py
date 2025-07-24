@@ -29,6 +29,10 @@ class FilenamesConfig:
     vis_box_plot: str
 
 @dataclass
+class WeightsConfig:
+    saliency_model: str
+
+@dataclass
 class CompositeMetricConfig:
     components: List[str]
     digits: int
@@ -55,6 +59,7 @@ class AppConfig:
     """Root configuration object."""
     paths: PathsConfig
     filenames: FilenamesConfig
+    weights: WeightsConfig
     metrics: MetricsConfig
     visualization: VisualizationConfig
 
@@ -62,6 +67,7 @@ class AppConfig:
         # Convert nested dicts to dataclasses
         self.paths = PathsConfig(**self.paths)
         self.filenames = FilenamesConfig(**self.filenames)
+        self.weights = WeightsConfig(**self.weights)
         self.metrics = MetricsConfig(**self.metrics)
         self.visualization = VisualizationConfig(**self.visualization)
 
