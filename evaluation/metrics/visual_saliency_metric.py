@@ -73,6 +73,7 @@ def _visual_saliency_metric(
     *,
     out_dir: Optional[str] = None,
     case_id: Optional[str] = None,
+    snapshot_num: Optional[int] = None,
 ) -> Dict[str, Optional[float]]:
     """Compute saliency similarity metrics (CC, SIM, KL) for a GT/GEN image pair.
 
@@ -105,8 +106,9 @@ def _visual_saliency_metric(
     }
 
     if out_dir is not None:
+        effective_case_id = f"{case_id}_snapshot_{snapshot_num}" if case_id and snapshot_num is not None else case_id
         try:
-            save_saliency_outputs(gt_img, gen_img, gt_sal, gen_sal, Path(out_dir), case_id)
+            save_saliency_outputs(gt_img, gen_img, gt_sal, gen_sal, Path(out_dir), effective_case_id)
         except Exception as exc:
             print(f"[visual_saliency] Failed to save visualisation: {exc}")
 
