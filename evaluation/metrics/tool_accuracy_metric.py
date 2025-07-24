@@ -1,13 +1,14 @@
-from __future__ import annotations
 from evaluation.metrics import register_metric
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 @register_metric("tool_accuracy")
-def _tool_accuracy_metric(gt_img: str = None,
-                          gen_img: str = None,
-                          gt_json: str | None = None,
-                          gen_json: str | None = None) -> Dict[str, Any]:
+def _tool_accuracy_metric(
+    gt_img: str = None,
+    gen_img: str = None,
+    gt_json: Optional[str] = None,
+    gen_json: Optional[str] = None,
+) -> Dict[str, Any]:
     """Placeholder for tool accuracy metric.
 
     TODO: Requires ground-truth labels of expected tool calls.
