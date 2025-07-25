@@ -1,9 +1,11 @@
 # ruff: noqa: E501
 
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-import os
 import json
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional, DefaultDict, Any
@@ -14,11 +16,10 @@ import argparse
 import pkgutil
 import importlib
 
-# External plotting libs are optional – code falls back gracefully if missing.
 try:
-    import matplotlib.pyplot as plt  # type: ignore
-except ModuleNotFoundError:  # pragma: no cover – plotting optional
-    plt = None  # type: ignore
+    import matplotlib.pyplot as plt
+except ModuleNotFoundError:
+    plt = None
 
 from collections import defaultdict
 
@@ -27,18 +28,6 @@ from evaluation.config import config
 
 
 PREVIOUS_RESULTS_FILE = "evaluation_results.json"
-
-def _discover_metrics():
-    """Dynamically import all submodules under evaluation.metrics to register metrics."""
-    import evaluation.metrics as _met_pkg
-    for info in pkgutil.iter_modules(_met_pkg.__path__):
-        importlib.import_module(f"{_met_pkg.__name__}.{info.name}")
-
-auto_metrics_discovered = False
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Helper: extract model name from case directory
 
 def _extract_model_from_case(case_id: str, variant: str) -> str:
     """Parse the model name from `<gid>-<screen>-<model>-<variant>` directory name.
@@ -62,12 +51,16 @@ class EvaluationCase:
     case_id: str  # e.g., "gid6-27-gpt-4o-image_only"
     gt_id: str  # e.g., "gid6-27"
     model_name: str
-    gt_img_path: Optional[Path]
+    gt_img_path: Optional[Path]  # Target GT image for modification_gen
+    gt_json_path: Optional[Path]  # Target GT json for modification_gen
     gen_img_path: Path
-    gt_json_path: Path
     gen_json_path: Path
     snapshot_num: Optional[int] = None
     metric_results: Dict[str, Any] = field(default_factory=dict)
+    # Additional fields for modification_gen
+    base_gt_img_path: Optional[Path] = None
+    base_gt_json_path: Optional[Path] = None
+    is_modification: bool = False  # Flag to indicate if this is a modification task
 
 
 class EvaluationPipeline:
@@ -78,7 +71,7 @@ class EvaluationPipeline:
         self.cli_config = cli_config
         self.app_config = config
         self._setup_paths()
-        self._discover_and_load_metrics()
+        self._load_metrics()
 
         self.previous_results = self._load_previous_results()
         self.prev_by_key = {
@@ -99,30 +92,56 @@ class EvaluationPipeline:
         if not self.base_dir.exists():
             raise FileNotFoundError(f"Base directory not found: {self.cli_config.base_dir}")
 
-        path_vars = {"base_dir": str(self.base_dir), "task": self.cli_config.task, "variant": self.cli_config.variant}
-        
-        self.gt_dir = Path(self.app_config.paths.gt_dir.format(**path_vars))
-        self.results_dir = Path(self.app_config.paths.results_dir.format(**path_vars))
-        self.output_dir = Path(self.app_config.paths.output_dir.format(**path_vars))
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        # Remove '_gen' suffix for gt directory
+        task_base = self.cli_config.task.replace("_gen", "")
+        path_vars = {
+            "base_dir": str(self.base_dir),
+            "task": self.cli_config.task,
+            "task_base": task_base
+        }
 
+        gt_dir_template = self.app_config.paths.gt_dir
+        results_dir_template = self.app_config.paths.results_dir
+        output_dir_template = self.app_config.paths.output_dir
+
+        if self.cli_config.task == "replication_gen":
+            if not self.cli_config.variant:
+                raise ValueError("--variant is required for replication_gen task")
+            path_vars["variant"] = self.cli_config.variant
+        elif self.cli_config.task == "modification_gen":
+            # For modification_gen, we don't use variant in paths except for GT
+            results_dir_template = results_dir_template.replace("/{variant}", "")
+            output_dir_template = output_dir_template.replace("/{variant}", "")
+            if self.cli_config.variant:
+                path_vars["variant"] = self.cli_config.variant
+
+        self.gt_dir = Path(gt_dir_template.format(**path_vars))
+        self.results_dir = Path(results_dir_template.format(**path_vars))
+        self.output_dir = Path(output_dir_template.format(**path_vars))
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        print(self.cli_config.task)
+        print(self.gt_dir)
+        print(self.results_dir)
+        
         if self.cli_config.eval_snapshots:
             self.output_path = self.output_dir / self.app_config.filenames.results_with_snapshots_json
         else:
             self.output_path = self.output_dir / self.app_config.filenames.results_json
+            
+        # Additional output path for modification task
+        if self.cli_config.task == "modification_gen":
+            self.modification_basetarget_path = self.output_dir / self.app_config.filenames.modification_results_basetarget_json
 
         self.saliency_vis_dir = self.output_dir / self.app_config.paths.saliency_vis_dir.format(output_dir=self.output_dir)
         if self.cli_config.save_saliency_vis:
             self.saliency_vis_dir.mkdir(exist_ok=True)
 
-    def _discover_and_load_metrics(self):
-        """Discover and load all available metric functions."""
-        global auto_metrics_discovered
-        if not auto_metrics_discovered:
-            _discover_metrics()
-            auto_metrics_discovered = True
+    def _load_metrics(self):
+        """Load all available metric functions from the registry."""
+        # Metric discovery now happens automatically when evaluation.metrics is imported.
         self.metric_funcs = get_metrics()
-        self.tool_metric_func = self.metric_funcs.pop("tool", None)
+        self.tool_metric_func = self.metric_funcs.pop("tool_usage", None)
 
     def run(self):
         """Execute the full evaluation pipeline."""
@@ -130,17 +149,24 @@ class EvaluationPipeline:
 
         if self.cli_config.ids:
             ids_set = set(self.cli_config.ids)
+            original_cases = list(cases)
             cases = [c for c in cases if c.gt_id in ids_set]
             if not cases:
-                raise ValueError(f"No matching samples found for ids: {self.cli_config.ids}")
+                error_msg = f"No matching samples found for ids: {self.cli_config.ids}"
+                found_gt_ids = sorted({c.gt_id for c in original_cases})
+                if found_gt_ids:
+                    error_msg += f"\nAvailable gt_ids for model '{self.cli_config.model}': {json.dumps(found_gt_ids, indent=2)}"
+                else:
+                    error_msg += f"\nNo samples found at all for model '{self.cli_config.model}' in directory {self.results_dir}."
+                raise ValueError(error_msg)
 
         for case in cases:
             self._process_case(case)
 
-        self._run_tool_metrics()
-        self._calculate_aggregate_metrics()
-        self._save_results(final=True)
+        self._run_tool_metrics_on_final_results()
 
+        self.results = [self._restructure_result(r) for r in self.results]
+        self._save_results(final=True)
         if self.cli_config.vis:
             self._generate_visualizations()
 
@@ -153,53 +179,160 @@ class EvaluationPipeline:
             raise FileNotFoundError(f"Results directory not found: {self.results_dir}")
 
         cases: List[EvaluationCase] = []
-        for item in self.results_dir.iterdir():
-            if not item.is_dir() or not item.name.endswith(f"-{self.cli_config.variant}"):
+        
+        items_to_process = list(self.results_dir.iterdir())
+        print("\n[DEBUG] Items in results dir:")
+        for item in items_to_process:
+            print(f"- {item}")
+
+        # For modification_gen with variant, we need to look into variant subdirectory
+        if self.cli_config.task == "modification_gen" and self.cli_config.variant:
+            variant_dir = self.results_dir / self.cli_config.variant
+            if variant_dir.exists() and variant_dir.is_dir():
+                print(f"\n[DEBUG] Found variant directory: {variant_dir}")
+                items_to_process = list(variant_dir.iterdir())
+                print("[DEBUG] Items in variant dir:")
+                for item in items_to_process:
+                    print(f"- {item}")
+            else:
+                print(f"\n[DEBUG] Variant directory not found: {variant_dir}")
+
+        for item in items_to_process:
+            if not item.is_dir():
                 continue
-            if self.cli_config.model and f"-{self.cli_config.model}-" not in f"{item.name}-":
+            
+            print(f"\n[DEBUG] Processing item: {item.name}")
+            gt_id = None
+            model_name = None
+            gt_base_dir = self.gt_dir
+
+            if self.cli_config.task == "replication_gen":
+                if self.cli_config.variant:
+                    if not item.name.endswith(f"-{self.cli_config.variant}"):
+                        print(f"[DEBUG] Skipping - doesn't end with variant: {self.cli_config.variant}")
+                        continue
+                    if self.cli_config.model and f"-{self.cli_config.model}-" not in f"{item.name}-":
+                        print(f"[DEBUG] Skipping - model not found: {self.cli_config.model}")
+                        continue
+                    prefix = item.name[: -(len(self.cli_config.variant) + 1)]
+                    tokens = prefix.split("-")
+                    if len(tokens) < 3:
+                        print("[DEBUG] Skipping - not enough tokens")
+                        continue
+                    gt_id = "-".join(tokens[0:2])
+                    model_name = "-".join(tokens[2:])
+            elif self.cli_config.task == "modification_gen":
+                if self.cli_config.model and not item.name.endswith(f"-{self.cli_config.model}"):
+                    print(f"[DEBUG] Skipping - doesn't end with model: {self.cli_config.model}")
+                    continue
+
+                prefix = item.name
+                print(f"[DEBUG] Prefix: {prefix}")
+                
+                # Find which model this directory belongs to
+                if self.cli_config.model:
+                    model_name = self.cli_config.model
+                    if prefix.endswith(f"-{model_name}"):
+                        gt_id = prefix[:-(len(model_name) + 1)]
+                        print(f"[DEBUG] Found gt_id: {gt_id}, model: {model_name}")
+                    else:
+                        print(f"[DEBUG] Skipping - prefix doesn't end with model")
+                        continue
+                else:
+                    tokens = prefix.split("-")
+                    if len(tokens) < 2:
+                        print("[DEBUG] Skipping - not enough tokens")
+                        continue
+                    model_name = tokens[-1]
+                    gt_id = "-".join(tokens[:-1])
+                    print(f"[DEBUG] Found gt_id: {gt_id}, model: {model_name}")
+
+            if not gt_id or not model_name:
+                print("[DEBUG] Skipping - missing gt_id or model_name")
                 continue
 
-            prefix = item.name[: -(len(self.cli_config.variant) + 1)]
-            tokens = prefix.split("-")
-            if len(tokens) < 3:
-                continue
-
-            gt_id = "-".join(tokens[0:2])
-            model_name = "-".join(tokens[2:])
             case_id = item.name
+            print(f"[DEBUG] Case ID: {case_id}")
 
-            gt_img_path = self.gt_dir / self.app_config.filenames.gt_image.format(gt_id=gt_id)
-            gt_json_path = self.gt_dir / self.app_config.filenames.gt_json.format(gt_id=gt_id)
+            if self.cli_config.task == "modification_gen":
+                # For modification task, we need both base and target GT files
+                if self.cli_config.variant:
+                    gt_base_dir = gt_base_dir / self.cli_config.variant
+                
+                gt_base_img_path = gt_base_dir / self.app_config.filenames.modification_base_image.format(gt_id=gt_id)
+                gt_base_json_path = gt_base_dir / self.app_config.filenames.modification_base_json.format(gt_id=gt_id)
+                gt_target_img_path = gt_base_dir / self.app_config.filenames.modification_target_image.format(gt_id=gt_id)
+                gt_target_json_path = gt_base_dir / self.app_config.filenames.modification_target_json.format(gt_id=gt_id)
+                
+                print(f"[DEBUG] GT paths (modification):")
+                print(f"- base img: {gt_base_img_path}")
+                print(f"- base json: {gt_base_json_path}")
+                print(f"- target img: {gt_target_img_path}")
+                print(f"- target json: {gt_target_json_path}")
 
-            if not gt_json_path.exists():
-                continue
+                if not gt_base_json_path.exists() or not gt_target_json_path.exists():
+                    print("[DEBUG] Skipping - GT json not found (base or target)")
+                    continue
+                
+                gt_img_path = gt_target_img_path
+                gt_json_path = gt_target_json_path
+            else:
+                # For replication task, we only need one GT file
+                gt_img_path = gt_base_dir / self.app_config.filenames.gt_image.format(gt_id=gt_id)
+                gt_json_path = gt_base_dir / self.app_config.filenames.gt_json.format(gt_id=gt_id)
+                print(f"[DEBUG] GT paths:")
+                print(f"- img: {gt_img_path}")
+                print(f"- json: {gt_json_path}")
+
+                if not gt_json_path.exists():
+                    print("[DEBUG] Skipping - GT json not found")
+                    continue
             
             # Main result
             gen_img_path = item / self.app_config.filenames.gen_image.format(case_id=case_id)
             gen_json_path = item / self.app_config.filenames.gen_json.format(case_id=case_id)
+            print(f"[DEBUG] Generated paths:")
+            print(f"- img: {gen_img_path}")
+            print(f"- json: {gen_json_path}")
+
             if gen_img_path.exists() and gen_json_path.exists():
-                cases.append(EvaluationCase(
-                    case_id=case_id, gt_id=gt_id, model_name=model_name, snapshot_num=None,
+                print("[DEBUG] Adding case to list")
+                case = EvaluationCase(
+                    case_id=case_id, 
+                    gt_id=gt_id, 
+                    model_name=model_name, 
+                    snapshot_num=None,
                     gt_img_path=gt_img_path if gt_img_path.exists() else None,
                     gen_img_path=gen_img_path,
                     gt_json_path=gt_json_path,
                     gen_json_path=gen_json_path,
-                ))
+                )
+                
+                if self.cli_config.task == "modification_gen":
+                    case.is_modification = True
+                    case.base_gt_img_path = gt_base_img_path if gt_base_img_path.exists() else None
+                    case.base_gt_json_path = gt_base_json_path
+                
+                cases.append(case)
 
             # Snapshots
             if self.cli_config.eval_snapshots:
                 snapshots_dir = item / self.app_config.filenames.snapshots_dir
                 if snapshots_dir.is_dir():
+                    print(f"[DEBUG] Processing snapshots in: {snapshots_dir}")
                     glob_pattern = self.app_config.filenames.snapshot_image_glob.format(case_id=case_id)
                     for snapshot_img_path in sorted(snapshots_dir.glob(glob_pattern)):
                         snapshot_stem = snapshot_img_path.stem
                         try:
                             snapshot_num = int(snapshot_stem.split("-snapshot-")[-1])
+                            print(f"[DEBUG] Found snapshot {snapshot_num}")
                         except (ValueError, IndexError):
+                            print(f"[DEBUG] Invalid snapshot name: {snapshot_stem}")
                             continue
                 
                         snapshot_json_path = snapshots_dir / self.app_config.filenames.snapshot_json.format(snapshot_stem=snapshot_stem)
                         if snapshot_json_path.exists():
+                            print(f"[DEBUG] Adding snapshot {snapshot_num} to list")
                             cases.append(EvaluationCase(
                                 case_id=case_id, gt_id=gt_id, model_name=model_name, snapshot_num=snapshot_num,
                                 gt_img_path=gt_img_path if gt_img_path.exists() else None,
@@ -207,29 +340,85 @@ class EvaluationPipeline:
                                 gt_json_path=gt_json_path,
                                 gen_json_path=snapshot_json_path
                             ))
+
+        print(f"\n[DEBUG] Total cases collected: {len(cases)}")
         return cases
 
     def _process_case(self, case: EvaluationCase):
         """Compute metrics for a single evaluation case."""
-        metric = self.prev_by_key.get((case.gt_id, case.snapshot_num), {}).copy()
-        metric.update({"id": case.gt_id, "model": case.model_name, "snapshot_num": case.snapshot_num})
+        if case.is_modification:
+            # For modification task, compute both base and target metrics
+            base_metric = self._compute_metrics(case, is_base=True)
+            target_metric = self._compute_metrics(case, is_base=False)
+            
+            # Store both metrics in basetarget results
+            basetarget_metrics = {
+                "id": case.gt_id,
+                "case_id": case.case_id,
+                "model": case.model_name,
+                "snapshot_num": case.snapshot_num,
+                "base_metrics": base_metric,
+                "target_metrics": target_metric
+            }
+            
+            # Compute delta metrics for main results
+            metric = {}
+            for key in base_metric:
+                if isinstance(base_metric[key], (int, float)) and isinstance(target_metric[key], (int, float)):
+                    metric[key] = target_metric[key] - base_metric[key]
+                else:
+                    metric[key] = target_metric[key]  # For non-numeric metrics, use target value
+            
+            metric.update({
+                "id": case.gt_id,
+                "case_id": case.case_id,
+                "model": case.model_name,
+                "snapshot_num": case.snapshot_num
+            })
+            
+            # Save basetarget metrics
+            self._save_basetarget_results(basetarget_metrics)
+        else:
+            # For replication task, compute metrics normally
+            metric = self._compute_metrics(case)
+            metric.update({
+                "id": case.gt_id,
+                "case_id": case.case_id,
+                "model": case.model_name,
+                "snapshot_num": case.snapshot_num
+            })
         
-        metric.setdefault("snapshot_num", None)
+        self.results.append(metric)
+        self.new_processed_count += 1
 
-        if self.cli_config.skip_all and self._is_result_complete(metric):
-            return
+        # Periodic checkpoint
+        if self.new_processed_count % 10 == 0:
+            self._save_results()
 
+    def _compute_metrics(self, case: EvaluationCase, is_base: bool = False) -> Dict[str, Any]:
+        """Compute metrics for a case, optionally using base GT for modification task."""
+        metric = {}
+        
         for name, func in self.metric_funcs.items():
             if self._should_skip_metric(name, metric, case.gt_img_path):
                 continue
 
             try:
-                kwargs = {
-                    "gt_img": str(case.gt_img_path) if case.gt_img_path else "",
-                    "gen_img": str(case.gen_img_path),
-                    "gt_json": str(case.gt_json_path),
-                    "gen_json": str(case.gen_json_path),
-                }
+                if case.is_modification and is_base:
+                    kwargs = {
+                        "gt_img": str(case.base_gt_img_path) if case.base_gt_img_path else "",
+                        "gen_img": str(case.gen_img_path),
+                        "gt_json": str(case.base_gt_json_path),
+                        "gen_json": str(case.gen_json_path),
+                    }
+                else:
+                    kwargs = {
+                        "gt_img": str(case.gt_img_path) if case.gt_img_path else "",
+                        "gen_img": str(case.gen_img_path),
+                        "gt_json": str(case.gt_json_path),
+                        "gen_json": str(case.gen_json_path),
+                    }
+
                 if name == "visual_saliency":
                     kwargs.update({
                         "out_dir": str(self.saliency_vis_dir) if self.cli_config.save_saliency_vis else None,
@@ -251,12 +440,7 @@ class EvaluationPipeline:
             except Exception as e:
                 metric[f"{name}_error"] = str(e)
         
-        self.results.append(metric)
-        self.new_processed_count += 1
-
-        # Periodic checkpoint
-        if self.new_processed_count % 10 == 0:
-            self._save_results()
+        return metric
 
     def _should_skip_metric(self, name: str, metric: Dict, gt_img_path: Optional[Path]) -> bool:
         """Check if a metric computation should be skipped based on config and state."""
@@ -290,28 +474,87 @@ class EvaluationPipeline:
             required.add(self.app_config.metrics.optional_required_metrics['visual_saliency'])
         return all(key in result for key in required)
 
-    def _run_tool_metrics(self):
-        """Run tool usage metrics on all processed results."""
+    def _run_tool_metrics_on_final_results(self):
+        """Run tool usage metrics on final (non-snapshot) results."""
         if not self.tool_metric_func:
             return
-        for metric in self.results:
-            result_path = self.results_dir / metric["id"]
-            try:
-                tool_metrics = self.tool_metric_func(str(result_path))
-                metric.update(tool_metrics)
-            except Exception as e:
-                metric["tool_error"] = str(e)
+
+        for result in self.results:
+            result_path = self._get_result_path_from_case_id(result["case_id"])
+            if not result_path:
+                continue
+
+            # Skip if already computed
+            if "tool_call_count" in result and result["tool_call_count"] is not None:
+                continue
+            
+            tool_metrics = self.tool_metric_func(
+                result_path=str(result_path),
+                case_id=result["case_id"]
+            )
+            result.update(tool_metrics)
+    
+    def _get_result_path_from_case_id(self, case_id: str) -> Optional[Path]:
+        """Helper to find the full result path for a given case_id."""
+        result_path = self.results_dir / case_id
+        if result_path.exists():
+            return result_path
+        return None
 
     def _calculate_aggregate_metrics(self):
-        """Calculate composite scores like visual and structural completeness."""
-        for metric in self.results:
-            for comp_name, comp_conf in self.app_config.metrics.composite_metrics.items():
-                try:
-                    if all(k in metric and metric.get(k) is not None for k in comp_conf.components):
-                        score = sum(float(metric[k]) for k in comp_conf.components) / len(comp_conf.components)
-                        metric[comp_name] = round(score, comp_conf.digits)
-                except (TypeError, ValueError):
-                    metric.setdefault(comp_name, None)
+        """(DEPRECATED) This method is now replaced by _restructure_result."""
+        pass
+
+    def _restructure_result(self, flat_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert a flat metric dictionary to the new hierarchical schema."""
+        
+        # Helper to safely get a value
+        def get(key, default=None):
+            return flat_result.get(key, default)
+
+        return {
+            "id": get("id"),
+            "model": get("model"),
+            "snapshot_num": get("snapshot_num") if get("snapshot_num") is not None else None,
+
+            "perceptual_similarity": {
+                "feature_level": {
+                    "ssim": get("ssim"),
+                    "rmse": get("rmse"),
+                    "psnr": get("psnr")
+                },
+                "pattern_level": {
+                    "saliency_sim": get("saliency_sim"),
+                    "saliency_cc": get("saliency_cc"),
+                    "saliency_kl": get("saliency_kl"),
+                    "lpips": get("lpips"),
+                },
+                "object_level": {
+                    "blip_caption_similarity": get("blip_caption_similarity"),
+                    "clip_caption_similarity": get("clip_caption_similarity"),  # TBD
+                    "generated_caption": get("generated_caption"),
+                    "ground_truth_caption": get("ground_truth_caption")
+                }
+            },
+
+            "component_similarity": {
+                "color_match_score": get("color_match_score"),      # TBD
+                "text_match_score": get("text_match_score"),        # TBD
+                "element_position_iou": get("element_position_iou"),
+                "block_composition_f1": get("block_composition_f1") # TBD
+            },
+
+            "tool_usage_metrics": {
+                "step_count": get("step_count"),
+                "tool_call_count": get("tool_call_count"),
+                "tool_step_count": get("step_count"),  # Re-alias for clarity
+                "tool_efficiency": get("tool_efficiency"),
+                "unique_tool_count": get("unique_tool_count"),
+                "unique_tool_list": get("unique_tool_list"),
+                "tool_call_trace": get("tool_call_trace"),
+                "human_hit_rate": get("human_hit_rate")
+            }
+        }
 
     def _load_previous_results(self) -> List[Dict[str, any]]:
         """Load previous results from the output JSON file if it exists."""
@@ -354,6 +597,21 @@ class EvaluationPipeline:
         
         if not final:
             print(f"... Checkpoint saved to {self.output_path}")
+
+    def _save_basetarget_results(self, metric: Dict[str, Any]):
+        """Save base and target metrics for modification task."""
+        if not hasattr(self, 'basetarget_results'):
+            self.basetarget_results = []
+            if self.modification_basetarget_path.exists():
+                with self.modification_basetarget_path.open("r", encoding="utf-8") as f:
+                    try:
+                        self.basetarget_results = json.load(f)
+                    except json.JSONDecodeError:
+                        pass
+
+        self.basetarget_results.append(metric)
+        with self.modification_basetarget_path.open("w", encoding="utf-8") as f:
+            json.dump(self.basetarget_results, f, indent=2, ensure_ascii=False)
 
     def _generate_visualizations(self):
         """Create and save model-wise metric plots."""
@@ -415,8 +673,8 @@ def main():
     )
     # --- Core Arguments ---
     parser.add_argument("--base_dir", type=str, default="dataset", help="Base dataset directory containing 'benchmarks' and 'results'.")
-    parser.add_argument("--task", type=str, required=True, help="Task to evaluate (e.g., 'replication_gen').")
-    parser.add_argument("--variant", type=str, required=True, help="Task variant to evaluate (e.g., 'image_only').")
+    parser.add_argument("--task", type=str, required=True, choices=["replication_gen", "modification_gen"], help="Task to evaluate (replication_gen or modification_gen).")
+    parser.add_argument("--variant", type=str, default=None, help="Task variant to evaluate (required for replication_gen, optional for modification_gen).")
     
     # --- Filtering Arguments ---
     parser.add_argument("--model", type=str, default=None, help="Model name to filter (e.g., gpt-4o). If omitted, evaluate all models.")
@@ -433,6 +691,10 @@ def main():
     parser.add_argument("--skip_all", action="store_true", help="Skip evaluation for samples where all metrics are already present in results file.")
     
     args = parser.parse_args()
+    
+    if args.task == "replication_gen" and not args.variant:
+        parser.error("--variant is required for replication_gen task")
+
     if args.ids:
         args.ids = [s.strip() for s in args.ids.split(",") if s.strip()]
 
