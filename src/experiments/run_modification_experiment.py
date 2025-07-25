@@ -105,7 +105,10 @@ class ModificationExperiment(BaseExperiment):
 
                                 if result is None:
                                     self.logger.error(f"[SKIP] Task {result_name} failed after 2 attempts. Skipping.")
-                                    await self.ensure_canvas_empty(session)
+                                    try:
+                                        await self.ensure_canvas_empty(session)
+                                    except RuntimeError as e:
+                                        self.logger.error(f"Failed to clean canvas for {result_name} due to server error: {e}. The experiment might become unstable.")
                                     continue
 
                             await self.save_results(result, result_name)
@@ -134,7 +137,11 @@ class ModificationExperiment(BaseExperiment):
                         )
 
                         if result is None:
-                            await self.ensure_canvas_empty(session)
+                            try:
+                                await self.ensure_canvas_empty(session)
+                            except RuntimeError as e:
+                                self.logger.error(f"Failed to clean canvas for {result_name} due to server error: {e}. The experiment might become unstable.")
+
                             user_choice = input(
                                 "[ERROR] Generation failed. Retry? [y] retry / [s] skip / [q] quit > "
                             ).strip().lower()
