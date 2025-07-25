@@ -95,7 +95,6 @@ class ModificationExperiment(BaseExperiment):
                             
                             if result is None:
                                 self.logger.warning(f"[RETRY] First attempt for {result_name} failed. Cleaning canvas and retrying in 5 seconds...")
-                                await self.ensure_canvas_empty(session)
                                 await asyncio.sleep(5)
                                 
                                 self.logger.info(f"[RETRY] Retrying {result_name} (attempt 2/2)")
