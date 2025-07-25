@@ -67,6 +67,7 @@ export class ModificationAgent extends AgentInstance {
         `Failed to load base JSON: ${errorMessage || "Unknown error"}`
       );
     }
+
     const mainScreenFrameId = response.structuredContent!.rootFrameId as string;
     if (!mainScreenFrameId) {
       throw new Error(
