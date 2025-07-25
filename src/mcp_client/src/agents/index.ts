@@ -4,6 +4,7 @@ import { CodeAgent } from "./codeAgent";
 import { FeedbackAgent } from "./feedbackAgent";
 import { ModificationAgent } from "./modificationAgent";
 import { ReactAgent } from "./reactAgent";
+import { SingleAgent } from "./singleAgent";
 
 export function createAgent(agentConfig: AgentConfig): AgentInstance {
   switch (agentConfig.agentType) {
@@ -15,6 +16,8 @@ export function createAgent(agentConfig: AgentConfig): AgentInstance {
       return new ModificationAgent(agentConfig);
     case AgentType.CODE:
       return new CodeAgent(agentConfig);
+    case AgentType.SINGLE:
+      return new SingleAgent(agentConfig);
     default:
       throw new Error(`Unsupported agent type: ${agentConfig.agentType}`);
   }

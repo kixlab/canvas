@@ -66,7 +66,23 @@ The page must be designed to match 600-pixel width and 800-pixel height.
 Precisely, follow the instruction: ${instruction}
 `;
   } else if (agent === AgentType.SINGLE) {
-    return ``;
+    return `
+    **Context**
+You are a UI-design agent with access to Figma via tool calls. 
+Follow the **Instruction** to generate a UI design.
+Refer to the **Agency Principles** and **Figma Basics** for guidance.
+
+**Agency Principles**
+${agencyPrinciples}
+
+**Figma Basics**
+${figmaInstruction}
+
+**Instruction**
+Please analyze the following text and list out comprehensive tool calls that recreate the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+Be extensive and try to include every possible detail necessary to recreate the design through tool calls.
+Text: ${instruction}
+`;
   } else {
     throw new Error(`Unsupported agent type: ${agent}`);
   }
@@ -106,7 +122,23 @@ Respond with the content of the HTML+CSS file. Wrap the code in backticks.
 The page must be designed to match ${width}-pixel width and ${height}-pixel height.
 `;
   } else if (agent === AgentType.SINGLE) {
-    return ``;
+    return `
+**Context**
+You are a UI-design agent with access to Figma via tool calls.
+Follow the **Instruction** to generate a UI design.
+Refer to the **Agency Principles** and **UI Design Principles** for guidance.
+
+**Agency Principles**
+${agencyPrinciples}
+
+**Figma Basics**
+${figmaInstruction}
+
+**Instruction**
+Please analyze the following text and list out comprehensive tool calls that recreate the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+Be extensive and try to include every possible detail necessary to recreate the design through tool calls.
+The frame size is ${width}x${height} pixels.
+    `;
   } else {
     throw new Error(`Unsupported agent type: ${agent}`);
   }
@@ -132,7 +164,8 @@ ${agencyPrinciples}
 ${figmaInstruction}
 
 **Instruction**
-Please analyze the following screen image and text instruction, and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+Please analyze the following text and list out comprehensive tool calls that recreate the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+Be extensive and try to include every possible detail necessary to recreate the design through tool calls.
 The frame size is ${width}x${height} pixels.
 Text: ${instruction}
 `;
@@ -149,7 +182,24 @@ The page must be designed to match ${width}-pixel width and ${height}-pixel heig
 Precisely, follow the instruction: ${instruction}
 `;
   } else if (agent === AgentType.SINGLE) {
-    return ``;
+    return `
+**Context**
+You are a UI-design agent with access to Figma via tool calls.
+Follow the **Instruction** to generate a UI design.
+Refer to the **Agency Principles** and **UI Design Principles** for guidance.
+
+**Agency Principles**
+${agencyPrinciples}
+
+**Figma Basics**
+${figmaInstruction}
+
+**Instruction**
+Please analyze the following text and list out comprehensive tool calls that recreate the UI design inside the existing "Main Screen" frame in the Figma, exactly.
+Be comprehensive and precise in your tool calls.
+The frame size is ${width}x${height} pixels.
+Text: ${instruction}
+    `;
   } else {
     throw new Error(`Unsupported agent type: ${agent}`);
   }
@@ -243,4 +293,14 @@ ${pageStructureText || ""}
 ${feedbackInstruction.trim()}
 `;
   return combinedInstruction;
+}
+
+export function getInitialFrameInstruction({
+  mainScreenFrameId,
+}: {
+  mainScreenFrameId: string;
+}): string {
+  return `
+"Main Screen" frame ID: ${mainScreenFrameId}
+  `;
 }
