@@ -95,6 +95,7 @@ export class ReactAgent extends AgentInstance {
       params.model.addToApiMessageContext(modelResponse, apiMessageContext);
       params.model.addToFormattedMessageContext(
         modelResponse,
+        MessageType.AGENT_REQUEST,
         formattedMessageContext
       );
 

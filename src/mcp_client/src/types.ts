@@ -116,9 +116,10 @@ export interface AgentConfig {
 
 export enum AgentType {
   REACT = "react",
-  VISUAL = "visual",
   FEEDBACK = "feedback",
   MODIFICATION = "modification",
+  CODE = "code",
+  SINGLE = "single",
 }
 
 export interface ServerConfig {
@@ -135,6 +136,8 @@ export enum ServerStatus {
 
 export interface AgentMetadata {
   caseId: string;
+  width?: number;
+  height?: number;
 }
 
 // Extend Express Request type to include file property from multer

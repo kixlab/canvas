@@ -1,4 +1,5 @@
 import { ImageContent } from "@modelcontextprotocol/sdk/types";
+import { AgentType } from "../types";
 
 const figmaInstruction = `
 1. Figma Tool Basics
@@ -31,8 +32,12 @@ Interact with the canvas via the provided Figma-control tools.
 Carefully examine the instructions and image (if provided) and follow them accordingly.
 `;
 
-export function getTextBasedGenerationPrompt(instruction: string): string {
-  return `
+export function getTextBasedGenerationPrompt(
+  instruction: string,
+  agent: AgentType
+): string {
+  if (agent === AgentType.REACT || agent === AgentType.FEEDBACK) {
+    return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls. 
 Follow the **Instruction** to generate a UI design.
@@ -48,13 +53,32 @@ ${figmaInstruction}
 Please analyze the following text and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 Text: ${instruction}
 `;
+  } else if (agent === AgentType.CODE) {
+    return `
+You are an expert web developer who specializes in HTML and CSS. A user will provide you with a screenshot of a mobile app.
+You need to return a single html file that uses HTML and CSS to reproduce the given mobile app.
+Include all CSS code in the HTML file itself. If it involves any images, use "rick.jpg" as the placeholder.
+Some images on the webpage are replaced with a blue rectangle as the placeholder, use "rick.jpg" for those as well.
+Do not hallucinate any dependencies to external files.
+You do not need to include JavaScript scripts for dynamic interactions. Pay attention to things like size, text, position, and color of all the elements, as well as the overall layout.
+Respond with the content of the HTML+CSS file. Wrap the code in backticks.
+The page must be designed to match 600-pixel width and 800-pixel height.
+Precisely, follow the instruction: ${instruction}
+`;
+  } else if (agent === AgentType.SINGLE) {
+    return ``;
+  } else {
+    throw new Error(`Unsupported agent type: ${agent}`);
+  }
 }
 
 export function getImageBasedGenerationPrompt(
   width: number,
-  height: number
+  height: number,
+  agent: AgentType
 ): string {
-  return `
+  if (agent === AgentType.REACT || agent === AgentType.FEEDBACK) {
+    return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls.
 Follow the **Instruction** to generate a UI design.
@@ -70,14 +94,32 @@ ${figmaInstruction}
 Please analyze the following image and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 The frame size is ${width}x${height} pixels.
 `;
+  } else if (agent === AgentType.CODE) {
+    return `
+You are an expert web developer who specializes in HTML and CSS. A user will provide you with a screenshot of a mobile app.
+You need to return a single html file that uses HTML and CSS to reproduce the given mobile app.
+Include all CSS code in the HTML file itself. If it involves any images, use "rick.jpg" as the placeholder.
+Some images on the webpage are replaced with a blue rectangle as the placeholder, use "rick.jpg" for those as well.
+Do not hallucinate any dependencies to external files.
+You do not need to include JavaScript scripts for dynamic interactions. Pay attention to things like size, text, position, and color of all the elements, as well as the overall layout.
+Respond with the content of the HTML+CSS file. Wrap the code in backticks.
+The page must be designed to match ${width}-pixel width and ${height}-pixel height.
+`;
+  } else if (agent === AgentType.SINGLE) {
+    return ``;
+  } else {
+    throw new Error(`Unsupported agent type: ${agent}`);
+  }
 }
 
 export function getTextImageBasedGenerationPrompt(
   instruction: string,
   width: number,
-  height: number
+  height: number,
+  agent: AgentType
 ): string {
-  return `
+  if (agent === AgentType.REACT || agent === AgentType.FEEDBACK) {
+    return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls.
 Follow the **Instruction** to generate a UI design.
@@ -94,6 +136,23 @@ Please analyze the following screen image and text instruction, and reproduce th
 The frame size is ${width}x${height} pixels.
 Text: ${instruction}
 `;
+  } else if (agent === AgentType.CODE) {
+    return `
+You are an expert web developer who specializes in HTML and CSS. A user will provide you with a screenshot of a mobile app.
+You need to return a single html file that uses HTML and CSS to reproduce the given mobile app.
+Include all CSS code in the HTML file itself. If it involves any images, use "rick.jpg" as the placeholder.
+Some images on the webpage are replaced with a blue rectangle as the placeholder, use "rick.jpg" for those as well.
+Do not hallucinate any dependencies to external files.
+You do not need to include JavaScript scripts for dynamic interactions. Pay attention to things like size, text, position, and color of all the elements, as well as the overall layout.
+Respond with the content of the HTML+CSS file. Wrap the code in backticks.
+The page must be designed to match ${width}-pixel width and ${height}-pixel height.
+Precisely, follow the instruction: ${instruction}
+`;
+  } else if (agent === AgentType.SINGLE) {
+    return ``;
+  } else {
+    throw new Error(`Unsupported agent type: ${agent}`);
+  }
 }
 
 export function getTextImageBasedModificationPrompt(

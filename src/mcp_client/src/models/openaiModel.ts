@@ -194,6 +194,7 @@ export class OpenAIModel extends ModelInstance {
 
   addToFormattedMessageContext(
     response: OpenAIResponseType.Responses.Response,
+    type: MessageType,
     context: GenericMessage[]
   ): void {
     const toolRequests = this.formatCallToolRequest(response);
@@ -201,7 +202,7 @@ export class OpenAIModel extends ModelInstance {
     context.push({
       id: response.id,
       timestamp: response.created_at,
-      type: MessageType.AGENT_REQUEST,
+      type: type,
       role: RoleType.ASSISTANT,
       content: [
         { type: ContentType.TEXT, text: (response as any).output_text },
