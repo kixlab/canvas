@@ -1,5 +1,5 @@
 from evaluation.metrics import register_metric
-from evaluation.metrics.surface_fidelity.pattern_level.saliency_helpers import cc, predict_saliency_map_pair
+from evaluation.metrics.perceptual_similarity.pattern_level.saliency_helpers import cc, predict_saliency_map_pair
 
 @register_metric("saliency_cc")
 def _saliency_cc(gt_img: str, gen_img: str, **kwargs):
@@ -11,4 +11,4 @@ def _saliency_cc(gt_img: str, gen_img: str, **kwargs):
         score = cc(gt_sal, gen_sal)
         return {"saliency_cc": round(score, 4)}
     except Exception:
-        return {"saliency_cc": None} 
+        return {"saliency_cc": None}
