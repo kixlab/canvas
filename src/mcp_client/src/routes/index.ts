@@ -8,7 +8,8 @@ import * as toolRoutes from "./utility";
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 20 * 1024 * 1024, // 20MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit
+    fieldSize: 100 * 1024 * 1024, // 100MB limit
   },
 });
 

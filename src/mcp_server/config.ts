@@ -62,6 +62,6 @@ export const SERVER_CONFIG = {
   version: "1.0.0",
   defaultWebSocketPort: 3055,
   reconnectDelay: 2000,
-  requestTimeout: 30000,
-  extendedTimeout: 60000,
+  requestTimeout: 120000,
+  extendedTimeout: 240000,
 };
