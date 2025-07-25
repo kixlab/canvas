@@ -1,4 +1,4 @@
-name: canvasbench-eval
+name: umsi++
 channels:
   - defaults
 dependencies:
@@ -112,3 +112,4 @@ dependencies:
   - zeromq==4.3.3=he1b5a44_2
   - zipp==3.4.0=pyhd3eb1b0_0
   - zlib==1.2.11=h7b6447c_3
+prefix: /home/seooyxx/miniconda3/envs/umsi++
