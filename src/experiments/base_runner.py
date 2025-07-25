@@ -139,24 +139,25 @@ class BaseExperiment:
         except Exception as e:
             raise RuntimeError(f"[ERROR] Failed to load batch from YAML: {e}")
 
-    async def ensure_canvas_empty(self):
+    async def ensure_canvas_empty(self, session: aiohttp.ClientSession):
+        """Ensure the canvas is empty by deleting all top-level nodes."""
         for _ in range(3):
             try:
-                del_res = requests.post(f"{self.api_base_url}/tool/delete_all_top_level_nodes")
+                async with session.post(f"{self.api_base_url}/tool/delete_all_top_level_nodes") as del_res:
+                    if del_res.status == 200:
+                        try:
+                            payload = await del_res.json()
+                            status = payload.get("status", "")
+                        except Exception:
+                            status = ""
 
-                if del_res.status_code == 200:
-                    try:
-                        status = del_res.json().get("status", "")
-                    except Exception:
-                        status = ""
-
-                    if status == "success":
-                        self.logger.info("[CLEANUP] Canvas is now empty (or already empty)")
-                        return
+                        if status == "success":
+                            self.logger.info("[CLEANUP] Canvas is now empty (or already empty)")
+                            return
+                        else:
+                            self.logger.info(f"[CLEANUP-RETRY] Unexpected response status: {status}")
                     else:
-                        self.logger.info(f"[CLEANUP-RETRY] Unexpected response status: {status}")
-                else:
-                    self.logger.info(f"[CLEANUP-RETRY] HTTP {del_res.status_code}")
+                        self.logger.info(f"[CLEANUP-RETRY] HTTP {del_res.status}")
 
             except Exception as e:
                 self.logger.error(f"[CLEANUP-ERROR] Exception during cleanup: {e}")

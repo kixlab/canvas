@@ -93,6 +93,7 @@ class ModificationExperiment(BaseExperiment):
                                 session, target_image_path, base_json_string, instruction, result_name
                             )
                             if result is None:
+                                await self.ensure_canvas_empty(session)
                                 continue
 
                             await self.save_results(result, result_name)
@@ -121,6 +122,7 @@ class ModificationExperiment(BaseExperiment):
                         )
 
                         if result is None:
+                            await self.ensure_canvas_empty(session)
                             user_choice = input(
                                 "[ERROR] Generation failed. Retry? [y] retry / [s] skip / [q] quit > "
                             ).strip().lower()
