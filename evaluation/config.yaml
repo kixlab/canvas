@@ -4,22 +4,27 @@
 # These templates define the directory structure for inputs and outputs.
 # Variables: {base_dir}, {task}, {variant}, {gt_id}, {case_id}, {snapshot_stem}, {output_dir}
 paths:
-  gt_dir: "{base_dir}/benchmarks/replication_gt"
+  gt_dir: "{base_dir}/benchmarks/{task_base}_gt"
   results_dir: "{base_dir}/results/{task}/{variant}"
   output_dir: "{base_dir}/eval_outputs/{task}/{variant}"
   saliency_vis_dir: "{output_dir}/saliency_visualizations"
   vis_results_dir: "{output_dir}/evaluation_results_vis"
 
 # 2. Filename Conventions
-# Defines the naming patterns for various files used in the evaluation.
 filenames:
-  # Output files
-  results_json: "evaluation_results.json"
+  results_json: "evaluation_results.json"  # For replication_gen and modification_gen delta
   results_with_snapshots_json: "evaluation_results_with_snapshots.json"
-
+  modification_results_basetarget_json: "evaluation_results_basetarget.json"  # For modification_gen base and target metrics
+  
   # Ground Truth files
-  gt_image: "{gt_id}.png"
-  gt_json: "{gt_id}.json"
+  gt_image: "{gt_id}.png"  # for replication_gen
+  gt_json: "{gt_id}.json"  # for replication_gen
+  
+  # Modification GT files
+  modification_base_json: "{gt_id}-base.json"
+  modification_target_json: "{gt_id}-target.json"
+  modification_base_image: "{gt_id}-base.png"
+  modification_target_image: "{gt_id}-target.png"
 
   # Generated files (main)
   gen_image: "{case_id}-canvas.png"
@@ -29,9 +34,6 @@ filenames:
   snapshots_dir: "snapshots"
   snapshot_image_glob: "{case_id}-snapshot-*.png"
   snapshot_json: "{snapshot_stem}-structure.json"
-
-  # Human tool path data
-  human_tool_path_csv: "dataset/benchmarks/modification_gt/human-tool-path.csv"
 
   # Visualization outputs
   vis_bar_plot: "{metric}_bar.png"
@@ -73,7 +75,7 @@ metrics:
 
 # 4. Visualization Settings
 visualization:
-  skip_keys: # Keys to ignore when gathering data for plots
+  skip_keys:
     - "id"
     - "model"
     - "gt_caption"

@@ -18,8 +18,13 @@ class PathsConfig:
 class FilenamesConfig:
     results_json: str
     results_with_snapshots_json: str
+    modification_results_basetarget_json: str
     gt_image: str
     gt_json: str
+    modification_base_json: str
+    modification_target_json: str
+    modification_base_image: str
+    modification_target_image: str
     gen_image: str
     gen_json: str
     snapshots_dir: str
@@ -44,7 +49,6 @@ class MetricsConfig:
     composite_metrics: Dict[str, CompositeMetricConfig]
 
     def __post_init__(self):
-        # Convert nested dicts to dataclasses
         self.composite_metrics = {
             k: CompositeMetricConfig(**v) for k, v in self.composite_metrics.items()
         }
@@ -64,7 +68,6 @@ class AppConfig:
     visualization: VisualizationConfig
 
     def __post_init__(self):
-        # Convert nested dicts to dataclasses
         self.paths = PathsConfig(**self.paths)
         self.filenames = FilenamesConfig(**self.filenames)
         self.weights = WeightsConfig(**self.weights)
@@ -73,7 +76,7 @@ class AppConfig:
 
 # --- Loading Logic ---
 
-_config: AppConfig = None  # Singleton instance
+_config: AppConfig = None
 
 def load_config() -> AppConfig:
     """
@@ -95,5 +98,4 @@ def load_config() -> AppConfig:
 
 # --- Global Accessor ---
 
-# Load the config on module import
 config = load_config() 
