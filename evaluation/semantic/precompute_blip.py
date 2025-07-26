@@ -23,6 +23,9 @@ BLIP2_GENERATION_CONFIG = {
 }
 
 # --- Settings ---
+=======
+
+# --- Deterministic Settings for Reproducibility ---
 def set_seed(seed: int):
     """Set seeds for reproducibility."""
     random.seed(seed)
