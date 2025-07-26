@@ -381,7 +381,8 @@ export async function clearPage(tools: Tools): Promise<Array<any>> {
   const result = await tools.callTool(deleteNodesToolCall);
 
   if (result.isError) {
-    throw new Error(`Failed to delete nodes: ${result.error}`);
+    const errorMessage = result.error || "An unknown error occurred";
+    throw new Error(`Failed to delete nodes: ${errorMessage}`);
   }
 
   return topNodeIds;

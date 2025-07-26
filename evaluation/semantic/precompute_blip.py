@@ -10,6 +10,20 @@ from tqdm import tqdm
 import numpy as np
 import random
 from typing import List, Dict
+from datetime import datetime
+
+# --- Constants ---
+BLIP2_MODEL_VERSION = "Salesforce/blip2-opt-2.7b"
+SENTENCE_TRANSFORMER_VERSION = "sentence-transformers/all-MiniLM-L6-v2"
+BLIP2_GENERATION_CONFIG = {
+    "max_new_tokens": 50,
+    "num_beams": 1,
+    "temperature": 1.0,
+    "do_sample": False
+}
+
+# --- Settings ---
+=======
 
 # --- Deterministic Settings for Reproducibility ---
 def set_seed(seed: int):
@@ -21,6 +35,8 @@ def set_seed(seed: int):
         torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+    torch.use_deterministic_algorithms(True)
 
 UI_PROMPT = ""
 
@@ -32,10 +48,48 @@ def postprocess_caption(caption: str, prompt: str) -> str:
         return caption[len(prompt):].strip()
     return caption
 
+def get_optimal_batch_size(device: str) -> int:
+    """Determine optimal batch size based on available GPU memory."""
+    if device == "cpu":
+        return 4
+    
+    try:
+        gpu_mem = torch.cuda.get_device_properties(0).total_memory
+        optimal_batch = max(1, int((gpu_mem / (2 * 1024 * 1024 * 1024) * 0.7)))
+        return min(optimal_batch, 16)
+    except:
+        return 8
+
+def get_experiment_config(args) -> dict:
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "models": {
+            "blip2": {
+                "version": BLIP2_MODEL_VERSION,
+                "generation_config": BLIP2_GENERATION_CONFIG
+            },
+            "sentence_transformer": {
+                "version": SENTENCE_TRANSFORMER_VERSION
+            }
+        },
+        "args": vars(args),
+        "environment": {
+            "python": torch.__version__,
+            "torch": torch.__version__,
+            "cuda": torch.version.cuda if torch.cuda.is_available() else None,
+            "cuda_available": torch.cuda.is_available(),
+            "device": "cuda" if torch.cuda.is_available() else "cpu"
+        }
+    }
+
 def collect_image_paths(base_dir: Path, task: str, variant: str) -> List[Dict]:
     """Collect all GT and generated image paths to be captioned."""
     results_dir = base_dir / "results" / task / variant
-    gt_dir = base_dir / "benchmarks" / "replication_gt"
+    
+    if task.startswith("modification"):
+        gt_dir = base_dir / "benchmarks" / "modification_gt" / variant
+    else:
+        gt_dir = base_dir / "benchmarks" / "replication_gt"
     
     image_tasks = []
     if not results_dir.is_dir():
@@ -46,18 +100,40 @@ def collect_image_paths(base_dir: Path, task: str, variant: str) -> List[Dict]:
             continue
 
         case_id = item.name
-        gt_id = "-".join(case_id.split("-")[0:2])
+        gt_id = "-".join(case_id.split("-")[:2])
 
-        # GT Image
-        gt_img_path = gt_dir / f"{gt_id}.png"
-        if gt_img_path.exists():
-            image_tasks.append({"case_id": case_id, "type": "gt", "path": str(gt_img_path)})
+        if task.startswith("modification"):
+            # Modification task: collect both base and target GT images
+            gt_base_path = gt_dir / f"{gt_id}-base.png"
+            gt_target_path = gt_dir / f"{gt_id}-target.png"
+            
+            if gt_base_path.exists():
+                image_tasks.append({"case_id": case_id, "type": "gt_base", "path": str(gt_base_path)})
+            else:
+                print(f"Warning: Base GT image not found: {gt_base_path}")
+                
+            if gt_target_path.exists():
+                image_tasks.append({"case_id": case_id, "type": "gt_target", "path": str(gt_target_path)})
+            else:
+                print(f"Warning: Target GT image not found: {gt_target_path}")
+        else:
+            # Replication task: collect single GT image
+            gt_img_path = gt_dir / f"{gt_id}.png"
+            if gt_img_path.exists():
+                image_tasks.append({"case_id": case_id, "type": "gt", "path": str(gt_img_path)})
+            else:
+                print(f"Warning: GT image not found: {gt_img_path}")
 
-        # Generated Image
         gen_img_path = item / f"{case_id}-canvas.png"
         if gen_img_path.exists():
             image_tasks.append({"case_id": case_id, "type": "gen", "path": str(gen_img_path)})
+        else:
+            print(f"Warning: Generated image not found: {gen_img_path}")
             
+    if not image_tasks:
+        raise ValueError(f"No images found for task {task} variant {variant}")
+        
+    print(f"Found {len(image_tasks)} images to process")
     return image_tasks
 
 def precompute_captions(image_tasks: List[Dict], model, processor, device, batch_size: int) -> Dict:
@@ -74,7 +150,10 @@ def precompute_captions(image_tasks: List[Dict], model, processor, device, batch
 
             with torch.no_grad():
                 with torch.cuda.amp.autocast(enabled=(device=='cuda')):
-                    generated_ids = model.generate(**inputs, max_new_tokens=50)
+                    generated_ids = model.generate(
+                        **inputs,
+                        **BLIP2_GENERATION_CONFIG
+                    )
             
             batch_captions_raw = processor.batch_decode(generated_ids, skip_special_tokens=True)
 
@@ -90,13 +169,61 @@ def precompute_captions(image_tasks: List[Dict], model, processor, device, batch
 
     return captions
 
+def save_experiment_config(experiment_config: dict, output_dir: Path):
+    """Save the experiment configuration to a separate file."""
+    config_path = output_dir / "experiment_config.json"
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(experiment_config, f, indent=2, ensure_ascii=False)
+    print(f"Experiment config saved to: {config_path}")
+
+def save_results(results: list, output_path: Path):
+    """Save the results in the original format."""
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+
+def save_intermediate_results(results: list, output_dir: Path, current_idx: int):
+    """Save intermediate results."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    intermediate_path = output_dir / f"intermediate_{current_idx}.json"
+    save_results(results, intermediate_path)
+    print(f"Saved intermediate results: {intermediate_path}")
+
+def load_previous_results(output_dir: Path, out_file: str) -> tuple[list, set, dict]:
+    """Load previous results if the file exists."""
+    results = []
+    processed_cases = set()
+    experiment_config = None
+    
+    config_path = output_dir / "experiment_config.json"
+    if config_path.exists():
+        with open(config_path) as f:
+            experiment_config = json.load(f)
+    
+    final_path = output_dir / out_file
+    if final_path.exists():
+        print(f"Found completed results file: {final_path}")
+        with open(final_path) as f:
+            results = json.load(f)
+            processed_cases = {r["case_id"] for r in results}
+        return results, processed_cases, experiment_config
+
+    # intermediate_files = sorted(output_dir.glob("intermediate_*.json"))
+    # if intermediate_files:
+    #     latest_file = intermediate_files[-1]
+    #     print(f"Found intermediate results: {latest_file}")
+    #     with open(latest_file) as f:
+    #         results = json.load(f)
+    #         processed_cases = {r["case_id"] for r in results}
+    
+    return results, processed_cases, experiment_config
+
 def main():
     parser = argparse.ArgumentParser(description="Precompute BLIP captions for all evaluation images.")
     parser.add_argument("--base_dir", type=str, default="dataset", help="Base dataset directory.")
-    parser.add_argument("--task", type=str, required=True, help="Task to evaluate (e.g., 'replication_gen').")
+    parser.add_argument("--task", type=str, required=True, help="Task to evaluate (e.g., 'replication_gen', 'modification_gen').")
     parser.add_argument("--variant", type=str, required=True, help="Task variant to evaluate (e.g., 'image_only').")
     parser.add_argument("--out_file", type=str, default="precomputed_blip_scores.json", help="Output file for precomputed scores.")
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size for caption generation.")
+    parser.add_argument("--batch_size", type=int, help="Override automatic batch size determination.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility.")
     args = parser.parse_args()
 
@@ -105,16 +232,54 @@ def main():
     base_dir = Path(args.base_dir)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
+    batch_size = args.batch_size if args.batch_size else get_optimal_batch_size(device)
+    print(f"Using batch size: {batch_size}")
+    
+    output_dir = base_dir / "eval_outputs" / args.task / args.variant
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    experiment_config = get_experiment_config(args)
+    save_experiment_config(experiment_config, output_dir)
+    
+    results, processed_cases, prev_config = load_previous_results(output_dir, args.out_file)
+    if results:
+        cases_to_reprocess = set()
+        valid_results = []
+        for r in results:
+            # For modification task, check for both base and target captions
+            if args.task.startswith("modification"):
+                if r.get("gt_caption_base") is None or r.get("gt_caption_target") is None:
+                    cases_to_reprocess.add(r["case_id"])
+                else:
+                    valid_results.append(r)
+            # For replication task, check for the single gt caption
+            else:
+                if r.get("gt_caption") is None:
+                    cases_to_reprocess.add(r["case_id"])
+                else:
+                    valid_results.append(r)
+
+        if cases_to_reprocess:
+            print(f"Found {len(cases_to_reprocess)} cases with missing GT captions. They will be re-processed.")
+            results = valid_results
+            processed_cases = {res["case_id"] for res in results}
+
+        print(f"Resuming from {len(results)} previously processed valid cases")
+        if prev_config:
+            if prev_config["models"] != experiment_config["models"]:
+                raise ValueError("Model configurations differ from previous run. Cannot continue with different settings.")
+    
+    # Load models
     print("Loading models...")
-    blip_processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b", use_fast=False)
-    blip_model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b").to(device)
+    blip_processor = Blip2Processor.from_pretrained(BLIP2_MODEL_VERSION, use_fast=False)
+    blip_model = Blip2ForConditionalGeneration.from_pretrained(BLIP2_MODEL_VERSION).to(device)
     blip_model.eval()
-    sentence_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2').to(device)
+    sentence_model = SentenceTransformer(SENTENCE_TRANSFORMER_VERSION).to(device)
     sentence_model.eval()
-    print("Models loaded.")
+    print("Models loaded successfully.")
 
     image_tasks = collect_image_paths(base_dir, args.task, args.variant)
-    captions = precompute_captions(image_tasks, blip_model, blip_processor, device, args.batch_size)
+    captions = precompute_captions(image_tasks, blip_model, blip_processor, device, batch_size)
 
     # Group captions by case_id
     cases = {}
@@ -123,29 +288,68 @@ def main():
             cases[case_id] = {}
         cases[case_id][img_type] = caption
     
-    results = []
-    for case_id, case_captions in tqdm(cases.items(), desc="Computing Similarities"):
-        gt_caption = case_captions.get("gt")
-        gen_caption = case_captions.get("gen")
+    # Process only unprocessed cases
+    unprocessed_cases = {k: v for k, v in cases.items() if k not in processed_cases}
+    print(f"Found {len(unprocessed_cases)} new cases to process")
+    
+    for idx, (case_id, case_captions) in enumerate(tqdm(unprocessed_cases.items(), desc="Computing Similarities")):
+        if args.task.startswith("modification"):
+            # Modification task: Compare similarity improvement
+            gt_base_caption = case_captions.get("gt_base")
+            gt_target_caption = case_captions.get("gt_target")
+            gen_caption = case_captions.get("gen")
 
-        if not gt_caption or not gen_caption or "Error:" in gt_caption or "Error:" in gen_caption:
-            similarity = 0.0
+            if not all([gt_base_caption, gt_target_caption, gen_caption]) or \
+               any("Error:" in str(c) for c in [gt_base_caption, gt_target_caption, gen_caption]):
+                base_target_similarity = 0.0
+                gen_target_similarity = 0.0
+            else:
+                with torch.no_grad():
+                    embeddings = sentence_model.encode(
+                        [gt_base_caption, gt_target_caption, gen_caption],
+                        convert_to_tensor=True
+                    )
+                    # Similarity between base GT and target GT (The baseline)
+                    base_target_similarity = util.cos_sim(embeddings[0], embeddings[1]).item()
+                    # Similarity between generated image and target GT (The result)
+                    gen_target_similarity = util.cos_sim(embeddings[2], embeddings[1]).item()
+
+            # How much closer did the generated image get to the target, compared to the base?
+            improvement_score = gen_target_similarity - base_target_similarity
+
+            results.append({
+                "case_id": case_id,
+                "blip_score_base_target": round(base_target_similarity, 4),
+                "blip_score_gen_target": round(gen_target_similarity, 4),
+                "blip_score_improvement": round(improvement_score, 4),
+                "gt_caption_base": gt_base_caption,
+                "gt_caption_target": gt_target_caption,
+                "gen_caption": gen_caption
+            })
         else:
-            with torch.no_grad():
-                embeddings = sentence_model.encode([gt_caption, gen_caption], convert_to_tensor=True)
-                similarity = util.cos_sim(embeddings[0], embeddings[1]).item()
+            # Replication task: original logic
+            gt_caption = case_captions.get("gt")
+            gen_caption = case_captions.get("gen")
+
+            if not gt_caption or not gen_caption or "Error:" in gt_caption or "Error:" in gen_caption:
+                similarity = 0.0
+            else:
+                with torch.no_grad():
+                    embeddings = sentence_model.encode([gt_caption, gen_caption], convert_to_tensor=True)
+                    similarity = util.cos_sim(embeddings[0], embeddings[1]).item()
+            
+            results.append({
+                "case_id": case_id,
+                "blip_score": round(similarity, 4),
+                "gt_caption": gt_caption,
+                "gen_caption": gen_caption
+            })
+            
+        # if (idx + 1) % 5 == 0:
+        #     save_intermediate_results(results, output_dir, idx + 1)
         
-        results.append({
-            "case_id": case_id,
-            "blip_score": round(similarity, 4),
-            "gt_caption": gt_caption,
-            "gen_caption": gen_caption
-        })
-        
-    output_path = base_dir / "eval_outputs" / args.task / args.variant / args.out_file
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
+    output_path = output_dir / args.out_file
+    save_results(results, output_path)
         
     print(f"\nPrecomputed BLIP scores saved to: {output_path}")
 
