@@ -21,7 +21,6 @@ import {
   getPageImage,
   logger,
 } from "../utils/helpers";
-import { MINIMUM_TURN } from "../utils/config";
 import { getInitialFrameInstruction } from "../utils/prompts";
 
 export class SingleAgent extends AgentInstance {
@@ -43,7 +42,7 @@ export class SingleAgent extends AgentInstance {
   }> {
     // Step 0: Check page
     logger.log({
-      header: "ReAct Agent Generation Started",
+      header: "Single Agent Generation Started",
       body: `Model: ${params.model.modelName}, Provider: ${params.model.modelProvider}, Max Turns: ${this.maxTurns}`,
     });
 
@@ -68,8 +67,6 @@ export class SingleAgent extends AgentInstance {
     params.requestMessage.content.find(
       (c) => c.type === ContentType.TEXT
     )!.text += mainScreenFramePrompt;
-
-    logger.error({ header: JSON.stringify(params.requestMessage) || "" });
 
     const initialRequest = params.model.formatRequest([params.requestMessage]);
     const toolsArray = params.model.formatToolList(

@@ -1,6 +1,10 @@
 import { ImageContent } from "@modelcontextprotocol/sdk/types";
 import { AgentType } from "../types";
 
+////////////////////
+/// Base Prompts ///
+////////////////////
+
 const figmaInstruction = `
 1. Figma Tool Basics
 - In Figma tool calls, each design element appears as a node representing either a container (frame/component) or a leaf (shape/text).
@@ -31,6 +35,20 @@ Interact with the canvas via the provided Figma-control tools.
 3. Keen Examination
 Carefully examine the instructions and image (if provided) and follow them accordingly.
 `;
+
+const singleShotPrinciples = `
+You have just one turn to produce every tool call needed to recreate the design.
+1. Plan first
+Briefly outline the key steps you will take (in plain language), so the reader sees your overall approach.
+2. Be exhaustive
+Consider all parameters, options, ordering, and dependencies necessary to recreate the design in one turn.
+3. Deliver
+Based on the plan, respond with the exact sequence of tool calls it should run.
+`;
+
+/////////////////////////////
+/// Text-based Generation ///
+/////////////////////////////
 
 export function getTextBasedGenerationPrompt(
   instruction: string,
@@ -70,23 +88,26 @@ Precisely, follow the instruction: ${instruction}
     **Context**
 You are a UI-design agent with access to Figma via tool calls. 
 Follow the **Instruction** to generate a UI design.
-Refer to the **Agency Principles** and **Figma Basics** for guidance.
+Refer to the **Tool Use Principles** and **Figma Basics** for guidance.
 
-**Agency Principles**
-${agencyPrinciples}
+**Tool Use Principles**
+${singleShotPrinciples}
 
 **Figma Basics**
 ${figmaInstruction}
 
 **Instruction**
-Please analyze the following text and list out comprehensive tool calls that recreate the UI design inside the existing "Main Screen" frame in the Figma, exactly.
-Be extensive and try to include every possible detail necessary to recreate the design through tool calls.
+Please analyze the following text and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 Text: ${instruction}
 `;
   } else {
     throw new Error(`Unsupported agent type: ${agent}`);
   }
 }
+
+//////////////////////////////
+/// Image-based Generation ///
+//////////////////////////////
 
 export function getImageBasedGenerationPrompt(
   width: number,
@@ -124,25 +145,28 @@ The page must be designed to match ${width}-pixel width and ${height}-pixel heig
   } else if (agent === AgentType.SINGLE) {
     return `
 **Context**
-You are a UI-design agent with access to Figma via tool calls.
+You are a UI-design agent with access to Figma via tool calls. 
 Follow the **Instruction** to generate a UI design.
-Refer to the **Agency Principles** and **UI Design Principles** for guidance.
+Refer to the **Tool Use Principles** and **Figma Basics** for guidance.
 
-**Agency Principles**
-${agencyPrinciples}
+**Tool Use Principles**
+${singleShotPrinciples}
 
 **Figma Basics**
 ${figmaInstruction}
 
 **Instruction**
-Please analyze the following text and list out comprehensive tool calls that recreate the UI design inside the existing "Main Screen" frame in the Figma, exactly.
-Be extensive and try to include every possible detail necessary to recreate the design through tool calls.
+Please analyze the following image and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 The frame size is ${width}x${height} pixels.
     `;
   } else {
     throw new Error(`Unsupported agent type: ${agent}`);
   }
 }
+
+///////////////////////////////////////
+/// Text and Image-based Generation ///
+///////////////////////////////////////
 
 export function getTextImageBasedGenerationPrompt(
   instruction: string,
@@ -164,8 +188,7 @@ ${agencyPrinciples}
 ${figmaInstruction}
 
 **Instruction**
-Please analyze the following text and list out comprehensive tool calls that recreate the UI design inside the existing "Main Screen" frame in the Figma, exactly.
-Be extensive and try to include every possible detail necessary to recreate the design through tool calls.
+Please analyze the following screen image and text instruction, and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 The frame size is ${width}x${height} pixels.
 Text: ${instruction}
 `;
@@ -184,19 +207,18 @@ Precisely, follow the instruction: ${instruction}
   } else if (agent === AgentType.SINGLE) {
     return `
 **Context**
-You are a UI-design agent with access to Figma via tool calls.
+You are a UI-design agent with access to Figma via tool calls. 
 Follow the **Instruction** to generate a UI design.
-Refer to the **Agency Principles** and **UI Design Principles** for guidance.
+Refer to the **Tool Use Principles** and **Figma Basics** for guidance.
 
-**Agency Principles**
-${agencyPrinciples}
+**Tool Use Principles**
+${singleShotPrinciples}
 
 **Figma Basics**
 ${figmaInstruction}
 
 **Instruction**
-Please analyze the following text and list out comprehensive tool calls that recreate the UI design inside the existing "Main Screen" frame in the Figma, exactly.
-Be comprehensive and precise in your tool calls.
+Please analyze the following screen image and text instruction, and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 The frame size is ${width}x${height} pixels.
 Text: ${instruction}
     `;
@@ -204,6 +226,10 @@ Text: ${instruction}
     throw new Error(`Unsupported agent type: ${agent}`);
   }
 }
+
+/////////////////////////////////////////
+/// Text and Image-based Modification ///
+/////////////////////////////////////////
 
 export function getTextImageBasedModificationPrompt(
   instruction: string,
@@ -228,6 +254,10 @@ The frame size is ${width}x${height} pixels.
 Text: ${instruction}
 `;
 }
+
+///////////////////////////
+/// Feedback Generation ///
+///////////////////////////
 
 export function getFeedbackPrompt({
   originalTargetText,
@@ -261,6 +291,10 @@ ${
 }
 `.trim();
 }
+
+//////////////////////////
+/// Update Instruction ///
+//////////////////////////
 
 export function getUpdateInstruction({
   feedbackInstruction,

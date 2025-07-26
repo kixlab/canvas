@@ -42,6 +42,7 @@ export class CodeAgent extends AgentInstance {
 
     const { width: width = 800, height: height = 600 } = params.metadata;
     const messageContext = params.model.createMessageContext();
+    messageContext.push(params.requestMessage);
 
     /* ---------- 1. Ask the LLM for code ---------- */
     logger.info({
