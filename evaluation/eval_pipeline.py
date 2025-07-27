@@ -60,7 +60,7 @@ class EvaluationCase:
     # Additional fields for modification_gen
     base_gt_img_path: Optional[Path] = None
     base_gt_json_path: Optional[Path] = None
-    is_modification: bool = False  # Flag to indicate if this is a modification task
+    is_modification: bool = False
 
 
 class EvaluationPipeline:
@@ -73,12 +73,15 @@ class EvaluationPipeline:
         self._setup_paths()
         self._load_metrics()
 
-        self.previous_results = self._load_previous_results()
+        load_path = self.output_path_snapshots if self.output_path_snapshots and self.output_path_snapshots.exists() else self.output_path_main
+        self.previous_results = self._load_previous_results(load_path)
+        
         self.prev_by_key = {
             (r.get("id"), r.get("snapshot_num")): r for r in self.previous_results
         }
-        self.results: List[Dict[str, any]] = self.previous_results.copy() if cli_config.skip_all else []
+        self.results: List[Dict[str, any]] = []
         self.new_processed_count = 0
+        self.cached_metrics = {}
 
     def _setup_paths(self):
         """Configure input and output directories based on config."""
@@ -97,8 +100,19 @@ class EvaluationPipeline:
         path_vars = {
             "base_dir": str(self.base_dir),
             "task": self.cli_config.task,
-            "task_base": task_base
+            "task_base": task_base,
+            "variant": self.cli_config.variant
         }
+
+        # Setup paths for precomputed BLIP scores
+        if self.cli_config.task == "replication_gen":
+            self.blip_scores_path = Path(self.app_config.paths.precomputed_blip_scores.replication_gen)
+            self.blip_snapshot_scores_path = self.blip_scores_path.parent / "precomputed_blip_scores_snapshot.json"
+        elif self.cli_config.task == "modification_gen":
+            if not self.cli_config.variant:
+                raise ValueError("--variant (task-1, task-2, or task-3) is required for modification_gen task")
+            self.blip_scores_path = Path(self.app_config.paths.precomputed_blip_scores.modification_gen.format(**path_vars))
+            self.blip_snapshot_scores_path = self.blip_scores_path.parent / "precomputed_blip_scores_snapshot.json"
 
         gt_dir_template = self.app_config.paths.gt_dir
         results_dir_template = self.app_config.paths.results_dir
@@ -120,27 +134,74 @@ class EvaluationPipeline:
         self.output_dir = Path(output_dir_template.format(**path_vars))
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        print(self.cli_config.task)
-        print(self.gt_dir)
-        print(self.results_dir)
+        # print(self.cli_config.task)
+        # print(self.gt_dir)
+        # print(self.results_dir)
         
+        self.output_path_main = self.output_dir / self.app_config.filenames.results_json
+        
+        self.output_path_snapshots = None
         if self.cli_config.eval_snapshots:
-            self.output_path = self.output_dir / self.app_config.filenames.results_with_snapshots_json
-        else:
-            self.output_path = self.output_dir / self.app_config.filenames.results_json
+            self.output_path_snapshots = self.output_dir / self.app_config.filenames.results_with_snapshots_json
             
-        # Additional output path for modification task
+        self.output_path_basetarget = None
         if self.cli_config.task == "modification_gen":
-            self.modification_basetarget_path = self.output_dir / self.app_config.filenames.modification_results_basetarget_json
+            self.output_path_basetarget = self.output_dir / self.app_config.filenames.modification_results_basetarget_json
+
+        # Path to save delta-only results (flattened)
+        self.output_path_delta = self.output_dir / "results_delta.json"
 
         self.saliency_vis_dir = self.output_dir / self.app_config.paths.saliency_vis_dir.format(output_dir=self.output_dir)
         if self.cli_config.save_saliency_vis:
             self.saliency_vis_dir.mkdir(exist_ok=True)
 
+        # Load precomputed BLIP scores if available
+        if self.blip_scores_path.exists():
+            with self.blip_scores_path.open('r', encoding='utf-8') as f:
+                try:
+                    self.blip_scores = {item['case_id']: item for item in json.load(f)}
+                    print(f"Loaded {len(self.blip_scores)} precomputed BLIP scores from {self.blip_scores_path}")
+                except json.JSONDecodeError:
+                    print(f"[Warning] Failed to load precomputed BLIP scores from {self.blip_scores_path}")
+                    self.blip_scores = {}
+        else:
+            print(f"[Warning] Precomputed BLIP scores file not found: {self.blip_scores_path}")
+            self.blip_scores = {}
+
+        # Load precomputed BLIP snapshot scores if available
+        if self.blip_snapshot_scores_path.exists():
+            with self.blip_snapshot_scores_path.open('r', encoding='utf-8') as f:
+                try:
+                    snapshot_scores_list = json.load(f)
+                    self.blip_snapshot_scores = {
+                        f"{item['case_id']}_{item['snapshot_num']}": item 
+                        for item in snapshot_scores_list
+                    }
+                    print(f"Loaded {len(self.blip_snapshot_scores)} precomputed BLIP snapshot scores from {self.blip_snapshot_scores_path}")
+                except json.JSONDecodeError:
+                    print(f"[Warning] Failed to load precomputed BLIP snapshot scores from {self.blip_snapshot_scores_path}")
+                    self.blip_snapshot_scores = {}
+        else:
+            print(f"[Info] Precomputed BLIP snapshot scores file not found: {self.blip_snapshot_scores_path}")
+            self.blip_snapshot_scores = {}
+
     def _load_metrics(self):
         """Load all available metric functions from the registry."""
-        # Metric discovery now happens automatically when evaluation.metrics is imported.
         self.metric_funcs = get_metrics()
+        
+        try:
+            import lpips
+            self.lpips_model = lpips.LPIPS(net='alex', version='0.1')
+            if 'lpips' in self.metric_funcs:
+                original_lpips_func = self.metric_funcs['lpips']
+                def lpips_with_cached_model(*args, **kwargs):
+                    kwargs['model'] = self.lpips_model
+                    return original_lpips_func(*args, **kwargs)
+                self.metric_funcs['lpips'] = lpips_with_cached_model
+        except ImportError:
+            self.lpips_model = None
+            print("[Warning] LPIPS module not found - skipping LPIPS metric caching")
+        
         self.tool_metric_func = self.metric_funcs.pop("tool_usage", None)
 
     def run(self):
@@ -161,16 +222,31 @@ class EvaluationPipeline:
                 raise ValueError(error_msg)
 
         for case in cases:
+            # Add a check to skip already processed cases
+            # Note: A robust key should handle all cases. `case_id` is a good candidate.
+            key = (case.case_id, case.snapshot_num)
+            is_previously_processed = any(
+                r.get("case_id") == case.case_id and r.get("snapshot_num") == case.snapshot_num 
+                for r in self.previous_results
+            )
+            if self.cli_config.skip_all and is_previously_processed:
+                continue
+            
             self._process_case(case)
 
-        self._run_tool_metrics_on_final_results()
-
-        self.results = [self._restructure_result(r) for r in self.results]
-        self._save_results(final=True)
+        self.save_structured_results()
+        
         if self.cli_config.vis:
             self._generate_visualizations()
 
-        print(f"\nEvaluation complete. Results saved to:\n{self.output_path}")
+        print(f"\nEvaluation complete. Results saved to:")
+        print(f"  - Main results: {self.output_path_main}")
+        if self.output_path_snapshots:
+            print(f"  - Snapshot results: {self.output_path_snapshots}")
+        if self.output_path_basetarget:
+            print(f"  - Modification details: {self.output_path_basetarget}")
+        print(f"  - Delta results: {self.output_path_delta}")
+        
         return self.results
 
     def _collect_evaluation_cases(self) -> List[EvaluationCase]:
@@ -181,27 +257,27 @@ class EvaluationPipeline:
         cases: List[EvaluationCase] = []
         
         items_to_process = list(self.results_dir.iterdir())
-        print("\n[DEBUG] Items in results dir:")
-        for item in items_to_process:
-            print(f"- {item}")
+        # print("\n[DEBUG] Items in results dir:")
+        # for item in items_to_process:
+        #     print(f"- {item}")
 
         # For modification_gen with variant, we need to look into variant subdirectory
         if self.cli_config.task == "modification_gen" and self.cli_config.variant:
             variant_dir = self.results_dir / self.cli_config.variant
             if variant_dir.exists() and variant_dir.is_dir():
-                print(f"\n[DEBUG] Found variant directory: {variant_dir}")
+                # print(f"\n[DEBUG] Found variant directory: {variant_dir}")
                 items_to_process = list(variant_dir.iterdir())
-                print("[DEBUG] Items in variant dir:")
-                for item in items_to_process:
-                    print(f"- {item}")
-            else:
-                print(f"\n[DEBUG] Variant directory not found: {variant_dir}")
+                # print("[DEBUG] Items in variant dir:")
+                # for item in items_to_process:
+                #     print(f"- {item}")
+            # else:
+            #     print(f"\n[DEBUG] Variant directory not found: {variant_dir}")
 
         for item in items_to_process:
             if not item.is_dir():
                 continue
             
-            print(f"\n[DEBUG] Processing item: {item.name}")
+            # print(f"\n[DEBUG] Processing item: {item.name}")
             gt_id = None
             model_name = None
             gt_base_dir = self.gt_dir
@@ -209,50 +285,50 @@ class EvaluationPipeline:
             if self.cli_config.task == "replication_gen":
                 if self.cli_config.variant:
                     if not item.name.endswith(f"-{self.cli_config.variant}"):
-                        print(f"[DEBUG] Skipping - doesn't end with variant: {self.cli_config.variant}")
+                        # print(f"[DEBUG] Skipping - doesn't end with variant: {self.cli_config.variant}")
                         continue
                     if self.cli_config.model and f"-{self.cli_config.model}-" not in f"{item.name}-":
-                        print(f"[DEBUG] Skipping - model not found: {self.cli_config.model}")
+                        # print(f"[DEBUG] Skipping - model not found: {self.cli_config.model}")
                         continue
                     prefix = item.name[: -(len(self.cli_config.variant) + 1)]
                     tokens = prefix.split("-")
                     if len(tokens) < 3:
-                        print("[DEBUG] Skipping - not enough tokens")
+                        # print("[DEBUG] Skipping - not enough tokens")
                         continue
                     gt_id = "-".join(tokens[0:2])
                     model_name = "-".join(tokens[2:])
             elif self.cli_config.task == "modification_gen":
                 if self.cli_config.model and not item.name.endswith(f"-{self.cli_config.model}"):
-                    print(f"[DEBUG] Skipping - doesn't end with model: {self.cli_config.model}")
+                    # print(f"[DEBUG] Skipping - doesn't end with model: {self.cli_config.model}")
                     continue
 
                 prefix = item.name
-                print(f"[DEBUG] Prefix: {prefix}")
+                # print(f"[DEBUG] Prefix: {prefix}")
                 
                 # Find which model this directory belongs to
                 if self.cli_config.model:
                     model_name = self.cli_config.model
                     if prefix.endswith(f"-{model_name}"):
                         gt_id = prefix[:-(len(model_name) + 1)]
-                        print(f"[DEBUG] Found gt_id: {gt_id}, model: {model_name}")
+                        # print(f"[DEBUG] Found gt_id: {gt_id}, model: {model_name}")
                     else:
-                        print(f"[DEBUG] Skipping - prefix doesn't end with model")
+                        # print(f"[DEBUG] Skipping - prefix doesn't end with model")
                         continue
                 else:
                     tokens = prefix.split("-")
                     if len(tokens) < 2:
-                        print("[DEBUG] Skipping - not enough tokens")
+                        # print("[DEBUG] Skipping - not enough tokens")
                         continue
                     model_name = tokens[-1]
                     gt_id = "-".join(tokens[:-1])
-                    print(f"[DEBUG] Found gt_id: {gt_id}, model: {model_name}")
+                    # print(f"[DEBUG] Found gt_id: {gt_id}, model: {model_name}")
 
             if not gt_id or not model_name:
-                print("[DEBUG] Skipping - missing gt_id or model_name")
+                # print("[DEBUG] Skipping - missing gt_id or model_name")
                 continue
 
             case_id = item.name
-            print(f"[DEBUG] Case ID: {case_id}")
+            # print(f"[DEBUG] Case ID: {case_id}")
 
             if self.cli_config.task == "modification_gen":
                 # For modification task, we need both base and target GT files
@@ -264,14 +340,14 @@ class EvaluationPipeline:
                 gt_target_img_path = gt_base_dir / self.app_config.filenames.modification_target_image.format(gt_id=gt_id)
                 gt_target_json_path = gt_base_dir / self.app_config.filenames.modification_target_json.format(gt_id=gt_id)
                 
-                print(f"[DEBUG] GT paths (modification):")
-                print(f"- base img: {gt_base_img_path}")
-                print(f"- base json: {gt_base_json_path}")
-                print(f"- target img: {gt_target_img_path}")
-                print(f"- target json: {gt_target_json_path}")
+                # print(f"[DEBUG] GT paths (modification):")
+                # print(f"- base img: {gt_base_img_path}")
+                # print(f"- base json: {gt_base_json_path}")
+                # print(f"- target img: {gt_target_img_path}")
+                # print(f"- target json: {gt_target_json_path}")
 
                 if not gt_base_json_path.exists() or not gt_target_json_path.exists():
-                    print("[DEBUG] Skipping - GT json not found (base or target)")
+                    # print("[DEBUG] Skipping - GT json not found (base or target)")
                     continue
                 
                 gt_img_path = gt_target_img_path
@@ -280,23 +356,23 @@ class EvaluationPipeline:
                 # For replication task, we only need one GT file
                 gt_img_path = gt_base_dir / self.app_config.filenames.gt_image.format(gt_id=gt_id)
                 gt_json_path = gt_base_dir / self.app_config.filenames.gt_json.format(gt_id=gt_id)
-                print(f"[DEBUG] GT paths:")
-                print(f"- img: {gt_img_path}")
-                print(f"- json: {gt_json_path}")
+                # print(f"[DEBUG] GT paths:")
+                # print(f"- img: {gt_img_path}")
+                # print(f"- json: {gt_json_path}")
 
                 if not gt_json_path.exists():
-                    print("[DEBUG] Skipping - GT json not found")
+                    # print("[DEBUG] Skipping - GT json not found")
                     continue
             
             # Main result
             gen_img_path = item / self.app_config.filenames.gen_image.format(case_id=case_id)
             gen_json_path = item / self.app_config.filenames.gen_json.format(case_id=case_id)
-            print(f"[DEBUG] Generated paths:")
-            print(f"- img: {gen_img_path}")
-            print(f"- json: {gen_json_path}")
+            # print(f"[DEBUG] Generated paths:")
+            # print(f"- img: {gen_img_path}")
+            # print(f"- json: {gen_json_path}")
 
             if gen_img_path.exists() and gen_json_path.exists():
-                print("[DEBUG] Adding case to list")
+                # print("[DEBUG] Adding case to list")
                 case = EvaluationCase(
                     case_id=case_id, 
                     gt_id=gt_id, 
@@ -319,88 +395,178 @@ class EvaluationPipeline:
             if self.cli_config.eval_snapshots:
                 snapshots_dir = item / self.app_config.filenames.snapshots_dir
                 if snapshots_dir.is_dir():
-                    print(f"[DEBUG] Processing snapshots in: {snapshots_dir}")
                     glob_pattern = self.app_config.filenames.snapshot_image_glob.format(case_id=case_id)
-                    for snapshot_img_path in sorted(snapshots_dir.glob(glob_pattern)):
+                    snapshot_paths = sorted(snapshots_dir.glob(glob_pattern))
+                    if not snapshot_paths:
+                        print(f"No snapshots found in {snapshots_dir} with pattern {glob_pattern}")
+                    for snapshot_img_path in snapshot_paths:
                         snapshot_stem = snapshot_img_path.stem
                         try:
                             snapshot_num = int(snapshot_stem.split("-snapshot-")[-1])
-                            print(f"[DEBUG] Found snapshot {snapshot_num}")
                         except (ValueError, IndexError):
-                            print(f"[DEBUG] Invalid snapshot name: {snapshot_stem}")
+                            print(f"Invalid snapshot name: {snapshot_stem}")
                             continue
                 
                         snapshot_json_path = snapshots_dir / self.app_config.filenames.snapshot_json.format(snapshot_stem=snapshot_stem)
                         if snapshot_json_path.exists():
-                            print(f"[DEBUG] Adding snapshot {snapshot_num} to list")
-                            cases.append(EvaluationCase(
-                                case_id=case_id, gt_id=gt_id, model_name=model_name, snapshot_num=snapshot_num,
+                            snapshot_case = EvaluationCase(
+                                case_id=case_id,
+                                gt_id=gt_id,
+                                model_name=model_name,
+                                snapshot_num=snapshot_num,
                                 gt_img_path=gt_img_path if gt_img_path.exists() else None,
                                 gen_img_path=snapshot_img_path,
                                 gt_json_path=gt_json_path,
                                 gen_json_path=snapshot_json_path
-                            ))
+                            )
+                            
+                            if self.cli_config.task == "modification_gen":
+                                snapshot_case.is_modification = True
+                                snapshot_case.base_gt_img_path = gt_base_img_path if gt_base_img_path.exists() else None
+                                snapshot_case.base_gt_json_path = gt_base_json_path
+                            
+                            cases.append(snapshot_case)
+                        else:
+                            print(f"Snapshot JSON not found: {snapshot_json_path}")
 
-        print(f"\n[DEBUG] Total cases collected: {len(cases)}")
+        # print(f"\n[DEBUG] Total cases collected: {len(cases)}")
         return cases
 
     def _process_case(self, case: EvaluationCase):
         """Compute metrics for a single evaluation case."""
+        flat_result = {}
         if case.is_modification:
-            # For modification task, compute both base and target metrics
-            base_metric = self._compute_metrics(case, is_base=True)
-            target_metric = self._compute_metrics(case, is_base=False)
+            # Compute base-target metrics only once per case_id if not already computed
+            base_target_key = (case.case_id, "base_target")
+            if base_target_key not in self.cached_metrics:
+                self.cached_metrics[base_target_key] = self._compute_base_target_metrics(case)
+            base_target_metrics = self.cached_metrics[base_target_key]
             
-            # Store both metrics in basetarget results
-            basetarget_metrics = {
+            # Compute gen-target metrics
+            gen_target_metrics = self._compute_gen_target_metrics(case)
+            
+            # Add precomputed BLIP scores if available, but only for final results (not snapshots)
+            blip_key = case.case_id
+            if case.snapshot_num is None and blip_key in self.blip_scores:
+                blip_data = self.blip_scores[blip_key]
+                # For base-vs-target, "generated" is the base image
+                base_target_metrics.update({
+                    "blip_caption_similarity": blip_data.get("blip_score_base_target"),
+                    "generated_caption": blip_data.get("gt_caption_base"),
+                    "ground_truth_caption": blip_data.get("gt_caption_target")
+                })
+                # For gen-vs-target, "generated" is the generated image
+                gen_target_metrics.update({
+                    "blip_caption_similarity": blip_data.get("blip_score_gen_target"),
+                    "generated_caption": blip_data.get("gen_caption"),
+                    "ground_truth_caption": blip_data.get("gt_caption_target")
+                })
+            elif case.snapshot_num is not None:
+                # For snapshots, check if we have snapshot-specific BLIP scores
+                snapshot_key = f"{blip_key}_{case.snapshot_num}"
+                if snapshot_key in self.blip_snapshot_scores:
+                    snapshot_blip_data = self.blip_snapshot_scores[snapshot_key]
+                    # For snapshots, the comparison is always snapshot-vs-target
+                    common_metrics = {
+                        "blip_caption_similarity": snapshot_blip_data.get("blip_score"),
+                        "generated_caption": snapshot_blip_data.get("gen_caption"),
+                        "ground_truth_caption": snapshot_blip_data.get("gt_caption_target")
+                    }
+                    base_target_metrics.update(common_metrics)
+                    gen_target_metrics.update(common_metrics)
+                else:
+                    # If no snapshot-specific scores, just fill in the target caption for context
+                    if blip_key in self.blip_scores:
+                        base_target_metrics["ground_truth_caption"] = self.blip_scores[blip_key].get("gt_caption_target")
+                        gen_target_metrics["ground_truth_caption"] = self.blip_scores[blip_key].get("gt_caption_target")
+                    # generated_caption will be None/null for snapshots when not available
+            else:
+                print(f"[Warning] Precomputed BLIP score not found for case: {blip_key}")
+            
+            # Calculate delta metrics (gen_target - base_target)
+            delta_metrics = {}
+            for key in base_target_metrics:
+                if isinstance(base_target_metrics[key], (int, float)) and isinstance(gen_target_metrics[key], (int, float)):
+                    delta_metrics[f"{key}_delta"] = gen_target_metrics[key] - base_target_metrics[key]
+            
+            # Add BLIP improvement directly from precomputed scores
+            if blip_key in self.blip_scores:
+                delta_metrics["blip_caption_similarity_delta"] = self.blip_scores[blip_key].get("blip_score_improvement")
+            
+            # Prepare final metrics structure for modification task
+            flat_result = {
                 "id": case.gt_id,
                 "case_id": case.case_id,
                 "model": case.model_name,
                 "snapshot_num": case.snapshot_num,
-                "base_metrics": base_metric,
-                "target_metrics": target_metric
+                "base_target_metrics": base_target_metrics,
+                "gen_target_metrics": gen_target_metrics,
+                **delta_metrics  # Include delta metrics at top level
             }
             
-            # Compute delta metrics for main results
-            metric = {}
-            for key in base_metric:
-                if isinstance(base_metric[key], (int, float)) and isinstance(target_metric[key], (int, float)):
-                    metric[key] = target_metric[key] - base_metric[key]
-                else:
-                    metric[key] = target_metric[key]  # For non-numeric metrics, use target value
+            debug_output_dir = Path("debug_outputs")
+            debug_output_dir.mkdir(parents=True, exist_ok=True)
+            print(debug_output_dir)
+
+            with open(debug_output_dir / f"flat_result_{case.case_id}_{case.snapshot_num or 'final'}.json", "w", encoding="utf-8") as f:
+                json.dump(flat_result, f, indent=2, ensure_ascii=False)
             
-            metric.update({
-                "id": case.gt_id,
-                "case_id": case.case_id,
-                "model": case.model_name,
-                "snapshot_num": case.snapshot_num
-            })
-            
-            # Save basetarget metrics
-            self._save_basetarget_results(basetarget_metrics)
+
         else:
             # For replication task, compute metrics normally
-            metric = self._compute_metrics(case)
-            metric.update({
+            flat_result = self._compute_metrics(case)
+            flat_result.update({
                 "id": case.gt_id,
                 "case_id": case.case_id,
                 "model": case.model_name,
                 "snapshot_num": case.snapshot_num
             })
         
-        self.results.append(metric)
+        # Process tool usage for both replication and modification tasks
+        if self.tool_metric_func:
+            # For modification_gen with variant, we need to include variant in the path
+            if self.cli_config.task == "modification_gen" and self.cli_config.variant:
+                result_path = self.results_dir / self.cli_config.variant / case.case_id
+            else:
+                result_path = self.results_dir / case.case_id
+            tool_metrics = self.tool_metric_func(
+                result_path=str(result_path),
+                case_id=case.case_id,
+                snapshot_num=case.snapshot_num,  # Pass snapshot_num for snapshot-specific calculations
+            )
+            flat_result.update(tool_metrics)
+
+        self.results.append(flat_result)
         self.new_processed_count += 1
 
         # Periodic checkpoint
         if self.new_processed_count % 10 == 0:
             self._save_results()
 
+    def _compute_base_target_metrics(self, case: EvaluationCase) -> Dict[str, Any]:
+        """Compute metrics between base GT and target GT."""
+        temp_case = EvaluationCase(
+            case_id=case.case_id,
+            gt_id=case.gt_id,
+            model_name=case.model_name,
+            gt_img_path=case.gt_img_path,
+            gt_json_path=case.gt_json_path,
+            gen_img_path=case.base_gt_img_path,
+            gen_json_path=case.base_gt_json_path,
+            is_modification=True
+        )
+        return self._compute_metrics(temp_case)
+
+    def _compute_gen_target_metrics(self, case: EvaluationCase) -> Dict[str, Any]:
+        """Compute metrics between generated image and target GT."""
+        return self._compute_metrics(case, is_base=False)
+
     def _compute_metrics(self, case: EvaluationCase, is_base: bool = False) -> Dict[str, Any]:
         """Compute metrics for a case, optionally using base GT for modification task."""
         metric = {}
         
         for name, func in self.metric_funcs.items():
-            if self._should_skip_metric(name, metric, case.gt_img_path):
+            if self._should_skip_metric(name, metric, case.gt_img_path, case.case_id, case.snapshot_num):
                 continue
 
             try:
@@ -425,6 +591,12 @@ class EvaluationPipeline:
                         "case_id": case.case_id,
                         "snapshot_num": case.snapshot_num,
                     })
+                elif name == "blip_caption_similarity":
+                    kwargs.update({
+                        "out_dir": str(self.output_dir), 
+                        "case_id": case.case_id,
+                        "snapshot_num": case.snapshot_num,
+                    })
                 else:
                     kwargs.update({"out_dir": str(self.output_dir), "case_id": case.case_id})
                 
@@ -442,8 +614,11 @@ class EvaluationPipeline:
         
         return metric
 
-    def _should_skip_metric(self, name: str, metric: Dict, gt_img_path: Optional[Path]) -> bool:
+    def _should_skip_metric(self, name: str, metric: Dict, gt_img_path: Optional[Path], case_id: str, snapshot_num: Optional[int]) -> bool:
         """Check if a metric computation should be skipped based on config and state."""
+        # For snapshots, we always skip semantic_match as we don't have precomputed scores
+        if name == "semantic_match" and snapshot_num is not None:
+            return True
         if gt_img_path is None and name in {"ssim", "semantic_match", "visual_saliency"}:
             return True
         if self.cli_config.skip_visual_saliency and name == "visual_saliency":
@@ -501,66 +676,160 @@ class EvaluationPipeline:
             return result_path
         return None
 
-    def _calculate_aggregate_metrics(self):
-        """(DEPRECATED) This method is now replaced by _restructure_result."""
-        pass
-
     def _restructure_result(self, flat_result: Dict[str, Any]) -> Dict[str, Any]:
         """Convert a flat metric dictionary to the new hierarchical schema."""
-        
-        # Helper to safely get a value
         def get(key, default=None):
             return flat_result.get(key, default)
 
-        return {
-            "id": get("id"),
-            "model": get("model"),
-            "snapshot_num": get("snapshot_num") if get("snapshot_num") is not None else None,
-
-            "perceptual_similarity": {
-                "feature_level": {
-                    "ssim": get("ssim"),
-                    "rmse": get("rmse"),
-                    "psnr": get("psnr")
+        def build_structured_metrics(metrics_dict: Dict) -> Dict:
+            """Helper to build the final structured dictionary for a set of metrics."""
+            if not metrics_dict:
+                return {}
+            return {
+                "perceptual_similarity": {
+                    "feature_level": {
+                        "ssim": metrics_dict.get("ssim"),
+                        "rmse_inverse": metrics_dict.get("rmse_inverse"),
+                        "psnr": metrics_dict.get("psnr")
+                    },
+                    "pattern_level": {
+                        "saliency_sim": metrics_dict.get("saliency_sim"),
+                        "saliency_cc": metrics_dict.get("saliency_cc"),
+                        "saliency_kl": metrics_dict.get("saliency_kl"),
+                        "lpips": metrics_dict.get("lpips")
+                    },
+                    "object_level": {
+                        "blip_caption_similarity": metrics_dict.get("blip_caption_similarity"),
+                        "clip_caption_similarity": metrics_dict.get("clip_caption_similarity"),
+                        "generated_caption": metrics_dict.get("generated_caption"),
+                        "ground_truth_caption": metrics_dict.get("ground_truth_caption")
+                    }
                 },
-                "pattern_level": {
-                    "saliency_sim": get("saliency_sim"),
-                    "saliency_cc": get("saliency_cc"),
-                    "saliency_kl": get("saliency_kl"),
-                    "lpips": get("lpips"),
-                },
-                "object_level": {
-                    "blip_caption_similarity": get("blip_caption_similarity"),
-                    "clip_caption_similarity": get("clip_caption_similarity"),  # TBD
-                    "generated_caption": get("generated_caption"),
-                    "ground_truth_caption": get("ground_truth_caption")
+                "component_similarity": {
+                    "color_match_score": metrics_dict.get("color_match_score"),
+                    "text_match_score": metrics_dict.get("text_match_score"),
+                    "element_position_iou": metrics_dict.get("element_position_iou"),
+                    "block_composition_f1": metrics_dict.get("block_composition_f1")
                 }
-            },
-
-            "component_similarity": {
-                "color_match_score": get("color_match_score"),      # TBD
-                "text_match_score": get("text_match_score"),        # TBD
-                "element_position_iou": get("element_position_iou"),
-                "block_composition_f1": get("block_composition_f1") # TBD
-            },
-
-            "tool_usage_metrics": {
-                "step_count": get("step_count"),
-                "tool_call_count": get("tool_call_count"),
-                "tool_step_count": get("step_count"),  # Re-alias for clarity
-                "tool_efficiency": get("tool_efficiency"),
-                "unique_tool_count": get("unique_tool_count"),
-                "unique_tool_list": get("unique_tool_list"),
-                "tool_call_trace": get("tool_call_trace"),
-                "human_hit_rate": get("human_hit_rate")
             }
+
+        # Build base and gen metrics structures
+        base_metrics = build_structured_metrics(get("base_target_metrics", {}))
+        if base_metrics:
+            # Rename generated_caption to base_caption for clarity
+            obj_level = base_metrics.get("perceptual_similarity", {}).get("object_level", {})
+            if "generated_caption" in obj_level:
+                obj_level["base_caption"] = obj_level.pop("generated_caption")
+
+        gen_metrics = build_structured_metrics(get("gen_target_metrics", {}))
+
+        # Build delta metrics structure
+        delta_metrics_flat = {k[:-6]: v for k, v in flat_result.items() if k.endswith("_delta")}
+        delta_metrics = build_structured_metrics(delta_metrics_flat)
+        if delta_metrics:
+             # Add captions to delta object level for comparison
+            delta_obj_level = delta_metrics.get("perceptual_similarity", {}).get("object_level", {})
+            if base_metrics:
+                delta_obj_level["base_caption"] = base_metrics.get("perceptual_similarity", {}).get("object_level", {}).get("base_caption")
+            if gen_metrics:
+                 delta_obj_level["gen_caption"] = gen_metrics.get("perceptual_similarity", {}).get("object_level", {}).get("generated_caption")
+                 delta_obj_level["ground_truth_caption"] = gen_metrics.get("perceptual_similarity", {}).get("object_level", {}).get("ground_truth_caption")
+
+        # Collect tool usage metrics
+        tool_usage_metrics = {
+            "step_count": get("step_count"),
+            "tool_call_count": get("tool_call_count"),
+            "tool_step_count": get("step_count"),
+            "tool_efficiency": get("tool_efficiency"),
+            "unique_tool_count": get("unique_tool_count"),
+            "unique_tool_list": get("unique_tool_list"),
+            "tool_call_trace": get("tool_call_trace"),
+            "human_hit_rate": get("human_hit_rate"),
+            "human_tool_precision": get("human_tool_precision"),
+            "human_tool_recall": get("human_tool_recall")
         }
 
-    def _load_previous_results(self) -> List[Dict[str, any]]:
-        """Load previous results from the output JSON file if it exists."""
-        if self.output_path.exists():
-            print(f"Loading previous results from: {self.output_path}")
-            with self.output_path.open("r", encoding="utf-8") as f:
+        # Add tool metrics to each section
+        if base_metrics:
+            base_metrics["tool_usage_metrics"] = tool_usage_metrics
+        if gen_metrics:
+            gen_metrics["tool_usage_metrics"] = tool_usage_metrics
+        if delta_metrics:
+            delta_metrics["tool_usage_metrics"] = tool_usage_metrics
+
+        return {
+            "id": get("id"),
+            "case_id": get("case_id"),
+            "model": get("model"),
+            "snapshot_num": get("snapshot_num"),
+            "base_target_metrics": base_metrics,
+            "gen_target_metrics": gen_metrics,
+            "delta_metrics": delta_metrics,
+        }
+
+
+    # ---------------------------------------------------------------------
+    # New saving logic (simple & clear)
+    # ---------------------------------------------------------------------
+    def save_structured_results(self):
+        """Restructure `self.results` and save them to designated JSON files."""
+ 
+        # Step 1: Restructure
+        self.results = [self._restructure_result(r) for r in self.results]
+
+        # ---------------------------
+        # MAIN RESULTS (final only)
+        # ---------------------------
+        if self.output_path_main:
+            final_results = [r for r in self.results if r.get("snapshot_num") is None]
+            self._write_json(final_results, self.output_path_main)
+
+        # ---------------------------
+        # SNAPSHOT RESULTS (all, incl. final)
+        # ---------------------------
+        if self.output_path_snapshots:
+            self._write_json(self.results, self.output_path_snapshots)
+
+        # ---------------------------
+        # BASE-TARGET (modification only)
+        # ---------------------------
+        if self.output_path_basetarget:
+            basetarget_data = [
+                {
+                    "id": r.get("id"),
+                    "case_id": r.get("case_id"),
+                    "model": r.get("model"),
+                    "snapshot_num": r.get("snapshot_num"),
+                    "base_target_metrics": r.get("base_target_metrics"),
+                    "gen_target_metrics": r.get("gen_target_metrics"),
+                }
+                for r in self.results
+                if r.get("base_target_metrics") and r.get("gen_target_metrics")
+            ]
+            self._write_json(basetarget_data, self.output_path_basetarget)
+
+        # ---------------------------
+        # DELTA-ONLY
+        # ---------------------------
+        if self.output_path_delta:
+            delta_data = [
+                {
+                    "id": r.get("id"),
+                    "case_id": r.get("case_id"),
+                    "model": r.get("model"),
+                    "snapshot_num": r.get("snapshot_num"),
+                    "delta_metrics": r.get("delta_metrics"),
+                }
+                for r in self.results
+                if r.get("delta_metrics")
+            ]
+            self._write_json(delta_data, self.output_path_delta)
+
+    def _load_previous_results(self, load_path: Path) -> List[Dict[str, any]]:
+        """Load previous results from a specific JSON file."""
+        if load_path.exists():
+            print(f"Loading previous results from: {load_path}")
+            with load_path.open("r", encoding="utf-8") as f:
                 try:
                     data = json.load(f)
                     for item in data:
@@ -570,47 +839,52 @@ class EvaluationPipeline:
                 except json.JSONDecodeError:
                     print("[Warning] Could not decode existing results file. Starting fresh.")
         return []
-        
-    def _save_results(self, final: bool = False):
-        """Save the current results list to the output file."""
-        if final:
-            final_results = []
-            processed_keys = {(r["id"], r.get("snapshot_num")) for r in self.results}
-            final_results.extend(self.results)
-            for prev_res in self.previous_results:
-                if (prev_res["id"], prev_res.get("snapshot_num")) not in processed_keys:
-                    final_results.append(prev_res)
-            self.results = final_results
 
+    def _save_results(self, final: bool = False):
+        """Saves checkpoints during a long run."""
+        if final:
+            return # Final saving is handled by _save_all_outputs
+
+        # Checkpointing should save the raw flat results for easy recovery
+        checkpoint_path = self.output_dir / "eval_checkpoint.json"
+        
+        # Simple save, no merging needed for a checkpoint
+        self._write_json(self.results, checkpoint_path)
+        print(f"... Checkpoint saved to {checkpoint_path}")
+
+    def _write_json(self, data: List[Dict[str, Any]], path: Path):
+        """Helper function to write data to a JSON file with NumPy compatibility."""
         def _json_default(o):
             try:
                 import numpy as np
-                if isinstance(o, (np.integer,)): return int(o)
-                if isinstance(o, (np.floating,)): return float(o)
-                if isinstance(o, np.ndarray): return o.tolist()
+                if isinstance(o, (np.integer,)):
+                    return int(o)
+                if isinstance(o, (np.floating,)):
+                    return float(o)
+                if isinstance(o, np.ndarray):
+                    return o.tolist()
             except ModuleNotFoundError:
                 pass
             raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
 
-        with self.output_path.open("w", encoding="utf-8") as f:
-            json.dump(self.results, f, indent=2, ensure_ascii=False, default=_json_default)
-        
-        if not final:
-            print(f"... Checkpoint saved to {self.output_path}")
+        # Ensure parent directory exists
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False, default=_json_default)
 
     def _save_basetarget_results(self, metric: Dict[str, Any]):
         """Save base and target metrics for modification task."""
         if not hasattr(self, 'basetarget_results'):
             self.basetarget_results = []
-            if self.modification_basetarget_path.exists():
-                with self.modification_basetarget_path.open("r", encoding="utf-8") as f:
+            if self.output_path_basetarget and self.output_path_basetarget.exists():
+                with self.output_path_basetarget.open("r", encoding="utf-8") as f:
                     try:
                         self.basetarget_results = json.load(f)
                     except json.JSONDecodeError:
                         pass
 
         self.basetarget_results.append(metric)
-        with self.modification_basetarget_path.open("w", encoding="utf-8") as f:
+        with self.output_path_basetarget.open("w", encoding="utf-8") as f:
             json.dump(self.basetarget_results, f, indent=2, ensure_ascii=False)
 
     def _generate_visualizations(self):
