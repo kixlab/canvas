@@ -37,13 +37,15 @@ Carefully examine the instructions and image (if provided) and follow them accor
 `;
 
 const singleShotPrinciples = `
-You have just one turn to produce every tool call needed to recreate the design.
+Your task is to produce an array of tool (function) calls necessary to recreate the design in one turn.
+Include every necessary tool (function) calls and do not output any text other than the function calls themselves.
+
 1. Plan first
-Briefly outline the key steps you will take (in plain language), so the reader sees your overall approach.
+Briefly outline the key steps you will take.
 2. Be exhaustive
 Consider all parameters, options, ordering, and dependencies necessary to recreate the design in one turn.
 3. Deliver
-Based on the plan, respond with the exact sequence of tool calls it should run.
+Based on the plan, respond with the exact sequence of tool(function) calls it should run.
 `;
 
 /////////////////////////////
