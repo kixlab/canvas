@@ -41,7 +41,7 @@ export class SingleAgent extends AgentInstance {
     snapshots: SnapshotStructure[];
   }> {
     // Step 0: Check page
-    logger.log({
+    logger.info({
       header: "Single Agent Generation Started",
       body: `Model: ${params.model.modelName}, Provider: ${params.model.modelProvider}, Max Turns: ${this.maxTurns}`,
     });

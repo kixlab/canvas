@@ -35,7 +35,7 @@ export class CodeAgent extends AgentInstance {
     image_uri: string;
     snapshots: SnapshotStructure[];
   }> {
-    logger.log({
+    logger.info({
       header: "Code Agent Generation Started",
       body: `Model: ${params.model.modelName}, Provider: ${params.model.modelProvider}, Max Turns: ${this.maxTurns}`,
     });
