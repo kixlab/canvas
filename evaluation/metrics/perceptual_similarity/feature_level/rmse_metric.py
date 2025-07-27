@@ -3,16 +3,19 @@ from PIL import Image
 import numpy as np
 import os
 
-@register_metric("rmse")
-def _rmse(gt_img: str, gen_img: str, **kwargs):
+@register_metric("rmse_inverse")
+def _rmse_inverse(gt_img: str, gen_img: str, **kwargs):
     """
-    Computes the Root Mean Squared Error (RMSE) between two images.
-    This is equivalent to the L2-norm of the pixel differences.
+    Computes the inverse of Root Mean Squared Error (RMSE) between two images.
+    The inverse is calculated as 1/(1+RMSE) to convert RMSE into a [0,1] range where:
+    - Higher values (closer to 1) indicate better similarity
+    - Lower values (closer to 0) indicate worse similarity
+    
     If image sizes differ, they are resized to the smaller common resolution.
     """
     try:
         if not os.path.exists(gt_img) or not os.path.exists(gen_img):
-            return {"rmse": None}
+            return {"rmse_inverse": None}
 
         # Load images as RGB
         gt_pil = Image.open(gt_img).convert("RGB")
@@ -31,8 +34,12 @@ def _rmse(gt_img: str, gen_img: str, **kwargs):
         # Compute RMSE (L2-norm)
         diff = gt_arr - gen_arr
         rmse = float(np.sqrt(np.mean(np.square(diff))))
+        
+        # Convert to inverse metric (1/(1+RMSE))
+        # This transforms RMSE into [0,1] range where higher is better
+        rmse_inverse = 1.0 / (1.0 + rmse)
 
-        return {"rmse": round(rmse, 4)}
+        return {"rmse_inverse": round(rmse_inverse, 4)}
 
     except Exception:
-        return {"rmse": None} 
+        return {"rmse_inverse": None} 
