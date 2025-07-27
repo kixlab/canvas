@@ -9,12 +9,15 @@ paths:
   output_dir: "{base_dir}/eval_outputs/{task}/{variant}"
   saliency_vis_dir: "{output_dir}/saliency_visualizations"
   vis_results_dir: "{output_dir}/evaluation_results_vis"
+  precomputed_blip_scores:
+    replication_gen: "{base_dir}/eval_outputs/replication_gen/image_only/precomputed_blip_scores.json"
+    modification_gen: "{base_dir}/eval_outputs/modification_gen/{variant}/precomputed_blip_scores.json"
 
 # 2. Filename Conventions
 filenames:
   results_json: "evaluation_results.json"  # For replication_gen and modification_gen delta
   results_with_snapshots_json: "evaluation_results_with_snapshots.json"
-  modification_results_basetarget_json: "evaluation_results_basetarget.json"  # For modification_gen base and target metrics
+  modification_results_basetarget_json: "evaluation_results_basetarget.json"  # For modification_gen base and geneneration (compared with target) metrics
   
   # Ground Truth files
   gt_image: "{gt_id}.png"  # for replication_gen
