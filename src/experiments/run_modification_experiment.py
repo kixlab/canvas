@@ -157,7 +157,8 @@ class ModificationExperiment(BaseExperiment):
         endpoint = "modify/text-image"
         
         base_meta = self.experiment_config["models"][self.config.model.value]
-        agent_type = self.experiment_config.get("agent_type", "modification")
+        # Use agent_type from config if specified, otherwise use config default
+        agent_type = self.config.agent_type.value if self.config.agent_type else self.experiment_config.get("agent_type", "react_modification")
         repo_frame_name = self.experiment_config.get("repo_frame_name", "ResultsRepo")
         repo_frame_id = self.experiment_config.get("repo_frame_id")
 

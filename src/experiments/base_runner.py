@@ -11,7 +11,7 @@ from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 import logging
 from config import load_experiment_config
-from .enums import ModelType, Channel, ExperimentVariant, TaskType, GuidanceType
+from .enums import ModelType, Channel, ExperimentVariant, TaskType, GuidanceType, AgentType
 from .logger import ExperimentLogger
 import base64
 
@@ -29,6 +29,8 @@ def parse_common_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
                       help="Optional: batch name to run (e.g., batch_1)")
     parser.add_argument("--batches-config-path", type=str,
                       help="Optional: path to batches.yaml")
+    parser.add_argument("--agent-type", type=str, choices=[a.value for a in AgentType],
+                      help="Agent type to use (e.g. react, single, code)")
     parser.add_argument("--multi-agent", action="store_true",
                       help="Use multi-agent (supervisor-worker) mode")
     parser.add_argument("--guidance", type=str, choices=[g.value for g in GuidanceType],
@@ -44,6 +46,7 @@ class ExperimentConfig:
     batch_name: Optional[str] = None
     task: Optional[TaskType] = None
     batches_config_path: Optional[str] = None
+    agent_type: Optional[AgentType] = None
     multi_agent: bool = False
     guidance: Optional[GuidanceType] = None
 
@@ -57,6 +60,7 @@ class ExperimentConfig:
             batch_name=getattr(args, 'batch_name', None),
             task=TaskType(getattr(args, 'task', None)) if getattr(args, 'task', None) else None,
             batches_config_path=getattr(args, 'batches_config_path', None),
+            agent_type=AgentType(getattr(args, 'agent_type', None)) if getattr(args, 'agent_type', None) else None,
             multi_agent=getattr(args, 'multi_agent', False),
             guidance=GuidanceType(getattr(args, 'guidance', None)) if getattr(args, 'guidance', None) else None
         )
@@ -70,6 +74,7 @@ class ExperimentConfig:
             "batch_name": self.batch_name,
             "task": self.task.value if self.task else None,
             "batches_config_path": self.batches_config_path,
+            "agent_type": self.agent_type.value if self.agent_type else None,
             "multi_agent": self.multi_agent,
             "guidance": self.guidance.value if self.guidance else None,
         }
@@ -281,6 +286,14 @@ class BaseExperiment:
             with open(json_structure_file, "w", encoding="utf-8") as f:
                 json.dump(json_structure, f, indent=2, ensure_ascii=False)
             self.logger.info(f"[SAVE] json_structure saved to {json_structure_file}")
+            
+            # For code agent, also save HTML code separately
+            if isinstance(json_structure, dict) and "html" in json_structure:
+                html_code = json_structure["html"]
+                html_file = result_dir / f"{result_name}-generated.html"
+                with open(html_file, "w", encoding="utf-8") as f:
+                    f.write(html_code)
+                self.logger.info(f"[SAVE] HTML code saved to {html_file}")
         else:
             self.logger.warning("[SAVE] No json_structure found in payload.")
 

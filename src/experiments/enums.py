@@ -16,6 +16,8 @@ class ExperimentVariant(str, Enum):
 class ModelType(str, Enum):
     GPT4o = "gpt-4o"
     GPT41 = "gpt-4.1"
+    GPT4oMINI = "gpt-4o-mini"
+    O3 = "o3"
     CLAUDE35 = "claude-3-5-sonnet"
     GEMINI25FLASH = "gemini-2.5-flash"
     GEMINI25PRO = "gemini-2.5-pro"
@@ -35,6 +37,13 @@ class TaskType(str, Enum):
     MODIFICATION = "modification"
     GENERATION = "generation"
     SAMPLE = "sample"
+
+class AgentType(str, Enum):
+    REACT_REPLICATION = "react_replication"
+    CODE_REPLICATION = "code_replication"
+    SINGLE_REPLICATION = "single_replication"
+    REACT_MODIFICATION = "react_modification"
+    SINGLE_MODIFICATION = "single_modification"
 
 class GuidanceType(str, Enum):
     NONE = "none"
