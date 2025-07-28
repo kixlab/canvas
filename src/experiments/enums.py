@@ -19,6 +19,8 @@ class ModelType(str, Enum):
     CLAUDE35 = "claude-3-5-sonnet"
     GEMINI25FLASH = "gemini-2.5-flash"
     GEMINI25PRO = "gemini-2.5-pro"
+    LLAMA4MAVERICK = "llama-4-maverick"
+    LLAMA4SCOUT = "llama-4-scout"
 
 class Channel(str, Enum):
     CHANNEL_1 = "channel_1"
