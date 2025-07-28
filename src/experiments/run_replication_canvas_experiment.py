@@ -171,7 +171,7 @@ class ReplicationExperiment(BaseExperiment):
         # ------------------------------------------------------------------
 
         base_meta = self.experiment_config["models"][self.config.model.value]
-        agent_type = self.experiment_config.get("agent_type", "react")
+        agent_type = self.config.agent_type.value if self.config.agent_type else self.experiment_config.get("agent_type", "react_replication")
         repo_frame_name = self.experiment_config.get("repo_frame_name", "ResultsRepo")
         repo_frame_id = self.experiment_config.get("repo_frame_id")
 
@@ -220,7 +220,7 @@ class ReplicationExperiment(BaseExperiment):
         return None
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run sample extraction experiments")
+    parser = argparse.ArgumentParser(description="Run replication experiments")
     parser = parse_common_args(parser)
     parser.add_argument("--auto", action="store_true", help="Run in non-interactive auto-save mode")
     return parser.parse_args()

@@ -1,24 +1,22 @@
-agent_type: modification
+agent_type: react_replication
 
-benchmark_dir: ../dataset/benchmarks/modification_gt
-results_dir: ../dataset/results/modification_gen
-batches_config_path: ../dataset/batches/modification/batches.yaml
+benchmark_dir: ../dataset/benchmarks/replication_gt
+results_dir: ../dataset/results/replication_gen
+batches_config_path: ../dataset/batches/replication/batches.yaml
 
 channels:
   channel_1:
     api_base_url: http://localhost:3001
   channel_2:
-    api_base_url: http://localhost:3002
+    api_base_url: http://localhost:3000
   channel_3:
-    api_base_url: http://localhost:3002
+    api_base_url: http://localhost:3001
   channel_4:
-    api_base_url: http://localhost:3003
+    api_base_url: http://localhost:3002
   channel_5:
-    api_base_url: http://localhost:3004
+    api_base_url: http://localhost:3003
   channel_6:
-    api_base_url: http://localhost:3005
-  channel_7:
-    api_base_url: http://localhost:3006
+    api_base_url: http://localhost:3004
 
 models:
   gpt-4o:
@@ -35,6 +33,22 @@ models:
     temperature: 0.0
     input_cost: 0.002 ## Cost per 1k input tokens
     output_cost: 0.008 ## Cost per 1k output tokens
+    max_turns: 50
+    max_tokens: 2048
+  gpt-4o-mini:
+    provider: openai
+    name: gpt-4o-mini-2024-07-18
+    temperature: 0.0
+    input_cost: 0.00015
+    output_cost: 0.0006
+    max_turns: 50
+    max_tokens: 2048
+  o3:
+    provider: openai
+    name: o3-mini-2024-07-18
+    temperature: 0.0
+    input_cost: 0.00015
+    output_cost: 0.0006
     max_turns: 50
     max_tokens: 2048
   claude-3-5-sonnet:
