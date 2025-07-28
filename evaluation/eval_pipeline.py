@@ -1,12 +1,29 @@
 # ruff: noqa: E501
 
+# Set TensorFlow environment variables BEFORE any imports
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress all TensorFlow logging
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable verbose TensorFlow output
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'  # Prevent GPU memory issues
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+# Suppress TensorFlow logging
+import logging
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
+logging.getLogger('keras').setLevel(logging.ERROR)
+
+# Suppress Keras verbose output
+import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
+
+# Suppress all warnings
+import warnings
+warnings.filterwarnings('ignore')
+
 import json
+import sys
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional, DefaultDict, Any
 from dataclasses import dataclass, field
@@ -20,6 +37,11 @@ try:
     import matplotlib.pyplot as plt
 except ModuleNotFoundError:
     plt = None
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
 
 from collections import defaultdict
 
@@ -106,13 +128,34 @@ class EvaluationPipeline:
 
         # Setup paths for precomputed BLIP scores
         if self.cli_config.task == "replication_gen":
-            self.blip_scores_path = Path(self.app_config.paths.precomputed_blip_scores.replication_gen)
+            self.blip_scores_path = Path(self.app_config.paths.precomputed_blip_scores.replication_gen.format(**path_vars))
             self.blip_snapshot_scores_path = self.blip_scores_path.parent / "precomputed_blip_scores_snapshot.json"
         elif self.cli_config.task == "modification_gen":
             if not self.cli_config.variant:
                 raise ValueError("--variant (task-1, task-2, or task-3) is required for modification_gen task")
             self.blip_scores_path = Path(self.app_config.paths.precomputed_blip_scores.modification_gen.format(**path_vars))
             self.blip_snapshot_scores_path = self.blip_scores_path.parent / "precomputed_blip_scores_snapshot.json"
+
+        # Add model name to BLIP scores paths if model is specified
+        if self.cli_config.model:
+            if self.cli_config.task == "replication_gen":
+                model_specific_path = self.blip_scores_path.parent / f"precomputed_blip_scores_{self.cli_config.model}.json"
+                if model_specific_path.exists():
+                    self.blip_scores_path = model_specific_path
+                    self.blip_snapshot_scores_path = self.blip_scores_path.parent / f"precomputed_blip_scores_snapshot_{self.cli_config.model}.json"
+                else:
+                    # Use default file if model-specific file doesn't exist
+                    tqdm.write(f"[Info] Model-specific BLIP scores not found: {model_specific_path}")
+                    tqdm.write(f"[Info] Using default BLIP scores file: {self.blip_scores_path}")
+            elif self.cli_config.task == "modification_gen":
+                model_specific_path = self.blip_scores_path.parent / f"precomputed_blip_scores_{self.cli_config.model}.json"
+                if model_specific_path.exists():
+                    self.blip_scores_path = model_specific_path
+                    self.blip_snapshot_scores_path = self.blip_scores_path.parent / f"precomputed_blip_scores_snapshot_{self.cli_config.model}.json"
+                else:
+                    # Use default file if model-specific file doesn't exist
+                    tqdm.write(f"[Info] Model-specific BLIP scores not found: {model_specific_path}")
+                    tqdm.write(f"[Info] Using default BLIP scores file: {self.blip_scores_path}")
 
         gt_dir_template = self.app_config.paths.gt_dir
         results_dir_template = self.app_config.paths.results_dir
@@ -131,7 +174,12 @@ class EvaluationPipeline:
 
         self.gt_dir = Path(gt_dir_template.format(**path_vars))
         self.results_dir = Path(results_dir_template.format(**path_vars))
-        self.output_dir = Path(output_dir_template.format(**path_vars))
+        
+        # Add model name to output directory to separate results by model
+        if self.cli_config.model:
+            self.output_dir = Path(output_dir_template.format(**path_vars)) / self.cli_config.variant / self.cli_config.model
+        else:
+            self.output_dir = Path(output_dir_template.format(**path_vars))
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
         # print(self.cli_config.task)
@@ -159,13 +207,14 @@ class EvaluationPipeline:
         if self.blip_scores_path.exists():
             with self.blip_scores_path.open('r', encoding='utf-8') as f:
                 try:
-                    self.blip_scores = {item['case_id']: item for item in json.load(f)}
-                    print(f"Loaded {len(self.blip_scores)} precomputed BLIP scores from {self.blip_scores_path}")
+                    blip_data = json.load(f)
+                    self.blip_scores = {item['case_id']: item for item in blip_data}
+                    tqdm.write(f"Loaded {len(self.blip_scores)} precomputed BLIP scores from {self.blip_scores_path}")
                 except json.JSONDecodeError:
-                    print(f"[Warning] Failed to load precomputed BLIP scores from {self.blip_scores_path}")
+                    tqdm.write(f"[Warning] Failed to load precomputed BLIP scores from {self.blip_scores_path}")
                     self.blip_scores = {}
         else:
-            print(f"[Warning] Precomputed BLIP scores file not found: {self.blip_scores_path}")
+            tqdm.write(f"[Warning] Precomputed BLIP scores file not found: {self.blip_scores_path}")
             self.blip_scores = {}
 
         # Load precomputed BLIP snapshot scores if available
@@ -177,12 +226,12 @@ class EvaluationPipeline:
                         f"{item['case_id']}_{item['snapshot_num']}": item 
                         for item in snapshot_scores_list
                     }
-                    print(f"Loaded {len(self.blip_snapshot_scores)} precomputed BLIP snapshot scores from {self.blip_snapshot_scores_path}")
+                    tqdm.write(f"Loaded {len(self.blip_snapshot_scores)} precomputed BLIP snapshot scores from {self.blip_snapshot_scores_path}")
                 except json.JSONDecodeError:
-                    print(f"[Warning] Failed to load precomputed BLIP snapshot scores from {self.blip_snapshot_scores_path}")
+                    tqdm.write(f"[Warning] Failed to load precomputed BLIP snapshot scores from {self.blip_snapshot_scores_path}")
                     self.blip_snapshot_scores = {}
         else:
-            print(f"[Info] Precomputed BLIP snapshot scores file not found: {self.blip_snapshot_scores_path}")
+            tqdm.write(f"[Info] Precomputed BLIP snapshot scores file not found: {self.blip_snapshot_scores_path}")
             self.blip_snapshot_scores = {}
 
     def _load_metrics(self):
@@ -200,7 +249,27 @@ class EvaluationPipeline:
                 self.metric_funcs['lpips'] = lpips_with_cached_model
         except ImportError:
             self.lpips_model = None
-            print("[Warning] LPIPS module not found - skipping LPIPS metric caching")
+            tqdm.write("[Warning] LPIPS module not found - skipping LPIPS metric caching")
+        
+        # Preload saliency model to avoid repeated loading during evaluation
+        try:
+            # Import and test saliency model loading
+            from evaluation.visual_saliency.core import _load_model
+            # Trigger model loading once to cache it
+            _ = _load_model()
+            tqdm.write("[Info] Saliency model preloaded successfully")
+        except Exception as e:
+            tqdm.write(f"[Warning] Failed to preload saliency model: {e}")
+            tqdm.write("[Info] Saliency metrics will be computed on-demand (slower)")
+        
+        # Preload visual saliency metric for better performance
+        if 'visual_saliency' in self.metric_funcs:
+            try:
+                from evaluation.metrics.visual_saliency_metric import get_cache_stats
+                stats = get_cache_stats()
+                tqdm.write(f"[Info] Visual saliency metric loaded, cache stats: {stats}")
+            except Exception as e:
+                tqdm.write(f"[Warning] Failed to load visual saliency metric: {e}")
         
         self.tool_metric_func = self.metric_funcs.pop("tool_usage", None)
 
@@ -221,31 +290,75 @@ class EvaluationPipeline:
                     error_msg += f"\nNo samples found at all for model '{self.cli_config.model}' in directory {self.results_dir}."
                 raise ValueError(error_msg)
 
-        for case in cases:
+        case_iterator = cases
+        if tqdm:
+            desc = f"Eval: {self.cli_config.task} | {self.cli_config.variant}"
+            if self.cli_config.model:
+                desc += f" | {self.cli_config.model}"
+            case_iterator = tqdm(cases, desc=desc, unit="case", position=0, leave=True, ncols=100, dynamic_ncols=True, file=sys.stderr)
+
+        skipped_count = 0
+        processed_count = 0
+        
+        # Debug: Print previous results info
+        if self.cli_config.skip_all:
+            if tqdm:
+                tqdm.write(f"\n[DEBUG] Loaded {len(self.previous_results)} previous results from {self.output_path_main}")
+                if len(self.previous_results) > 0:
+                    sample_keys = [(r.get('case_id'), r.get('snapshot_num'), r.get('model')) for r in self.previous_results[:3]]
+                    tqdm.write(f"[DEBUG] Sample previous result keys: {sample_keys}")
+            else:
+                tqdm.write(f"\n[DEBUG] Loaded {len(self.previous_results)} previous results from {self.output_path_main}")
+                if len(self.previous_results) > 0:
+                    sample_keys = [(r.get('case_id'), r.get('snapshot_num'), r.get('model')) for r in self.previous_results[:3]]
+                    tqdm.write(f"[DEBUG] Sample previous result keys: {sample_keys}")
+
+        for case in case_iterator:
             # Add a check to skip already processed cases
             # Note: A robust key should handle all cases. `case_id` is a good candidate.
             key = (case.case_id, case.snapshot_num)
             is_previously_processed = any(
-                r.get("case_id") == case.case_id and r.get("snapshot_num") == case.snapshot_num 
+                r.get("case_id") == case.case_id and 
+                r.get("snapshot_num") == case.snapshot_num and 
+                r.get("model") == case.model_name
                 for r in self.previous_results
             )
+            
             if self.cli_config.skip_all and is_previously_processed:
+                skipped_count += 1
                 continue
             
+            processed_count += 1
+            
             self._process_case(case)
+
+        if self.cli_config.skip_all:
+            if tqdm:
+                tqdm.write(f"\nSkip summary: {skipped_count} skipped, {processed_count} processed out of {len(cases)} total cases")
+            else:
+                tqdm.write(f"\nSkip summary: {skipped_count} skipped, {processed_count} processed out of {len(cases)} total cases")
 
         self.save_structured_results()
         
         if self.cli_config.vis:
             self._generate_visualizations()
 
-        print(f"\nEvaluation complete. Results saved to:")
-        print(f"  - Main results: {self.output_path_main}")
-        if self.output_path_snapshots:
-            print(f"  - Snapshot results: {self.output_path_snapshots}")
-        if self.output_path_basetarget:
-            print(f"  - Modification details: {self.output_path_basetarget}")
-        print(f"  - Delta results: {self.output_path_delta}")
+        if tqdm:
+            tqdm.write(f"\nEvaluation complete. Results saved to:")
+            tqdm.write(f"  - Main results: {self.output_path_main}")
+            if self.output_path_snapshots:
+                tqdm.write(f"  - Snapshot results: {self.output_path_snapshots}")
+            if self.output_path_basetarget:
+                tqdm.write(f"  - Modification details: {self.output_path_basetarget}")
+            tqdm.write(f"  - Delta results: {self.output_path_delta}")
+        else:
+            tqdm.write(f"\nEvaluation complete. Results saved to:")
+            tqdm.write(f"  - Main results: {self.output_path_main}")
+            if self.output_path_snapshots:
+                tqdm.write(f"  - Snapshot results: {self.output_path_snapshots}")
+            if self.output_path_basetarget:
+                tqdm.write(f"  - Modification details: {self.output_path_basetarget}")
+            tqdm.write(f"  - Delta results: {self.output_path_delta}")
         
         return self.results
 
@@ -398,13 +511,13 @@ class EvaluationPipeline:
                     glob_pattern = self.app_config.filenames.snapshot_image_glob.format(case_id=case_id)
                     snapshot_paths = sorted(snapshots_dir.glob(glob_pattern))
                     if not snapshot_paths:
-                        print(f"No snapshots found in {snapshots_dir} with pattern {glob_pattern}")
+                        tqdm.write(f"No snapshots found in {snapshots_dir} with pattern {glob_pattern}")
                     for snapshot_img_path in snapshot_paths:
                         snapshot_stem = snapshot_img_path.stem
                         try:
                             snapshot_num = int(snapshot_stem.split("-snapshot-")[-1])
                         except (ValueError, IndexError):
-                            print(f"Invalid snapshot name: {snapshot_stem}")
+                            tqdm.write(f"Invalid snapshot name: {snapshot_stem}")
                             continue
                 
                         snapshot_json_path = snapshots_dir / self.app_config.filenames.snapshot_json.format(snapshot_stem=snapshot_stem)
@@ -427,7 +540,7 @@ class EvaluationPipeline:
                             
                             cases.append(snapshot_case)
                         else:
-                            print(f"Snapshot JSON not found: {snapshot_json_path}")
+                            tqdm.write(f"Snapshot JSON not found: {snapshot_json_path}")
 
         # print(f"\n[DEBUG] Total cases collected: {len(cases)}")
         return cases
@@ -480,8 +593,8 @@ class EvaluationPipeline:
                         base_target_metrics["ground_truth_caption"] = self.blip_scores[blip_key].get("gt_caption_target")
                         gen_target_metrics["ground_truth_caption"] = self.blip_scores[blip_key].get("gt_caption_target")
                     # generated_caption will be None/null for snapshots when not available
-            else:
-                print(f"[Warning] Precomputed BLIP score not found for case: {blip_key}")
+            # else:
+            #     print(f"[Warning] Precomputed BLIP score not found for case: {blip_key}")
             
             # Calculate delta metrics (gen_target - base_target)
             delta_metrics = {}
@@ -503,14 +616,6 @@ class EvaluationPipeline:
                 "gen_target_metrics": gen_target_metrics,
                 **delta_metrics  # Include delta metrics at top level
             }
-            
-            debug_output_dir = Path("debug_outputs")
-            debug_output_dir.mkdir(parents=True, exist_ok=True)
-            print(debug_output_dir)
-
-            with open(debug_output_dir / f"flat_result_{case.case_id}_{case.snapshot_num or 'final'}.json", "w", encoding="utf-8") as f:
-                json.dump(flat_result, f, indent=2, ensure_ascii=False)
-            
 
         else:
             # For replication task, compute metrics normally
@@ -521,6 +626,36 @@ class EvaluationPipeline:
                 "model": case.model_name,
                 "snapshot_num": case.snapshot_num
             })
+            
+            # Add precomputed BLIP scores for replication task
+            blip_key = case.case_id
+            if case.snapshot_num is None and blip_key in self.blip_scores:
+                blip_data = self.blip_scores[blip_key]
+                flat_result.update({
+                    "blip_caption_similarity": blip_data.get("blip_score"),
+                    "generated_caption": blip_data.get("gen_caption"),
+                    "ground_truth_caption": blip_data.get("gt_caption")
+                })
+            elif case.snapshot_num is not None:
+                # For snapshots, check if we have snapshot-specific BLIP scores
+                snapshot_key = f"{blip_key}_{case.snapshot_num}"
+                if snapshot_key in self.blip_snapshot_scores:
+                    snapshot_blip_data = self.blip_snapshot_scores[snapshot_key]
+                    flat_result.update({
+                        "blip_caption_similarity": snapshot_blip_data.get("blip_score"),
+                        "generated_caption": snapshot_blip_data.get("gen_caption"),
+                        "ground_truth_caption": snapshot_blip_data.get("gt_caption")
+                    })
+                else:
+                    # If no snapshot-specific scores, just fill in the GT caption for context
+                    if blip_key in self.blip_scores:
+                        flat_result["ground_truth_caption"] = self.blip_scores[blip_key].get("gt_caption")
+            else:
+                # Debug: Check if case_id is not found in blip_scores
+                if blip_key not in self.blip_scores:
+                    tqdm.write(f"[Warning] BLIP key '{blip_key}' not found in blip_scores")
+                else:
+                    tqdm.write(f"[DEBUG] Found BLIP key '{blip_key}' in blip_scores")
         
         # Process tool usage for both replication and modification tasks
         if self.tool_metric_func:
@@ -623,11 +758,17 @@ class EvaluationPipeline:
             return True
         if self.cli_config.skip_visual_saliency and name == "visual_saliency":
             if self.app_config.metrics.optional_required_metrics['visual_saliency'] not in metric:
-                print(f"[Warning] visual_saliency metrics not found for {metric['id']} (snap: {metric['snapshot_num']}) - skipping.")
+                if tqdm:
+                    tqdm.write(f"[Warning] visual_saliency metrics not found for {metric.get('id', 'unknown')} (snap: {metric.get('snapshot_num', 'unknown')}) - skipping.")
+                else:
+                    tqdm.write(f"[Warning] visual_saliency metrics not found for {metric.get('id', 'unknown')} (snap: {metric.get('snapshot_num', 'unknown')}) - skipping.")
             return True
         if self.cli_config.skip_blip and name == "semantic_match":
             if self.app_config.metrics.optional_required_metrics['semantic_match'] not in metric:
-                print(f"[Warning] semantic_match not found for {metric['id']} (snap: {metric['snapshot_num']}) - skipping.")
+                if tqdm:
+                    tqdm.write(f"[Warning] semantic_match not found for {metric.get('id', 'unknown')} (snap: {metric.get('snapshot_num', 'unknown')}) - skipping.")
+                else:
+                    tqdm.write(f"[Warning] semantic_match not found for {metric.get('id', 'unknown')} (snap: {metric.get('snapshot_num', 'unknown')}) - skipping.")
             return True
         
         # Check if already computed
@@ -706,40 +847,18 @@ class EvaluationPipeline:
                     }
                 },
                 "component_similarity": {
-                    "color_match_score": metrics_dict.get("color_match_score"),
-                    "text_match_score": metrics_dict.get("text_match_score"),
-                    "element_position_iou": metrics_dict.get("element_position_iou"),
-                    "block_composition_f1": metrics_dict.get("block_composition_f1")
+                    "block_match_score": metrics_dict.get("block_match_score"),
+                    "color_similarity_score": metrics_dict.get("color_similarity_score"),
+                    "position_similarity_score": metrics_dict.get("position_similarity_score"),
+                    "text_coverage_f1_score": metrics_dict.get("text_coverage_f1_score"),
                 }
             }
 
-        # Build base and gen metrics structures
-        base_metrics = build_structured_metrics(get("base_target_metrics", {}))
-        if base_metrics:
-            # Rename generated_caption to base_caption for clarity
-            obj_level = base_metrics.get("perceptual_similarity", {}).get("object_level", {})
-            if "generated_caption" in obj_level:
-                obj_level["base_caption"] = obj_level.pop("generated_caption")
-
-        gen_metrics = build_structured_metrics(get("gen_target_metrics", {}))
-
-        # Build delta metrics structure
-        delta_metrics_flat = {k[:-6]: v for k, v in flat_result.items() if k.endswith("_delta")}
-        delta_metrics = build_structured_metrics(delta_metrics_flat)
-        if delta_metrics:
-             # Add captions to delta object level for comparison
-            delta_obj_level = delta_metrics.get("perceptual_similarity", {}).get("object_level", {})
-            if base_metrics:
-                delta_obj_level["base_caption"] = base_metrics.get("perceptual_similarity", {}).get("object_level", {}).get("base_caption")
-            if gen_metrics:
-                 delta_obj_level["gen_caption"] = gen_metrics.get("perceptual_similarity", {}).get("object_level", {}).get("generated_caption")
-                 delta_obj_level["ground_truth_caption"] = gen_metrics.get("perceptual_similarity", {}).get("object_level", {}).get("ground_truth_caption")
-
-        # Collect tool usage metrics
+        # Collect tool usage metrics first from the top level
         tool_usage_metrics = {
             "step_count": get("step_count"),
             "tool_call_count": get("tool_call_count"),
-            "tool_step_count": get("step_count"),
+            "tool_step_count": get("step_count"), # Note: same as step_count
             "tool_efficiency": get("tool_efficiency"),
             "unique_tool_count": get("unique_tool_count"),
             "unique_tool_list": get("unique_tool_list"),
@@ -749,23 +868,55 @@ class EvaluationPipeline:
             "human_tool_recall": get("human_tool_recall")
         }
 
-        # Add tool metrics to each section
-        if base_metrics:
-            base_metrics["tool_usage_metrics"] = tool_usage_metrics
-        if gen_metrics:
-            gen_metrics["tool_usage_metrics"] = tool_usage_metrics
-        if delta_metrics:
-            delta_metrics["tool_usage_metrics"] = tool_usage_metrics
+        # Modification Task has 'base_target_metrics', Replication does not.
+        if "base_target_metrics" in flat_result:
+            # ---- MODIFICATION TASK ----
+            base_metrics = build_structured_metrics(get("base_target_metrics", {}))
+            if base_metrics:
+                # Rename generated_caption to base_caption for clarity
+                obj_level = base_metrics.get("perceptual_similarity", {}).get("object_level", {})
+                if "generated_caption" in obj_level:
+                    obj_level["base_caption"] = obj_level.pop("generated_caption")
+                base_metrics["tool_usage_metrics"] = tool_usage_metrics
 
-        return {
-            "id": get("id"),
-            "case_id": get("case_id"),
-            "model": get("model"),
-            "snapshot_num": get("snapshot_num"),
-            "base_target_metrics": base_metrics,
-            "gen_target_metrics": gen_metrics,
-            "delta_metrics": delta_metrics,
-        }
+            gen_metrics = build_structured_metrics(get("gen_target_metrics", {}))
+            if gen_metrics:
+                gen_metrics["tool_usage_metrics"] = tool_usage_metrics
+
+            # Build delta metrics structure
+            delta_metrics_flat = {k[:-6]: v for k, v in flat_result.items() if k.endswith("_delta")}
+            delta_metrics = build_structured_metrics(delta_metrics_flat)
+            if delta_metrics:
+                # Add captions to delta object level for comparison
+                delta_obj_level = delta_metrics.get("perceptual_similarity", {}).get("object_level", {})
+                if base_metrics:
+                    delta_obj_level["base_caption"] = base_metrics.get("perceptual_similarity", {}).get("object_level", {}).get("base_caption")
+                if gen_metrics:
+                    delta_obj_level["gen_caption"] = gen_metrics.get("perceptual_similarity", {}).get("object_level", {}).get("generated_caption")
+                    delta_obj_level["ground_truth_caption"] = gen_metrics.get("perceptual_similarity", {}).get("object_level", {}).get("ground_truth_caption")
+                delta_metrics["tool_usage_metrics"] = tool_usage_metrics
+
+            return {
+                "id": get("id"),
+                "case_id": get("case_id"),
+                "model": get("model"),
+                "snapshot_num": get("snapshot_num"),
+                "base_target_metrics": base_metrics,
+                "gen_target_metrics": gen_metrics,
+                "delta_metrics": delta_metrics,
+            }
+        else:
+            # ---- REPLICATION TASK ----
+            metrics = build_structured_metrics(flat_result)
+            metrics["tool_usage_metrics"] = tool_usage_metrics
+            
+            return {
+                "id": get("id"),
+                "case_id": get("case_id"),
+                "model": get("model"),
+                "snapshot_num": get("snapshot_num"),
+                "metrics": metrics,
+            }
 
 
     # ---------------------------------------------------------------------
@@ -804,7 +955,7 @@ class EvaluationPipeline:
                     "gen_target_metrics": r.get("gen_target_metrics"),
                 }
                 for r in self.results
-                if r.get("base_target_metrics") and r.get("gen_target_metrics")
+                if r.get("base_target_metrics") is not None and r.get("gen_target_metrics") is not None
             ]
             self._write_json(basetarget_data, self.output_path_basetarget)
 
@@ -828,16 +979,25 @@ class EvaluationPipeline:
     def _load_previous_results(self, load_path: Path) -> List[Dict[str, any]]:
         """Load previous results from a specific JSON file."""
         if load_path.exists():
-            print(f"Loading previous results from: {load_path}")
+            if tqdm:
+                tqdm.write(f"Loading previous results from: {load_path}")
+            else:
+                tqdm.write(f"Loading previous results from: {load_path}")
             with load_path.open("r", encoding="utf-8") as f:
                 try:
                     data = json.load(f)
                     for item in data:
                         item.setdefault("snapshot_num", None)
-                    print(f"Loaded {len(data)} previous results.")
+                    if tqdm:
+                        tqdm.write(f"Loaded {len(data)} previous results.")
+                    else:
+                        tqdm.write(f"Loaded {len(data)} previous results.")
                     return data
                 except json.JSONDecodeError:
-                    print("[Warning] Could not decode existing results file. Starting fresh.")
+                    if tqdm:
+                        tqdm.write("[Warning] Could not decode existing results file. Starting fresh.")
+                    else:
+                        tqdm.write("[Warning] Could not decode existing results file. Starting fresh.")
         return []
 
     def _save_results(self, final: bool = False):
@@ -850,7 +1010,7 @@ class EvaluationPipeline:
         
         # Simple save, no merging needed for a checkpoint
         self._write_json(self.results, checkpoint_path)
-        print(f"... Checkpoint saved to {checkpoint_path}")
+        # tqdm.write(f"... Checkpoint saved to {checkpoint_path}")
 
     def _write_json(self, data: List[Dict[str, Any]], path: Path):
         """Helper function to write data to a JSON file with NumPy compatibility."""
@@ -890,10 +1050,10 @@ class EvaluationPipeline:
     def _generate_visualizations(self):
         """Create and save model-wise metric plots."""
         if plt is None:
-            print("[VIS] matplotlib not available – skipping visualization.")
+            tqdm.write("[VIS] matplotlib not available – skipping visualization.")
             return
         if not self.results:
-            print("[VIS] No results to visualize.")
+            tqdm.write("[VIS] No results to visualize.")
             return
 
         vis_dir = self.output_dir / self.app_config.paths.vis_results_dir.format(output_dir=self.output_dir)
@@ -902,22 +1062,104 @@ class EvaluationPipeline:
         metric_data: DefaultDict[str, DefaultDict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
         skip_keys = set(self.app_config.visualization.skip_keys)
 
+        # Extract metrics from the new nested structure
         for entry in self.results:
             model_name = entry.get("model", "unknown")
-            for k, v in entry.items():
-                if k in skip_keys or k.endswith("_error"):
-                    continue
-                if isinstance(v, (int, float)):
-                    metric_data[k][model_name].append(float(v))
+            
+            # Handle both old flat structure and new nested structure
+            if "metrics" in entry:
+                # New nested structure (replication_gen)
+                metrics = entry["metrics"]
+                if "perceptual_similarity" in metrics:
+                    ps = metrics["perceptual_similarity"]
+                    # Feature level metrics
+                    if "feature_level" in ps:
+                        fl = ps["feature_level"]
+                        for metric_name, value in fl.items():
+                            if isinstance(value, (int, float)) and value is not None:
+                                metric_data[f"feature_{metric_name}"][model_name].append(float(value))
+                    
+                    # Pattern level metrics
+                    if "pattern_level" in ps:
+                        pl = ps["pattern_level"]
+                        for metric_name, value in pl.items():
+                            if isinstance(value, (int, float)) and value is not None:
+                                metric_data[f"pattern_{metric_name}"][model_name].append(float(value))
+                    
+                    # Object level metrics
+                    if "object_level" in ps:
+                        ol = ps["object_level"]
+                        for metric_name, value in ol.items():
+                            if isinstance(value, (int, float)) and value is not None:
+                                metric_data[f"object_{metric_name}"][model_name].append(float(value))
+                
+                # Component similarity metrics
+                if "component_similarity" in metrics:
+                    cs = metrics["component_similarity"]
+                    for metric_name, value in cs.items():
+                        if isinstance(value, (int, float)) and value is not None:
+                            metric_data[f"component_{metric_name}"][model_name].append(float(value))
+                
+                # Tool usage metrics
+                if "tool_usage_metrics" in metrics:
+                    tu = metrics["tool_usage_metrics"]
+                    for metric_name, value in tu.items():
+                        if isinstance(value, (int, float)) and value is not None:
+                            metric_data[f"tool_{metric_name}"][model_name].append(float(value))
+            
+            elif "base_target_metrics" in entry and "gen_target_metrics" in entry:
+                # Modification task structure
+                # Process base_target_metrics
+                base_metrics = entry["base_target_metrics"]
+                if "perceptual_similarity" in base_metrics:
+                    ps = base_metrics["perceptual_similarity"]
+                    if "feature_level" in ps:
+                        fl = ps["feature_level"]
+                        for metric_name, value in fl.items():
+                            if isinstance(value, (int, float)) and value is not None:
+                                metric_data[f"base_feature_{metric_name}"][model_name].append(float(value))
+                
+                # Process gen_target_metrics
+                gen_metrics = entry["gen_target_metrics"]
+                if "perceptual_similarity" in gen_metrics:
+                    ps = gen_metrics["perceptual_similarity"]
+                    if "feature_level" in ps:
+                        fl = ps["feature_level"]
+                        for metric_name, value in fl.items():
+                            if isinstance(value, (int, float)) and value is not None:
+                                metric_data[f"gen_feature_{metric_name}"][model_name].append(float(value))
+            
+            else:
+                # Fallback to old flat structure
+                for k, v in entry.items():
+                    if k in skip_keys or k.endswith("_error"):
+                        continue
+                    if isinstance(v, (int, float)):
+                        metric_data[k][model_name].append(float(v))
         
+        # Generate plots for each metric
         for metric, model_dict in metric_data.items():
             models = sorted(model_dict.keys())
-            if not models: continue
+            if not models or len(models) == 0: 
+                continue
+
+            # Skip if no data
+            if all(len(model_dict[m]) == 0 for m in models):
+                continue
 
             # Bar plot (mean)
-            means = [sum(model_dict[m]) / len(model_dict[m]) for m in models]
-            plt.figure(figsize=(max(6, len(models) * 1.2), 4))
-            plt.bar(models, means, color="skyblue")
+            means = []
+            valid_models = []
+            for m in models:
+                if len(model_dict[m]) > 0:
+                    means.append(sum(model_dict[m]) / len(model_dict[m]))
+                    valid_models.append(m)
+            
+            if not valid_models:
+                continue
+
+            plt.figure(figsize=(max(6, len(valid_models) * 1.2), 4))
+            plt.bar(valid_models, means, color="skyblue")
             plt.ylabel(metric)
             plt.title(f"Mean {metric} per model ({self.cli_config.variant})")
             plt.xticks(rotation=45, ha="right")
@@ -926,17 +1168,18 @@ class EvaluationPipeline:
             plt.close()
 
             # Box plot (distribution)
-            data = [model_dict[m] for m in models]
-            plt.figure(figsize=(max(6, len(models) * 1.2), 4))
-            plt.boxplot(data, labels=models, vert=True, patch_artist=True)
-            plt.ylabel(metric)
-            plt.title(f"{metric} distribution per model ({self.cli_config.variant})")
-            plt.xticks(rotation=45, ha="right")
-            plt.tight_layout()
-            plt.savefig(vis_dir / self.app_config.filenames.vis_box_plot.format(metric=metric), dpi=self.app_config.visualization.dpi)
-            plt.close()
+            data = [model_dict[m] for m in valid_models if len(model_dict[m]) > 0]
+            if data:
+                plt.figure(figsize=(max(6, len(valid_models) * 1.2), 4))
+                plt.boxplot(data, labels=valid_models, vert=True, patch_artist=True)
+                plt.ylabel(metric)
+                plt.title(f"{metric} distribution per model ({self.cli_config.variant})")
+                plt.xticks(rotation=45, ha="right")
+                plt.tight_layout()
+                plt.savefig(vis_dir / self.app_config.filenames.vis_box_plot.format(metric=metric), dpi=self.app_config.visualization.dpi)
+                plt.close()
         
-        print(f"[VIS] Saved visualization plots → {vis_dir}")
+        tqdm.write(f"[VIS] Saved visualization plots → {vis_dir}")
 
 
 def main():

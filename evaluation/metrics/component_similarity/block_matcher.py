@@ -13,7 +13,6 @@ def load_and_normalize_boxes(json_path: Path) -> Tuple[List[Dict], Dict]:
     try:
         data = json.loads(json_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, FileNotFoundError) as e:
-        print(f"Error reading or parsing {json_path}: {e}")
         raise
 
     if "document" in data:

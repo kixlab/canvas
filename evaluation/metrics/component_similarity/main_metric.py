@@ -64,8 +64,8 @@ def compute_component_similarity_metrics(gt_json: str, gen_json: str, **kwargs) 
     text_coverage = compute_text_coverage_metrics(gt_boxes, gen_boxes)
 
     return {
-        "block_match_score": block_match_score,
-        "color_similarity_score": color_score,
-        "position_similarity_score": position_score,
-        "text_coverage_f1_score": text_coverage.get("f1_score", 0.0),
+        "block_match_score": round(block_match_score, 4),
+        "color_similarity_score": round(color_score, 4),
+        "position_similarity_score": round(position_score, 4),
+        "text_coverage_f1_score": round(text_coverage.get("f1_score", 0.0), 4),
     } 
