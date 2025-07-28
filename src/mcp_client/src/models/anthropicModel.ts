@@ -194,6 +194,7 @@ export class AnthropicModel extends ModelInstance {
 
   addToFormattedMessageContext(
     response: AnthropicMessageType.Messages.Message,
+    type: MessageType,
     context: GenericMessage[]
   ): void {
     const textContent = response.content
@@ -204,7 +205,7 @@ export class AnthropicModel extends ModelInstance {
     context.push({
       id: response.id,
       timestamp: Date.now(),
-      type: MessageType.AGENT_REQUEST,
+      type,
       role: RoleType.ASSISTANT,
       content: [{ type: ContentType.TEXT, text: textContent }],
       calls: this.formatCallToolRequest(response),

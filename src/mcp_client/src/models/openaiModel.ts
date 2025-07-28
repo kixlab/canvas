@@ -33,14 +33,20 @@ export class OpenAIModel extends ModelInstance {
       >
     > = {}
   ): Promise<any> {
+    // check if the modelName includes "o3" or "o1"
+    const reasoning =
+      this.modelName.includes("o3") || this.modelName.includes("o1");
     const params: OpenAIResponseType.ResponseCreateParams = {
       model: this.modelName,
       input: input,
-      temperature: this.temperature,
       max_output_tokens: this.maxTokens,
       ...options,
       stream: false,
     };
+
+    if (!reasoning) {
+      params.temperature = this.temperature;
+    }
 
     return await this.client.responses.create(params);
   }
@@ -52,15 +58,20 @@ export class OpenAIModel extends ModelInstance {
       Omit<OpenAIResponseType.ResponseCreateParams, "input" | "model" | "tools">
     >
   ): Promise<OpenAIResponseType.Responses.Response> {
+    const reasoning =
+      this.modelName.includes("o3") || this.modelName.includes("o1");
     const params: OpenAIResponseType.ResponseCreateParams = {
       model: this.modelName,
       input: input,
       tools: tools,
-      temperature: this.temperature,
       max_output_tokens: this.maxTokens,
       ...options,
       stream: false,
     };
+
+    if (!reasoning) {
+      params.temperature = this.temperature;
+    }
 
     return await this.client.responses.create(params);
   }
@@ -194,6 +205,7 @@ export class OpenAIModel extends ModelInstance {
 
   addToFormattedMessageContext(
     response: OpenAIResponseType.Responses.Response,
+    type: MessageType,
     context: GenericMessage[]
   ): void {
     const toolRequests = this.formatCallToolRequest(response);
@@ -201,7 +213,7 @@ export class OpenAIModel extends ModelInstance {
     context.push({
       id: response.id,
       timestamp: response.created_at,
-      type: MessageType.AGENT_REQUEST,
+      type: type,
       role: RoleType.ASSISTANT,
       content: [
         { type: ContentType.TEXT, text: (response as any).output_text },

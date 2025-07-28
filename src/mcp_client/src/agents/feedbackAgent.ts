@@ -232,7 +232,11 @@ export class FeedbackAgent extends AgentInstance {
       cost += model.getCostFromResponse(modelResponse);
 
       model.addToApiMessageContext(modelResponse, apiCtx);
-      model.addToFormattedMessageContext(modelResponse, formattedCtx);
+      model.addToFormattedMessageContext(
+        modelResponse,
+        MessageType.AGENT_REQUEST,
+        formattedCtx
+      );
 
       /* ----- Act ----------------------------------------------------- */
       const callToolRequests = model.formatCallToolRequest(modelResponse);

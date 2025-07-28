@@ -1,4 +1,4 @@
-agent_type: react
+agent_type: react_replication
 
 benchmark_dir: ../dataset/benchmarks/replication_gt
 results_dir: ../dataset/results/replication_gen
@@ -6,18 +6,17 @@ batches_config_path: ../dataset/batches/replication/batches.yaml
 
 channels:
   channel_1:
-    figma_file_key: 
-    api_base_url: 
+    api_base_url: http://localhost:3001
   channel_2:
-    api_base_url: http://localhost:3010
+    api_base_url: http://localhost:3000
   channel_3:
-    api_base_url: http://localhost:3011
+    api_base_url: http://localhost:3001
   channel_4:
-    api_base_url: http://localhost:3012
+    api_base_url: http://localhost:3002
   channel_5:
-    api_base_url: http://localhost:3013
+    api_base_url: http://localhost:3003
   channel_6:
-    api_base_url: http://localhost:3014
+    api_base_url: http://localhost:3004
 
 models:
   gpt-4o:
@@ -34,6 +33,22 @@ models:
     temperature: 0.0
     input_cost: 0.002 ## Cost per 1k input tokens
     output_cost: 0.008 ## Cost per 1k output tokens
+    max_turns: 50
+    max_tokens: 2048
+  gpt-4o-mini:
+    provider: openai
+    name: gpt-4o-mini-2024-07-18
+    temperature: 0.0
+    input_cost: 0.00015
+    output_cost: 0.0006
+    max_turns: 50
+    max_tokens: 2048
+  o3:
+    provider: openai
+    name: o3-mini-2024-07-18
+    temperature: 0.0
+    input_cost: 0.00015
+    output_cost: 0.0006
     max_turns: 50
     max_tokens: 2048
   claude-3-5-sonnet:
@@ -58,5 +73,21 @@ models:
     temperature: 0.0
     input_cost: 0.00125 ## Cost per 1k input tokens
     output_cost: 0.01 ## Cost per 1k output tokens
+    max_turns: 50
+    max_tokens: 2048
+  llama-4-maverick:
+    provider: together
+    name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+    temperature: 0.7
+    input_cost: 0.0027
+    output_cost: 0.0085
+    max_turns: 50
+    max_tokens: 2048
+  llama-4-scout:
+    provider: together
+    name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+    temperature: 0.0
+    input_cost: 0.0018
+    output_cost: 0.0059
     max_turns: 50
     max_tokens: 2048

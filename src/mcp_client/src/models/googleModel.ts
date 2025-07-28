@@ -254,6 +254,7 @@ export class GoogleModel extends ModelInstance {
 
   addToFormattedMessageContext(
     response: GenerateContentResponse,
+    type: MessageType,
     context: GenericMessage[]
   ): void {
     const calls = this.formatCallToolRequest(response);
@@ -261,7 +262,7 @@ export class GoogleModel extends ModelInstance {
     context.push({
       id: response.responseId ?? "",
       timestamp: Date.now(),
-      type: MessageType.AGENT_REQUEST,
+      type: type,
       role: RoleType.ASSISTANT,
       content: [{ type: ContentType.TEXT, text: response.text ?? "" }],
       calls,

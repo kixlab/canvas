@@ -218,6 +218,7 @@ export class TogetherModel extends ModelInstance {
 
   addToFormattedMessageContext(
     response: ChatCompletion,
+    type: MessageType,
     context: GenericMessage[]
   ): void {
     if (!response.choices?.length) {
@@ -229,7 +230,7 @@ export class TogetherModel extends ModelInstance {
     context.push({
       id: response.id,
       timestamp: response.created,
-      type: MessageType.AGENT_REQUEST,
+      type: type,
       role: RoleType.ASSISTANT,
       content: [{ type: ContentType.TEXT, text: textContent }],
       calls: this.formatCallToolRequest(response),

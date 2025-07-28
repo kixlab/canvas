@@ -21,9 +21,9 @@ import {
   getPageImage,
   logger,
 } from "../utils/helpers";
-import { MINIMUM_TURN } from "../utils/config";
+import { getInitialFrameInstruction } from "../utils/prompts";
 
-export class ReactAgent extends AgentInstance {
+export class SingleAgent extends AgentInstance {
   async run(params: {
     requestMessage: UserRequestMessage;
     tools: Tools;
@@ -41,8 +41,8 @@ export class ReactAgent extends AgentInstance {
     snapshots: SnapshotStructure[];
   }> {
     // Step 0: Check page
-    logger.log({
-      header: "ReAct Agent Generation Started",
+    logger.info({
+      header: "Single Agent Generation Started",
       body: `Model: ${params.model.modelName}, Provider: ${params.model.modelProvider}, Max Turns: ${this.maxTurns}`,
     });
 
@@ -55,6 +55,19 @@ export class ReactAgent extends AgentInstance {
     }
 
     // Step 1: Initialize parameters
+    let turn = 0;
+    let cost = 0;
+    const { mainScreenFrameId } = await intializeMainScreenFrame(
+      params.requestMessage,
+      params.tools
+    );
+    const mainScreenFramePrompt = getInitialFrameInstruction({
+      mainScreenFrameId,
+    });
+    params.requestMessage.content.find(
+      (c) => c.type === ContentType.TEXT
+    )!.text += mainScreenFramePrompt;
+
     const initialRequest = params.model.formatRequest([params.requestMessage]);
     const toolsArray = params.model.formatToolList(
       Array.from(params.tools.catalogue.values())
@@ -69,94 +82,73 @@ export class ReactAgent extends AgentInstance {
     apiMessageContext.push(...initialRequest);
     formattedMessageContext.push(params.requestMessage);
 
-    // Step 3: Create an environment
-    let turn = 0;
-    let cost = 0;
-    const { mainScreenFrameId } = await intializeMainScreenFrame(
-      params.requestMessage,
-      params.tools
+    // Reason: Generate response with tools
+    logger.info({
+      header: `Single agent - engaging tool calls`,
+    });
+    const modelResponse = await params.model.generateResponseWithTool(
+      apiMessageContext,
+      toolsArray
     );
 
-    // ReAct Loop: Reason -> Act -> Observe
-    while (turn < this.maxTurns) {
-      // Reason: Generate response with tools
-      logger.info({
-        header: `ReAct agent - loop turn ${turn} of maximum ${this.maxTurns}`,
-      });
-      const modelResponse = await params.model.generateResponseWithTool(
-        apiMessageContext,
-        toolsArray
-      );
+    rawResponses.push(modelResponse);
+    cost += params.model.getCostFromResponse(modelResponse);
 
-      rawResponses.push(modelResponse);
-      cost += params.model.getCostFromResponse(modelResponse);
+    // Update context with model response
+    params.model.addToApiMessageContext(modelResponse, apiMessageContext);
+    params.model.addToFormattedMessageContext(
+      modelResponse,
+      MessageType.AGENT_REQUEST,
+      formattedMessageContext
+    );
 
-      // Update context with model response
-      params.model.addToApiMessageContext(modelResponse, apiMessageContext);
-      params.model.addToFormattedMessageContext(
-        modelResponse,
-        MessageType.AGENT_REQUEST,
-        formattedMessageContext
-      );
+    // Check if tool calls are needed
+    const callToolRequests = params.model.formatCallToolRequest(modelResponse);
 
-      // Check if tool calls are needed
-      const callToolRequests =
-        params.model.formatCallToolRequest(modelResponse);
-
-      if (!callToolRequests || callToolRequests.length === 0) {
-        logger.info({
-          header: "No tool calls detected. Exiting ReAct loop.",
-        });
-        break;
-      }
-
-      const updatedCallToolRequests = await switchParentId({
-        tools: params.tools,
-        callToolRequests,
-        mainScreenFrameId,
-      });
-
-      // Act: Execute tool calls
-      const toolResults = [];
-      for (const toolCall of updatedCallToolRequests) {
-        toolResults.push(await params.tools.callTool(toolCall));
-      }
-
-      // Observe: Add tool results to context
-      this.addToolResultsToContext(
-        toolResults,
-        apiMessageContext,
-        formattedMessageContext,
-        params.model
-      );
-
-      // Save Snapshot: Capture the current state of the page
-      const screenSnapshot = await getPageImage(params.tools);
-      const structureSnapshot = await getPageStructure(params.tools);
-      snapshots.push({
-        case_id: params.metadata.caseId,
-        init: turn === 0 ? true : false, // First turn is not feedback
-        turn,
-        image_uri: screenSnapshot,
-        structure: structureSnapshot,
-        toolResults: toolResults,
-      });
-
-      // Increment turn count
-      turn++;
-    }
-
-    // Check if we need to re-run due to insufficient turns
-    if (turn < MINIMUM_TURN) {
+    if (!callToolRequests || callToolRequests.length === 0) {
       logger.error({
-        header: `Minimum turn requirement not met. Re-running the process...`,
-        body: `Completed with only ${turn} turns (less than ${MINIMUM_TURN})`,
+        header: "No tool calls detected. Making a re-running the process.",
       });
-
-      // Clear the page and re-run
       await clearPage(params.tools);
       return this.run(params);
     }
+
+    const updatedCallToolRequests = await switchParentId({
+      tools: params.tools,
+      callToolRequests,
+      mainScreenFrameId,
+    });
+
+    // Act: Execute tool calls
+    const toolResults = [];
+    for (const toolCall of updatedCallToolRequests) {
+      toolResults.push(await params.tools.callTool(toolCall));
+    }
+
+    // Observe: Add tool results to context
+    this.addToolResultsToContext(
+      toolResults,
+      apiMessageContext,
+      formattedMessageContext,
+      params.model
+    );
+
+    // Save Snapshot: Capture the current state of the page
+    const screenSnapshot = await getPageImage(params.tools);
+    const structureSnapshot = await getPageStructure(params.tools);
+    snapshots.push({
+      case_id: params.metadata.caseId,
+      init: turn === 0 ? true : false, // First turn is not feedback
+      turn,
+      image_uri: screenSnapshot,
+      structure: structureSnapshot,
+      toolResults: toolResults,
+    });
+
+    logger.info({
+      header: "Tool calls executed successfully",
+      body: `Tool Counts: ${toolResults.length}`,
+    });
 
     // Get page structure and image
     const pageStructure = await getPageStructure(params.tools);
