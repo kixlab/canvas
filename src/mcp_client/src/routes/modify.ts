@@ -21,7 +21,7 @@ import { randomUUID } from "crypto";
 import { createAgent } from "../agents";
 import { globalSession } from "../core/session";
 import { createModel } from "../models";
-import { ModificationAgent } from "../agents/modificationAgent";
+import { ModificationAgent } from "../agents/reactModificationAgent";
 
 export const modifyFromTextAndImage = async (
   req: MulterRequest,

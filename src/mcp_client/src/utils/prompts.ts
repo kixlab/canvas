@@ -56,7 +56,7 @@ export function getTextBasedGenerationPrompt(
   instruction: string,
   agent: AgentType
 ): string {
-  if (agent === AgentType.REACT || agent === AgentType.FEEDBACK) {
+  if (agent === AgentType.REACT_REPLICATION || agent === AgentType.REACT_MODIFICATION || agent === AgentType.FEEDBACK) {
     return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls. 
@@ -73,7 +73,7 @@ ${figmaInstruction}
 Please analyze the following text and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 Text: ${instruction}
 `;
-  } else if (agent === AgentType.CODE) {
+  } else if (agent === AgentType.CODE_REPLICATION) {
     return `
 You are an expert web developer who specializes in HTML and CSS. A user will provide you with a screenshot of a mobile app.
 You need to return a single html file that uses HTML and CSS to reproduce the given mobile app.
@@ -85,7 +85,7 @@ Respond with the content of the HTML+CSS file. Wrap the code in backticks.
 The page must be designed to match 600-pixel width and 800-pixel height.
 Precisely, follow the instruction: ${instruction}
 `;
-  } else if (agent === AgentType.SINGLE) {
+  } else if (agent === AgentType.SINGLE_REPLICATION) {
     return `
     **Context**
 You are a UI-design agent with access to Figma via tool calls. 
@@ -116,7 +116,7 @@ export function getImageBasedGenerationPrompt(
   height: number,
   agent: AgentType
 ): string {
-  if (agent === AgentType.REACT || agent === AgentType.FEEDBACK) {
+  if (agent === AgentType.REACT_REPLICATION || agent === AgentType.REACT_MODIFICATION || agent === AgentType.FEEDBACK) {
     return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls.
@@ -133,7 +133,7 @@ ${figmaInstruction}
 Please analyze the following image and reproduce the UI design inside the existing "Main Screen" frame in the Figma, exactly.
 The frame size is ${width}x${height} pixels.
 `;
-  } else if (agent === AgentType.CODE) {
+  } else if (agent === AgentType.CODE_REPLICATION) {
     return `
 You are an expert web developer who specializes in HTML and CSS. A user will provide you with a screenshot of a mobile app.
 You need to return a single html file that uses HTML and CSS to reproduce the given mobile app.
@@ -144,7 +144,7 @@ You do not need to include JavaScript scripts for dynamic interactions. Pay atte
 Respond with the content of the HTML+CSS file. Wrap the code in backticks.
 The page must be designed to match ${width}-pixel width and ${height}-pixel height.
 `;
-  } else if (agent === AgentType.SINGLE) {
+  } else if (agent === AgentType.SINGLE_REPLICATION) {
     return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls. 
@@ -176,7 +176,7 @@ export function getTextImageBasedGenerationPrompt(
   height: number,
   agent: AgentType
 ): string {
-  if (agent === AgentType.REACT || agent === AgentType.FEEDBACK) {
+  if (agent === AgentType.REACT_REPLICATION || agent === AgentType.REACT_MODIFICATION || agent === AgentType.FEEDBACK) {
     return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls.
@@ -194,7 +194,7 @@ Please analyze the following screen image and text instruction, and reproduce th
 The frame size is ${width}x${height} pixels.
 Text: ${instruction}
 `;
-  } else if (agent === AgentType.CODE) {
+  } else if (agent === AgentType.CODE_REPLICATION) {
     return `
 You are an expert web developer who specializes in HTML and CSS. A user will provide you with a screenshot of a mobile app.
 You need to return a single html file that uses HTML and CSS to reproduce the given mobile app.
@@ -206,7 +206,7 @@ Respond with the content of the HTML+CSS file. Wrap the code in backticks.
 The page must be designed to match ${width}-pixel width and ${height}-pixel height.
 Precisely, follow the instruction: ${instruction}
 `;
-  } else if (agent === AgentType.SINGLE) {
+  } else if (agent === AgentType.SINGLE_REPLICATION) {
     return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls. 
