@@ -92,9 +92,23 @@ class ModificationExperiment(BaseExperiment):
                             result = await self.run_modification(
                                 session, target_image_path, base_json_string, instruction, result_name
                             )
+                            
                             if result is None:
-                                await self.ensure_canvas_empty(session)
-                                continue
+                                self.logger.warning(f"[RETRY] First attempt for {result_name} failed. Cleaning canvas and retrying in 5 seconds...")
+                                await asyncio.sleep(5)
+                                
+                                self.logger.info(f"[RETRY] Retrying {result_name} (attempt 2/2)")
+                                result = await self.run_modification(
+                                    session, target_image_path, base_json_string, instruction, result_name
+                                )
+
+                                if result is None:
+                                    self.logger.error(f"[SKIP] Task {result_name} failed after 2 attempts. Skipping.")
+                                    try:
+                                        await self.ensure_canvas_empty(session)
+                                    except RuntimeError as e:
+                                        self.logger.error(f"Failed to clean canvas for {result_name} due to server error: {e}. The experiment might become unstable.")
+                                    continue
 
                             await self.save_results(result, result_name)
                         finally:
@@ -122,7 +136,11 @@ class ModificationExperiment(BaseExperiment):
                         )
 
                         if result is None:
-                            await self.ensure_canvas_empty(session)
+                            try:
+                                await self.ensure_canvas_empty(session)
+                            except RuntimeError as e:
+                                self.logger.error(f"Failed to clean canvas for {result_name} due to server error: {e}. The experiment might become unstable.")
+
                             user_choice = input(
                                 "[ERROR] Generation failed. Retry? [y] retry / [s] skip / [q] quit > "
                             ).strip().lower()

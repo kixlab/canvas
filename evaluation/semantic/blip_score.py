@@ -1,53 +1,61 @@
-import torch
-from PIL import Image
-from transformers import Blip2Processor, Blip2ForConditionalGeneration
-from sentence_transformers import SentenceTransformer, util
-import os
+import json
+from pathlib import Path
+from typing import Dict, List, Optional
 
-UI_PROMPT = ""
+# --- Globals for caching ---
+_blip_scores_cache: Optional[Dict[str, Dict]] = None
+_blip_scores_path: Optional[Path] = None
 
-def generate_caption(image_path, model, processor, device='cuda', prompt=UI_PROMPT):
-    image = Image.open(image_path).convert("RGB")
-    inputs = processor(image, text=prompt, return_tensors="pt").to(device)
-    with torch.no_grad():
-        caption_ids = model.generate(**inputs, max_new_tokens=50)
-    caption = processor.decode(caption_ids[0], skip_special_tokens=True).strip()
-    return caption
+def _load_blip_scores(out_dir: Path) -> Dict[str, Dict]:
+    """Load and cache the precomputed BLIP scores from the JSON file."""
+    global _blip_scores_cache, _blip_scores_path
+    
+    # Define the expected path for the precomputed scores
+    scores_path = out_dir / "precomputed_blip_scores.json"
 
-def postprocess_caption(caption: str, prompt: str) -> str:
-    caption = caption.strip().lower()
-    prompt = prompt.strip().lower()
-    if caption.startswith(prompt):
-        return caption[len(prompt):].strip()
-    return caption
+    # If cache is invalid (file path changed or cache is empty), reload it.
+    if _blip_scores_cache is None or _blip_scores_path != scores_path:
+        _blip_scores_path = scores_path
+        if not scores_path.exists():
+            # To prevent FileNotFoundError during evaluation, return an empty dict
+            # and let the metric gracefully handle missing scores.
+            # A clear warning will be printed by the metric function.
+            _blip_scores_cache = {}
+        else:
+            with open(scores_path, "r", encoding="utf-8") as f:
+                scores_list: List[Dict] = json.load(f)
+                # Convert list to a dict keyed by case_id for fast lookups
+                _blip_scores_cache = {item["case_id"]: item for item in scores_list}
+                
+    return _blip_scores_cache
 
-def compute_similarity(text1, text2):
-    model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
-    embeddings = model.encode([text1, text2], convert_to_tensor=True)
-    similarity = util.cos_sim(embeddings[0], embeddings[1]).item()
-    return similarity
-
-def compute_blip_score(gt_img_path: str, gen_img_path: str) -> dict:
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b", use_fast=False)
-    model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-opt-2.7b").to(device)  
-
-    gt_caption_raw = generate_caption(gt_img_path, model, processor, device)
-    gen_caption_raw = generate_caption(gen_img_path, model, processor, device)
-
-    gt_caption = postprocess_caption(gt_caption_raw, UI_PROMPT)
-    gen_caption = postprocess_caption(gen_caption_raw, UI_PROMPT)
-
-    if not gt_caption or not gen_caption:
-        similarity = 0.0
+def get_precomputed_blip_score(case_id: str, out_dir: str) -> dict:
+    """
+    Retrieves a precomputed BLIP score for a given case_id.
+    
+    This function replaces the original `compute_blip_score` by looking up
+    the result from a JSON file instead of running the model inference.
+    """
+    output_directory = Path(out_dir)
+    all_scores = _load_blip_scores(output_directory)
+    
+    score_data = all_scores.get(case_id)
+    
+    if score_data:
+        return {
+            "blip_score": score_data.get("blip_score", 0.0),
+            "gt_caption": score_data.get("gt_caption"),
+            "gen_caption": score_data.get("gen_caption"),
+        }
     else:
-        similarity = compute_similarity(gt_caption, gen_caption)
-
-    return {
-        "gt_caption": gt_caption_raw,
-        "gen_caption": gen_caption_raw,
-        "blip_score": round(similarity, 4)
-    }
+        # Return a default structure if the score for the case_id is not found.
+        # This allows the evaluation pipeline to continue, and the metric function
+        # will handle the missing value appropriately (e.g., by skipping or warning).
+        return {
+            "blip_score": 0.0,
+            "gt_caption": "N/A (precomputed score not found)",
+            "gen_caption": "N/A (precomputed score not found)",
+        }
 
 if __name__ == "__main__":
     import argparse
@@ -56,6 +64,6 @@ if __name__ == "__main__":
     parser.add_argument("--gen", type=str, required=True, help="Path to Gen image")
     args = parser.parse_args()
 
-    results = compute_blip_score(args.gt, args.gen)
+    results = get_precomputed_blip_score(args.gt, args.gen)
     for k, v in results.items():
         print(f"{k}: {v}")

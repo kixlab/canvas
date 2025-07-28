@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Tuple, Optional
-
+from evaluation.config import config
 from .util import get_model_by_name
 
 __all__ = [
@@ -21,9 +21,7 @@ __all__ = [
 
 # Model identifier used by `get_model_by_name`
 _MODEL_NAME: str = "UMSI"
-_WEIGHTS_PATH: Path = Path(
-    "/home/seooyxx/kixlab/samsung-cxi-mcp-server/tools/UEyes-CHI2023/model_weights/saliency_models/UMSI++/umsi++.hdf5"
-)
+_WEIGHTS_PATH: Path = Path(config.weights.saliency_model)
 _MODEL_INP_SIZE: Tuple[int, int] = (256, 256)  # (H, W)
 _IMAGENET_MEAN_BGR = np.array([103.939, 116.779, 123.68], dtype=np.float32)
 _MODEL = None
@@ -123,8 +121,8 @@ def save_saliency_outputs(
     gt_sal_resized = cv2.resize((gt_sal * 255).astype(np.uint8), gt_original_size, interpolation=cv2.INTER_LINEAR)
     gen_sal_resized = cv2.resize((gen_sal * 255).astype(np.uint8), gen_original_size, interpolation=cv2.INTER_LINEAR)
 
-    gt_sal_path = out_dir / f"{case_id}_gt_saliency.png"
-    gen_sal_path = out_dir / f"{case_id}_gen_saliency.png"
+    gt_sal_path = out_dir / f"{case_id}" / f"{case_id}_gt_saliency.png"
+    gen_sal_path = out_dir / f"{case_id}" / f"{case_id}_gen_saliency.png"
     cv2.imwrite(str(gt_sal_path), gt_sal_resized)
     cv2.imwrite(str(gen_sal_path), gen_sal_resized)
 
@@ -132,8 +130,8 @@ def save_saliency_outputs(
     gt_overlay = cv2.addWeighted(gt_img_cv, 0.6, cv2.applyColorMap(gt_sal_resized, cv2.COLORMAP_JET), 0.4, 0)
     gen_overlay = cv2.addWeighted(gen_img_cv, 0.6, cv2.applyColorMap(gen_sal_resized, cv2.COLORMAP_JET), 0.4, 0)
 
-    gt_ov_path = out_dir / f"{case_id}_gt_overlay.png"
-    gen_ov_path = out_dir / f"{case_id}_gen_overlay.png"
+    gt_ov_path = out_dir / f"{case_id}" / f"{case_id}_gt_overlay.png"
+    gen_ov_path = out_dir / f"{case_id}" / f"{case_id}_gen_overlay.png"
     cv2.imwrite(str(gt_ov_path), gt_overlay)
     cv2.imwrite(str(gen_ov_path), gen_overlay)
 
