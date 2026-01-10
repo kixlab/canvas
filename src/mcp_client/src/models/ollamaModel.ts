@@ -253,6 +253,7 @@ export class OllamaRESTModel extends ModelInstance {
 
   addToFormattedMessageContext(
     resp: ChatResponse,
+    type: MessageType,
     ctx: GenericMessage[]
   ): void {
     const calls = this.formatCallToolRequest(resp);
@@ -260,7 +261,7 @@ export class OllamaRESTModel extends ModelInstance {
     ctx.push({
       id: randomUUID(),
       timestamp: new Date(resp.created_at).getTime(),
-      type: MessageType.AGENT_REQUEST,
+      type: type,
       role: RoleType.ASSISTANT,
       content: [{ type: ContentType.TEXT, text: resp.message.content }],
       calls,

@@ -14,22 +14,21 @@ import { Tools } from "../core/tools";
 import { AgentInstance } from "./baseAgent";
 import {
   switchParentId,
-  intializeMainScreenFrame,
   getPageStructure,
   clearPage,
   isPageClear,
   getPageImage,
   logger,
 } from "../utils/helpers";
-import { MINIMUM_TURN } from "../utils/config";
+import { MINIMUM_MODIFICATION_TURN } from "../utils/config";
 
-export class ReactAgent extends AgentInstance {
+export class ModificationAgent extends AgentInstance {
   async run(params: {
     requestMessage: UserRequestMessage;
     tools: Tools;
     model: ModelInstance;
+    baseJsonString: string;
     metadata: AgentMetadata;
-    maxTurns: number;
   }): Promise<{
     case_id: string;
     history: GenericMessage[];
@@ -40,7 +39,7 @@ export class ReactAgent extends AgentInstance {
     image_uri: string;
     snapshots: SnapshotStructure[];
   }> {
-    // Step 0: Check page
+    // Step 0: Check page and position the load the design.
     logger.log({
       header: "ReAct Agent Generation Started",
       body: `Model: ${params.model.modelName}, Provider: ${params.model.modelProvider}, Max Turns: ${this.maxTurns}`,
@@ -52,6 +51,28 @@ export class ReactAgent extends AgentInstance {
         header: "Page is not clear. Clearing the page...",
       });
       await clearPage(params.tools);
+    }
+
+    const loadJsonRequest = params.tools.createToolCall(
+      "import_json",
+      randomUUID(),
+      {
+        jsonString: params.baseJsonString,
+      }
+    );
+    const response = await params.tools.callTool(loadJsonRequest);
+    if (response.isError) {
+      const errorMessage = response.content.map((c) => c.text).join("\n");
+      throw new Error(
+        `Failed to load base JSON: ${errorMessage || "Unknown error"}`
+      );
+    }
+
+    const mainScreenFrameId = response.structuredContent!.rootFrameId as string;
+    if (!mainScreenFrameId) {
+      throw new Error(
+        "Failed to load base JSON: No main screen frame ID returned"
+      );
     }
 
     // Step 1: Initialize parameters
@@ -72,10 +93,6 @@ export class ReactAgent extends AgentInstance {
     // Step 3: Create an environment
     let turn = 0;
     let cost = 0;
-    const { mainScreenFrameId } = await intializeMainScreenFrame(
-      params.requestMessage,
-      params.tools
-    );
 
     // ReAct Loop: Reason -> Act -> Observe
     while (turn < this.maxTurns) {
@@ -147,10 +164,10 @@ export class ReactAgent extends AgentInstance {
     }
 
     // Check if we need to re-run due to insufficient turns
-    if (turn < MINIMUM_TURN) {
+    if (turn < MINIMUM_MODIFICATION_TURN) {
       logger.error({
         header: `Minimum turn requirement not met. Re-running the process...`,
-        body: `Completed with only ${turn} turns (less than ${MINIMUM_TURN})`,
+        body: `Completed with only ${turn} turns (less than ${MINIMUM_MODIFICATION_TURN})`,
       });
 
       // Clear the page and re-run

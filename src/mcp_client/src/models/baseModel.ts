@@ -5,6 +5,7 @@ import {
   ModelProvider,
   CallToolRequestParams,
   GenericMessage,
+  MessageType,
 } from "../types";
 
 export abstract class ModelInstance {
@@ -47,7 +48,11 @@ export abstract class ModelInstance {
   // Context management
   abstract createMessageContext(): any[];
   abstract addToApiMessageContext(response: any, context: any[]): void;
-  abstract addToFormattedMessageContext(response: any, context: any[]): void;
+  abstract addToFormattedMessageContext(
+    response: any,
+    type: MessageType,
+    context: any[]
+  ): void;
 
   // Cost calculation
   abstract getCostFromResponse(response: any): number;

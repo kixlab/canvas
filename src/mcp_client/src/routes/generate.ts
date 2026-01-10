@@ -40,7 +40,10 @@ export const generateFromText = async (
     validateMetadata(metadata);
 
     // (2) Request Formulation
-    const instruction = getTextBasedGenerationPrompt(message);
+    const instruction = getTextBasedGenerationPrompt(
+      message,
+      metadata.agent_type as AgentType
+    );
     const userRequest: UserRequestMessage = {
       id: randomUUID(),
       timestamp: Date.now(),
@@ -120,7 +123,11 @@ export const generateFromImage = async (
       mimeType
     );
 
-    const instruction = getImageBasedGenerationPrompt(width, height);
+    const instruction = getImageBasedGenerationPrompt(
+      width,
+      height,
+      metadata.agent_type as AgentType
+    );
 
     const userRequest: UserRequestMessage = {
       id: randomUUID(),
@@ -155,7 +162,7 @@ export const generateFromImage = async (
       requestMessage: userRequest,
       tools: sessionState.tools,
       model: model,
-      metadata: { caseId: metadata.case_id },
+      metadata: { caseId: metadata.case_id, width, height },
     });
 
     res.json({
@@ -214,7 +221,8 @@ export const generateFromTextAndImage = async (
     const instruction = getTextImageBasedGenerationPrompt(
       message,
       width,
-      height
+      height,
+      metadata.agent_type as AgentType
     );
 
     const userRequest: UserRequestMessage = {
@@ -250,7 +258,7 @@ export const generateFromTextAndImage = async (
       requestMessage: userRequest,
       tools: sessionState.tools,
       model: model,
-      metadata: { caseId: metadata.case_id },
+      metadata: { caseId: metadata.case_id, width, height },
     });
 
     res.json({

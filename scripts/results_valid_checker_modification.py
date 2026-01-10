@@ -22,6 +22,7 @@ required_suffixes = [
     "-responses.json"
 ]
 
+
 # 통계용 변수
 complete_case_count = 0
 incomplete_case_count = 0

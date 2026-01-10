@@ -51,9 +51,10 @@ python -m experiments.run_replication_canvas_experiment \
 ```bash
 python -m experiments.run_replication_experiment \
   --config-name multi-react-replication \
-  --model qwen-2.5-vl-7b \
+  --model gpt-4.1 \
   --variants image_only \
   --channel channel_3 \
+  --agent-type react_replication \
   --auto
 ```
 

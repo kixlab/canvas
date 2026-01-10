@@ -1,4 +1,4 @@
-agent_type: modification
+agent_type: single_modification
 
 benchmark_dir: ../dataset/benchmarks/modification_gt
 results_dir: ../dataset/results/modification_gen
@@ -6,9 +6,9 @@ batches_config_path: ../dataset/batches/modification/batches.yaml
 
 channels:
   channel_1:
-    api_base_url: 
-  channel_2:
     api_base_url: http://localhost:3001
+  channel_2:
+    api_base_url: http://localhost:3002
   channel_3:
     api_base_url: http://localhost:3002
   channel_4:
@@ -27,7 +27,7 @@ models:
     temperature: 0.0
     input_cost: 0.0025
     output_cost: 0.0125
-    max_turns: 50
+    max_turns: 1
     max_tokens: 2048
   gpt-4.1:
     provider: openai
@@ -35,7 +35,23 @@ models:
     temperature: 0.0
     input_cost: 0.002 ## Cost per 1k input tokens
     output_cost: 0.008 ## Cost per 1k output tokens
-    max_turns: 50
+    max_turns: 1
+    max_tokens: 2048
+  gpt-4o-mini:
+    provider: openai
+    name: gpt-4o-mini-2024-07-18
+    temperature: 0.0
+    input_cost: 0.00015
+    output_cost: 0.0006
+    max_turns: 1
+    max_tokens: 2048
+  o3:
+    provider: openai
+    name: o3-mini-2024-07-18
+    temperature: 0.0
+    input_cost: 0.00015
+    output_cost: 0.0006
+    max_turns: 1
     max_tokens: 2048
   claude-3-5-sonnet:
     provider: anthropic
@@ -43,7 +59,7 @@ models:
     temperature: 0.0
     input_cost: 0.003
     output_cost: 0.015
-    max_turns: 50
+    max_turns: 1
     max_tokens: 2048
   gemini-2.5-flash:
     provider: google
@@ -51,7 +67,7 @@ models:
     temperature: 0.0
     input_cost: 0.0003 ## Cost per 1k input tokens
     output_cost: 0.0025 ## Cost per 1k output tokens
-    max_turns: 50
+    max_turns: 1
     max_tokens: 2048
   gemini-2.5-pro:
     provider: google
@@ -59,5 +75,21 @@ models:
     temperature: 0.0
     input_cost: 0.00125 ## Cost per 1k input tokens
     output_cost: 0.01 ## Cost per 1k output tokens
-    max_turns: 50
+    max_turns: 1
     max_tokens: 2048
+  llama-4-maverick:
+    provider: together
+    name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+    temperature: 0.7
+    input_cost: 0.0027
+    output_cost: 0.0085
+    max_turns: 1
+    max_tokens: 2048
+  llama-4-scout:
+    provider: together
+    name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+    temperature: 0.0
+    input_cost: 0.0018
+    output_cost: 0.0059
+    max_turns: 1
+    max_tokens: 2048 
