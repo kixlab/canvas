@@ -4,6 +4,9 @@ import numpy as np
 import os
 from skimage.metrics import structural_similarity
 
+# Set deterministic behavior for numpy
+np.random.seed(42)
+
 @register_metric("ssim")
 def _ssim(gt_img: str, gen_img: str, **kwargs):
     """

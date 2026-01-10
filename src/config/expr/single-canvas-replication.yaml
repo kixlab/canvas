@@ -35,6 +35,14 @@ models:
     output_cost: 0.008 ## Cost per 1k output tokens
     max_turns: 1
     max_tokens: 2048
+  gpt-4.1-nano:
+    provider: openai
+    name: gpt-4.1-nano
+    temperature: 0.0
+    input_cost: 0.0005
+    output_cost: 0.002
+    max_turns: 1
+    max_tokens: 2048
   gpt-4o-mini:
     provider: openai
     name: gpt-4o-mini-2024-07-18
