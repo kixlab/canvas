@@ -1,7 +1,8 @@
 from __future__ import annotations
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 import argparse
 import json
@@ -14,6 +15,7 @@ from tensorflow.keras.models import load_model
 from util import get_model_by_name, create_losses
 
 _EPS = 1e-8
+
 
 def _normalize_sum(arr: np.ndarray) -> np.ndarray:
     """Normalize the array so that it sums to 1 (probability distribution).
@@ -86,22 +88,21 @@ def _normalize_map(saliency_map):
 
 _IMAGENET_MEAN_BGR = np.array([103.939, 116.779, 123.68], dtype=np.float32)
 
+
 def preprocess_image(img_path: str) -> np.ndarray:
-    img = cv2.imread(img_path)                # BGR, uint8 0-255
+    img = cv2.imread(img_path)  # BGR, uint8 0-255
     if img is None:
         raise FileNotFoundError(img_path)
-    img = cv2.resize(img, (256, 256),
-                     interpolation=cv2.INTER_LINEAR).astype(np.float32)
-    img -= _IMAGENET_MEAN_BGR                 # mean subtraction
-    img = img[np.newaxis, ...]                # (1,H,W,3)
+    img = cv2.resize(img, (256, 256), interpolation=cv2.INTER_LINEAR).astype(np.float32)
+    img -= _IMAGENET_MEAN_BGR  # mean subtraction
+    img = img[np.newaxis, ...]  # (1,H,W,3)
     return img
 
 
 def predict_saliency(model, img_path: str) -> np.ndarray:
     x = preprocess_image(img_path)
     heatmap = model.predict(x, verbose=0)[0][0, :, :, 0]
-    heatmap = cv2.resize(heatmap, (320, 240),
-                         interpolation=cv2.INTER_LINEAR)
+    heatmap = cv2.resize(heatmap, (320, 240), interpolation=cv2.INTER_LINEAR)
     return _normalize_map(heatmap)
 
 
@@ -127,10 +128,15 @@ def get_gt_gen_pairs(base_dir, model, variant):
 
 # --- Main script ---
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--all", action="store_true", help="Run on all GT/Gen pairs")
-    parser.add_argument("--base_dir", type=str, default="/home/seooyxx/kixlab/samsung-cxi-mcp-server/dataset_sample")
+    parser.add_argument(
+        "--base_dir",
+        type=str,
+        default="/home/seooyxx/kixlab/samsung-cxi-mcp-server/dataset_sample",
+    )
     parser.add_argument("--model", type=str, default="gpt-4o")
     parser.add_argument("--variant", type=str, default="image_only")
     parser.add_argument("--out_dir", type=str, default="visual_saliency_eval")
@@ -138,26 +144,25 @@ def main():
     parser.add_argument("--gen_path", type=str)
     args = parser.parse_args()
 
-
     model_name = "UMSI"
     load_weights = True
     weightspath = "/home/seooyxx/kixlab/samsung-cxi-mcp-server/tools/UEyes-CHI2023/model_weights/saliency_models/UMSI++/umsi++.hdf5"
     model_inp_size = (256, 256)
     model_out_size = (512, 512)
     losses = {
-        'kl': 10,
-        'cc': -3,
+        "kl": 10,
+        "cc": -3,
     }
 
     model_params = {
-        'input_shape': model_inp_size + (3,),
-        'n_outs': len(losses),
+        "input_shape": model_inp_size + (3,),
+        "n_outs": len(losses),
     }
     model_func, mode = get_model_by_name(model_name)
     assert mode == "simple"
     model = model_func(**model_params)
 
-    if load_weights: 
+    if load_weights:
         model.load_weights(weightspath, by_name=True)
 
     out_dir = Path(args.out_dir)
@@ -172,7 +177,9 @@ def main():
         pairs = get_gt_gen_pairs(args.base_dir, args.model, args.variant)
     else:
         if not args.gt_path or not args.gen_path:
-            raise ValueError("For single-case mode, --gt_path and --gen_path must be provided.")
+            raise ValueError(
+                "For single-case mode, --gt_path and --gen_path must be provided."
+            )
         pairs = [("manual_case", Path(args.gt_path), Path(args.gen_path))]
 
     for case_id, gt_img_path, gen_img_path in pairs:
@@ -188,8 +195,16 @@ def main():
         gen_original_size = (gen_img_cv.shape[1], gen_img_cv.shape[0])
 
         # Resize saliency maps back to original sizes for saving / overlay
-        gt_sal_resized = cv2.resize((gt_sal * 255).astype(np.uint8), gt_original_size, interpolation=cv2.INTER_LINEAR)
-        gen_sal_resized = cv2.resize((gen_sal * 255).astype(np.uint8), gen_original_size, interpolation=cv2.INTER_LINEAR)
+        gt_sal_resized = cv2.resize(
+            (gt_sal * 255).astype(np.uint8),
+            gt_original_size,
+            interpolation=cv2.INTER_LINEAR,
+        )
+        gen_sal_resized = cv2.resize(
+            (gen_sal * 255).astype(np.uint8),
+            gen_original_size,
+            interpolation=cv2.INTER_LINEAR,
+        )
 
         # Save resized saliency maps
         gt_sal_path = out_dir / f"{case_id}_gt_saliency.png"
@@ -198,8 +213,16 @@ def main():
         cv2.imwrite(str(gen_sal_path), gen_sal_resized)
 
         # Create overlays using resized saliency maps
-        gt_overlay = cv2.addWeighted(gt_img_cv, 0.6, cv2.applyColorMap(gt_sal_resized, cv2.COLORMAP_JET), 0.4, 0)
-        gen_overlay = cv2.addWeighted(gen_img_cv, 0.6, cv2.applyColorMap(gen_sal_resized, cv2.COLORMAP_JET), 0.4, 0)
+        gt_overlay = cv2.addWeighted(
+            gt_img_cv, 0.6, cv2.applyColorMap(gt_sal_resized, cv2.COLORMAP_JET), 0.4, 0
+        )
+        gen_overlay = cv2.addWeighted(
+            gen_img_cv,
+            0.6,
+            cv2.applyColorMap(gen_sal_resized, cv2.COLORMAP_JET),
+            0.4,
+            0,
+        )
         cv2.imwrite(str(out_dir / f"{case_id}_gt_overlay.png"), gt_overlay)
         cv2.imwrite(str(out_dir / f"{case_id}_gen_overlay.png"), gen_overlay)
 
@@ -209,8 +232,12 @@ def main():
         print(f"Generated Overlay Saved: {out_dir / f'{case_id}_gen_overlay.png'}")
 
         # Print statistics for debugging
-        print(f"GT Saliency Map - min: {gt_sal.min()}, max: {gt_sal.max()}, mean: {gt_sal.mean()}, std: {gt_sal.std()}")
-        print(f"Generated Saliency Map - min: {gen_sal.min()}, max: {gen_sal.max()}, mean: {gen_sal.mean()}, std: {gen_sal.std()}")
+        print(
+            f"GT Saliency Map - min: {gt_sal.min()}, max: {gt_sal.max()}, mean: {gt_sal.mean()}, std: {gt_sal.std()}"
+        )
+        print(
+            f"Generated Saliency Map - min: {gen_sal.min()}, max: {gen_sal.max()}, mean: {gen_sal.mean()}, std: {gen_sal.std()}"
+        )
 
         # Compute metrics
         metrics = {
@@ -221,10 +248,10 @@ def main():
         }
         print(f"  CC: {metrics['cc']}  SIM: {metrics['sim']}  KL: {metrics['kl']}")
         results.append(metrics)
-        
+
         # For Comparison Plot
-        orig_rgb = cv2.cvtColor(gt_img_cv,  cv2.COLOR_BGR2RGB)
-        gt_ov_rgb = cv2.cvtColor(gt_overlay,  cv2.COLOR_BGR2RGB)
+        orig_rgb = cv2.cvtColor(gt_img_cv, cv2.COLOR_BGR2RGB)
+        gt_ov_rgb = cv2.cvtColor(gt_overlay, cv2.COLOR_BGR2RGB)
         gen_ov_rgb = cv2.cvtColor(gen_overlay, cv2.COLOR_BGR2RGB)
 
         fig, axes = plt.subplots(1, 3, figsize=(18, 6))
@@ -247,7 +274,6 @@ def main():
         plt.close(fig)
 
         print(f"Figure saved: {fig_path}")
-
 
     # Save results
     with open(out_dir / "saliency_comparison_results.json", "w", encoding="utf-8") as f:

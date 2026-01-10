@@ -1,4 +1,0 @@
-batches:
-  batch_1: ../dataset/batches/generation/batch_1.txt
-  batch_2: ../dataset/batches/generation/batch_2.txt
-  batch_3: ../dataset/batches/generation/batch_3.txt

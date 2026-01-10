@@ -7,12 +7,21 @@ from typing import Dict, List, Any
 # --- Configuration Dataclasses ---
 
 @dataclass
+class PrecomputedBlipScoresConfig:
+    replication_gen: str
+    modification_gen: str
+
+@dataclass
 class PathsConfig:
     gt_dir: str
     results_dir: str
     output_dir: str
     saliency_vis_dir: str
     vis_results_dir: str
+    precomputed_blip_scores: PrecomputedBlipScoresConfig
+
+    def __post_init__(self):
+        self.precomputed_blip_scores = PrecomputedBlipScoresConfig(**self.precomputed_blip_scores)
 
 @dataclass
 class FilenamesConfig:

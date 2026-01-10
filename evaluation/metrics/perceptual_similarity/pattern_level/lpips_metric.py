@@ -17,9 +17,14 @@ def _numpy_to_tensor(image: np.ndarray) -> torch.Tensor:
 
 
 @register_metric("lpips")
-def _lpips(gt_img: str, gen_img: str, **kwargs):
+def _lpips(gt_img: str, gen_img: str, model=None, **kwargs):
     """
     Computes the LPIPS between two images.
+    
+    Args:
+        gt_img: Path to ground truth image
+        gen_img: Path to generated image
+        model: Optional pre-initialized LPIPS model. If not provided, creates a new one.
     """
     try:
         if not os.path.exists(gt_img) or not os.path.exists(gen_img):
@@ -39,7 +44,7 @@ def _lpips(gt_img: str, gen_img: str, **kwargs):
         gen_img_tensor = _numpy_to_tensor(gen_arr)
         gt_img_tensor = _numpy_to_tensor(gt_arr)
 
-        loss_fn = lpips.LPIPS(net="alex")
+        loss_fn = model if model is not None else lpips.LPIPS(net="alex")
         with torch.no_grad():
             distance = loss_fn(gen_img_tensor, gt_img_tensor)
 

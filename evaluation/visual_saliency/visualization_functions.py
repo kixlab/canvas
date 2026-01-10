@@ -50,49 +50,55 @@ def spotlight(im, heatmap, toplot=False):
     if toplot:
         plt.figure(figsize=(20, 20))
         plt.imshow(z, vmin=0, vmax=1)
-        plt.axis('off')
+        plt.axis("off")
         plt.show()
 
     return z
 
 
-def heatmap_overlay(im, heatmap, colmap='hot'):
+def heatmap_overlay(im, heatmap, colmap="hot"):
     cm_array = cm.get_cmap(colmap)
     im_array = np.asarray(im)
-    heatmap_norm = (
-        heatmap - np.min(heatmap)) / float(np.max(heatmap) - np.min(heatmap))
+    heatmap_norm = (heatmap - np.min(heatmap)) / float(
+        np.max(heatmap) - np.min(heatmap)
+    )
     heatmap_hot = cm_array(heatmap_norm)
     res_final = im_array.copy()
     heatmap_rep = np.repeat(heatmap_norm[:, :, np.newaxis], 3, axis=2)
-    res_final[...] = heatmap_hot[..., 0:3] * 255.0 * heatmap_rep + im_array[
-        ...] * (1 - heatmap_rep)
+    res_final[...] = heatmap_hot[..., 0:3] * 255.0 * heatmap_rep + im_array[...] * (
+        1 - heatmap_rep
+    )
 
     return res_final
 
 
-def heatmap_patches(im, heatmap, alpha=.6, colmap='hot'):
+def heatmap_patches(im, heatmap, alpha=0.6, colmap="hot"):
     cm_array = cm.get_cmap(colmap)
     im_array = np.asarray(im)
-    heatmap_norm = (
-        heatmap - np.min(heatmap)) / float(np.max(heatmap) - np.min(heatmap))
+    heatmap_norm = (heatmap - np.min(heatmap)) / float(
+        np.max(heatmap) - np.min(heatmap)
+    )
     inds = heatmap_norm > (np.mean(heatmap_norm) + np.std(heatmap_norm))
     heatmap_hot = cm_array(heatmap_norm)
     res_final = im_array.copy()
     res_final[inds, ...] = heatmap_hot[inds, 0:3] * 255.0 * alpha + im_array[
-        inds, ...] * (1 - alpha)
+        inds, ...
+    ] * (1 - alpha)
 
     return res_final
 
 
-def spotlight_custom(im,
-                     heatmap,
-                     levels=3,
-                     most_salient_nlevel=3,
-                     mask_darkness=0.8,
-                     smoothness=3,
-                     brightness=0.8,
-                     percentile_based=True,
-                     toplot=True):
+def spotlight_custom(
+    im,
+    heatmap,
+    levels=3,
+    most_salient_nlevel=3,
+    mask_darkness=0.8,
+    smoothness=3,
+    brightness=0.8,
+    percentile_based=True,
+    toplot=True,
+):
     """
     spotlight visualization adapted from https://github.com/cvzoya/fixation-visualization/blob/master/plotSpotlight.m
     highlights parts of the image given the saliency heatmap, darkening the least salient regions
@@ -133,27 +139,26 @@ def spotlight_custom(im,
     """
 
     # convert map from 0 to 255
-    heatmap = 255.0 * (heatmap - np.min(heatmap)) / (np.max(heatmap) -
-                                                     np.min(heatmap))
-    heatmap = heatmap.astype('uint8')
+    heatmap = 255.0 * (heatmap - np.min(heatmap)) / (np.max(heatmap) - np.min(heatmap))
+    heatmap = heatmap.astype("uint8")
 
     total_levels = levels + most_salient_nlevel - 1
     # if not equal
     h = heatmap
 
-    if (heatmap.size != im.size):
-        h = Image.fromarray(heatmap) if isinstance(heatmap,
-                                                   np.ndarray) else heatmap
+    if heatmap.size != im.size:
+        h = Image.fromarray(heatmap) if isinstance(heatmap, np.ndarray) else heatmap
         im = Image.fromarray(im) if isinstance(im, np.ndarray) else im
         h = h.resize(im.size)
     h = np.asarray(h)
 
-    if (percentile_based):
+    if percentile_based:
         # split levels by percentile
         # start percentile from non-zero values
         start_percentile = int(stats.percentileofscore(h.flatten(), 1))
         perc_list = np.array(
-            [np.percentile(h, i) for i in range(start_percentile, 101)])
+            [np.percentile(h, i) for i in range(start_percentile, 101)]
+        )
         val_list = perc_list
     else:
         # uniformly split 255
@@ -167,7 +172,7 @@ def spotlight_custom(im,
     total_levels = min(total_levels, nvals, len(np.unique(val_list)))
     levels = total_levels - most_salient_nlevel + 1
 
-    if (levels < 0):
+    if levels < 0:
         levels = total_levels
         most_salient_nlevel = 1
 
@@ -189,8 +194,10 @@ def spotlight_custom(im,
     # fine grained level for the most salient
 
     for j in range(most_salient_nlevel):
-        smaller_idx, larger_idx = i * group_size + j * first_group_size, i * group_size + (
-            j + 1) * first_group_size
+        smaller_idx, larger_idx = (
+            i * group_size + j * first_group_size,
+            i * group_size + (j + 1) * first_group_size,
+        )
         larger_idx = larger_idx if larger_idx < nvals else nvals - 1
         less_val, greater_val = val_list[smaller_idx], val_list[larger_idx]
         new_h[(less_val < h) & (h <= greater_val)] = group_val * (i + j + 1)
@@ -198,7 +205,7 @@ def spotlight_custom(im,
     new_h[greater_val < h] = 255
     # make edges look smoother
 
-    if (smoothness > 0):
+    if smoothness > 0:
         new_h = gaussian_filter(new_h, sigma=smoothness)
 
     # create dark mask based on h grouped values
@@ -208,13 +215,14 @@ def spotlight_custom(im,
     darkening = np.where(new_dark[:, :, 3] > 0, new_dark[:, :, 3], 255) / 255
     # invert dark mask for transparency
     darkening = abs(1 - darkening * mask_darkness)
-    new_im = (im * np.repeat(darkening[..., None], 3, axis=-1) *
-              brightness).astype('uint8')
+    new_im = (im * np.repeat(darkening[..., None], 3, axis=-1) * brightness).astype(
+        "uint8"
+    )
 
     if toplot:
         plt.figure(figsize=(20, 20))
         plt.imshow(new_im, vmin=0, vmax=1)
-        plt.axis('off')
+        plt.axis("off")
         plt.show()
 
     return new_im
@@ -232,13 +240,15 @@ def plot_attention(filename, im, impim, plottype=2, ax=None, title=""):
         spotlight_res = spotlight(im, impim, toplot=False)
         ax.imshow(spotlight_res)
     elif plottype == VisType.SPOTLIGHT_LEVEL_SETS:
-        spotlight_res = spotlight_custom(im,
-                                         impim,
-                                         toplot=False,
-                                         percentile_based=False,
-                                         levels=5,
-                                         most_salient_nlevel=5,
-                                         smoothness=0)
+        spotlight_res = spotlight_custom(
+            im,
+            impim,
+            toplot=False,
+            percentile_based=False,
+            levels=5,
+            most_salient_nlevel=5,
+            smoothness=0,
+        )
         ax.imshow(spotlight_res)
 
     ax.set_axis_off()
