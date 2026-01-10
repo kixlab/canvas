@@ -44,7 +44,7 @@ filenames:
 
 # 4. Model Weights
 weights:
-  saliency_model: "/home/seooyxx/kixlab/samsung-cxi-mcp-server/tools/UEyes-CHI2023/model_weights/saliency_models/UMSI++/umsi++.hdf5"
+  saliency_model: "evaluation/visual_saliency/model_weights/saliency_models/UMSI++/umsi++.hdf5"
 
 
 # 5. Metric Configuration

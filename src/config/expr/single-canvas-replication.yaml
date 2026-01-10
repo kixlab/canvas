@@ -1,22 +1,22 @@
-agent_type: react
+agent_type: single_replication
 
 benchmark_dir: ../dataset/benchmarks/replication_gt
-results_dir: ../dataset/results/replication_gen_demo
+results_dir: ../dataset/results/replication_gen/single_canvas
 batches_config_path: ../dataset/batches/replication/batches.yaml
 
 channels:
   channel_1:
     api_base_url: http://localhost:3000
   channel_2:
-    api_base_url: http://localhost:3000
-  channel_3:
     api_base_url: http://localhost:3001
+  channel_3:
+    api_base_url: http://localhost:3006
   channel_4:
-    api_base_url: http://localhost:3002
+    api_base_url: http://localhost:3007
   channel_5:
-    api_base_url: http://localhost:3003
+    api_base_url: http://localhost:3008
   channel_6:
-    api_base_url: http://localhost:3004
+    api_base_url: 
 
 models:
   gpt-4o:
@@ -25,7 +25,7 @@ models:
     temperature: 0.0
     input_cost: 0.0025
     output_cost: 0.0125
-    max_turns: 50
+    max_turns: 1
     max_tokens: 2048
   gpt-4.1:
     provider: openai
@@ -33,15 +33,31 @@ models:
     temperature: 0.0
     input_cost: 0.002 ## Cost per 1k input tokens
     output_cost: 0.008 ## Cost per 1k output tokens
-    max_turns: 50
+    max_turns: 1
     max_tokens: 2048
   gpt-4.1-nano:
     provider: openai
     name: gpt-4.1-nano
     temperature: 0.0
-    input_cost: 0.0005 ## placeholder; adjust to actual pricing
-    output_cost: 0.002 ## placeholder; adjust to actual pricing
-    max_turns: 50
+    input_cost: 0.0005
+    output_cost: 0.002
+    max_turns: 1
+    max_tokens: 2048
+  gpt-4o-mini:
+    provider: openai
+    name: gpt-4o-mini-2024-07-18
+    temperature: 0.0
+    input_cost: 0.00015
+    output_cost: 0.0006
+    max_turns: 1
+    max_tokens: 2048
+  o3:
+    provider: openai
+    name: o3-mini-2024-07-18
+    temperature: 0.0
+    input_cost: 0.00015
+    output_cost: 0.0006
+    max_turns: 1
     max_tokens: 2048
   claude-3-5-sonnet:
     provider: anthropic
@@ -49,7 +65,7 @@ models:
     temperature: 0.0
     input_cost: 0.003
     output_cost: 0.015
-    max_turns: 50
+    max_turns: 1
     max_tokens: 2048
   gemini-2.5-flash:
     provider: google
@@ -57,7 +73,7 @@ models:
     temperature: 0.0
     input_cost: 0.0003 ## Cost per 1k input tokens
     output_cost: 0.0025 ## Cost per 1k output tokens
-    max_turns: 50
+    max_turns: 1
     max_tokens: 2048
   gemini-2.5-pro:
     provider: google
@@ -65,22 +81,21 @@ models:
     temperature: 0.0
     input_cost: 0.00125 ## Cost per 1k input tokens
     output_cost: 0.01 ## Cost per 1k output tokens
-    max_turns: 50
+    max_turns: 1
     max_tokens: 2048
   llama-4-maverick:
     provider: together
-    # Example Together Llama 4 variant; adjust to your allowed model
+    name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+    temperature: 0.7
+    input_cost: 0.0027
+    output_cost: 0.0085
+    max_turns: 1
+    max_tokens: 2048
+  llama-4-scout:
+    provider: together
     name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
     temperature: 0.0
-    input_cost: 0.0000018
-    output_cost: 0.0000018
-    max_turns: 50
-    max_tokens: 2048
-  qwen-2.5-vl-7b:
-    provider: qwen_local
-    name: "qwen-2.5-vl-7b"
-    temperature: 0.0
-    input_cost: 0.0
-    output_cost: 0.0
-    max_turns: 50
-    max_tokens: 2048
+    input_cost: 0.0018
+    output_cost: 0.0059
+    max_turns: 1
+    max_tokens: 2048 

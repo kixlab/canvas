@@ -1,16 +1,16 @@
 agent_type: react
 
 benchmark_dir: ../dataset/benchmarks/replication_gt
-results_dir: ../dataset/results/replication_gen_demo
+results_dir: ../dataset/results/replication_gen_qwen
 batches_config_path: ../dataset/batches/replication/batches.yaml
 
 channels:
   channel_1:
-    api_base_url: http://localhost:3000
-  channel_2:
-    api_base_url: http://localhost:3000
-  channel_3:
     api_base_url: http://localhost:3001
+  channel_2:
+    api_base_url: http://localhost:3002
+  channel_3:
+    api_base_url: http://localhost:3003
   channel_4:
     api_base_url: http://localhost:3002
   channel_5:
@@ -39,8 +39,24 @@ models:
     provider: openai
     name: gpt-4.1-nano
     temperature: 0.0
-    input_cost: 0.0005 ## placeholder; adjust to actual pricing
-    output_cost: 0.002 ## placeholder; adjust to actual pricing
+    input_cost: 0.0005
+    output_cost: 0.002
+    max_turns: 50
+    max_tokens: 2048
+  gpt-4o-mini:
+    provider: openai
+    name: gpt-4o-mini-2024-07-18
+    temperature: 0.0
+    input_cost: 0.00015
+    output_cost: 0.0006
+    max_turns: 50
+    max_tokens: 2048
+  o3:
+    provider: openai
+    name: o3-mini-2024-07-18
+    temperature: 0.0
+    input_cost: 0.00015
+    output_cost: 0.0006
     max_turns: 50
     max_tokens: 2048
   claude-3-5-sonnet:
@@ -69,11 +85,26 @@ models:
     max_tokens: 2048
   llama-4-maverick:
     provider: together
-    # Example Together Llama 4 variant; adjust to your allowed model
+    name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+    temperature: 0.7
+    input_cost: 0.0027
+    output_cost: 0.0085
+    max_turns: 50
+    max_tokens: 2048
+  llama-4-scout:
+    provider: together
     name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
     temperature: 0.0
-    input_cost: 0.0000018
-    output_cost: 0.0000018
+    input_cost: 0.0018
+    output_cost: 0.0059
+    max_turns: 50
+    max_tokens: 2048
+  qwen-2.5-vl-72b:
+    provider: together
+    name: "Qwen/Qwen2.5-VL-72B-Instruct"
+    temperature: 0.0
+    input_cost: 0.0007
+    output_cost: 0.0007
     max_turns: 50
     max_tokens: 2048
   qwen-2.5-vl-7b:

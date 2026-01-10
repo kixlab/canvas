@@ -25,30 +25,60 @@ export OPENAI_API_KEY="your_openai_key"
 
 ### UI Replication Experiments
 
+**Single Agent (Code):**
+```bash
+python -m experiments.run_replication_code_experiment \
+  --config-name single-code-replication \
+  --model gpt-4.1 \
+  --variants image_only \
+  --channel channel_4 \
+  --agent-type code_replication \
+  --auto
+```
+
+**Single Agent (Canvas):**
+```bash
+python -m experiments.run_replication_canvas_experiment \
+  --config-name single-canvas-replication \
+  --model gpt-4.1 \
+  --variants image_only \
+  --channel channel_5 \
+  --agent-type single_replication \
+  --auto
+```
+
+**Multi Agent (ReAct):**
 ```bash
 python -m experiments.run_replication_experiment \
-  --config-name single-replication \
-  --model gpt-4.1 \
+  --config-name multi-react-replication \
+  --model qwen-2.5-vl-7b \
   --variants image_only \
   --channel channel_3 \
   --auto
 ```
-python -m experiments.run_replication_experiment \
-  --config-name single-replication-mac1 \
-  --model gemini-2.5-flash \
-  --variants image_only \
-  --channel channel_3 \
-  --auto
 
 ### UI Modification Experiments
 
+**Single Agent (Canvas):**
 ```bash
 python -m experiments.run_modification_experiment \
-  --config-name=single-modification \
-  --model=gpt-4o \
-  --variants=without_oracle \
-  --channel=channel_2 \
-  --task=task-1
+  --config-name single-canvas-modification \
+  --model gemini-2.5-flash \
+  --channel channel_1 \
+  --task task-2 \
+  --agent-type single_modification \
+  --auto
+```
+
+**Multi Agent (ReAct):**
+```bash
+python -m experiments.run_modification_experiment \
+  --config-name multi-react-modification \
+  --model gemini-2.5-flash \
+  --channel channel_1 \
+  --task task-2 \
+  --agent-type react_modification \
+  --auto
 ```
 
 ### Sample Extraction (CLI Mode)
@@ -61,88 +91,3 @@ python -m experiments.run_sample_extraction  \
   --channel=channel_2 \
   --batch-name=batch_1
 ```
-
-## Command Line Arguments
-
-### Common Arguments
-
-- `--model`: Model name (e.g., gpt-4, qwen)
-- `--variants`: Comma-separated list of experiment variants
-- `--channel`: Channel name from config.yaml
-- `--config_name`: Configuration name (default: "base")
-- `--multi_agent`: Enable multi-agent mode (supervisor-worker)
-- `--guidance`: Guidance variants
-
-### Modification-specific Arguments
-
-- `--task`: Task identifier (e.g., task-1, task-2, task-3)
-
-### Generation-specific Arguments
-
-- `--batch_name`: Batch name to run (e.g., batch_1)
-- `--batches_config_path`: Path to batches.yaml file
-
-## Supported Variants
-
-### Modification Variants
-
-- `without_oracle`: Run without oracle guidance
-- `perfect_hierarchy`: Run with perfect hierarchy oracle
-- `perfect_canvas`: Run with perfect canvas oracle
-
-### Generation Variants
-
-- `image_only`: Generate UI from image only
-- `text_level_1`: Generate UI with level 1 text description
-- `text_level_2`: Generate UI with level 2 text description
-
-## Configuration
-
-### Config File Structure
-
-```yaml
-# config.yaml
-benchmark_dir: "/path/to/benchmark"
-results_dir: "/path/to/results"
-channels:
-  channel_1:
-    api_base_url: "http://localhost:8000"
-  channel_2:
-    api_base_url: "http://localhost:8001"
-```
-
-### Batches File Structure
-
-```yaml
-# batches.yaml
-batches:
-  batch_1: "/path/to/batch_1.txt"
-  batch_2: "/path/to/batch_2.txt"
-```
-
-## Output Structure
-
-Results are saved in the following structure:
-```
-results_dir/
-  ├── task-1/
-  │   └── without_oracle/
-  │       ├── experiment_log_2024-03-21-10-30-00.txt
-  │       └── result_20240321_103000.json
-  └── task-2/
-      └── perfect_hierarchy/
-          ├── experiment_log_2024-03-21-10-35-00.txt
-          └── result_20240321_103500.json
-```
-
-## Error Handling
-
-- Failed experiments are logged with detailed error messages
-- Retry mechanism for API calls (3 attempts)
-- Canvas cleanup between experiments
-
-## Logging
-
-- Timestamp-based log files
-- Detailed error tracking
-- Experiment progress monitoring
