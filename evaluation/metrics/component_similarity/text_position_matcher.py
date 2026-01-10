@@ -2,6 +2,8 @@ from typing import List, Dict, Tuple
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+np.random.seed(42)
+
 
 def _compute_position_similarity(box1: Dict, box2: Dict) -> float:
     """Compute position similarity based on center-point distance between two blocks."""

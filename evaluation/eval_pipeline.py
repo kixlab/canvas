@@ -6,6 +6,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress all TensorFlow logging
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable verbose TensorFlow output
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'  # Prevent GPU memory issues
 
+os.environ['PYTHONHASHSEED'] = '42'
+os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -21,6 +24,28 @@ tf.get_logger().setLevel('ERROR')
 # Suppress all warnings
 import warnings
 warnings.filterwarnings('ignore')
+
+import random
+import numpy as np
+
+random.seed(42)
+np.random.seed(42)
+
+try:
+    tf.random.set_seed(42)
+except AttributeError:
+    tf.set_random_seed(42)
+
+try:
+    import torch
+    torch.manual_seed(42)
+    torch.cuda.manual_seed(42)
+    torch.cuda.manual_seed_all(42)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
+except ImportError:
+    pass
 
 import json
 import sys
@@ -520,7 +545,10 @@ class EvaluationPipeline:
                             tqdm.write(f"Invalid snapshot name: {snapshot_stem}")
                             continue
                 
-                        snapshot_json_path = snapshots_dir / self.app_config.filenames.snapshot_json.format(snapshot_stem=snapshot_stem)
+                        # Use the '-structure.json' file which contains component info for metrics,
+                        # instead of the trace/log json.
+                        snapshot_json_path = snapshots_dir / f"{snapshot_stem}-structure.json"
+
                         if snapshot_json_path.exists():
                             snapshot_case = EvaluationCase(
                                 case_id=case_id,

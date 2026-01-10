@@ -3,6 +3,8 @@ from PIL import Image
 import numpy as np
 import os
 
+np.random.seed(42)
+
 @register_metric("rmse_inverse")
 def _rmse_inverse(gt_img: str, gen_img: str, **kwargs):
     """

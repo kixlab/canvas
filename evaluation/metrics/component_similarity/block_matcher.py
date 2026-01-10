@@ -4,6 +4,8 @@ from typing import List, Dict, Tuple
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+np.random.seed(42)
+
 
 def load_and_normalize_boxes(json_path: Path) -> Tuple[List[Dict], Dict]:
     """
@@ -61,7 +63,11 @@ def load_and_normalize_boxes(json_path: Path) -> Tuple[List[Dict], Dict]:
 
     extracted_boxes = []
     for node in all_nodes:
+        if "absoluteBoundingBox" not in node:
+            continue
         box = node["absoluteBoundingBox"]
+        if box is None or not isinstance(box, dict):
+            continue
         if not all(k in box for k in ["x", "y", "width", "height"]):
             continue
 

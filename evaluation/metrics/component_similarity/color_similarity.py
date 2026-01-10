@@ -1,6 +1,8 @@
 from typing import List, Dict, Tuple, Optional
 import numpy as np
 
+np.random.seed(42)
+
 
 def extract_rgb_from_fills(fills: List[Dict]) -> Optional[Tuple[int, int, int]]:
     """Extract RGB values from the first SOLID color in Figma node's fills property."""

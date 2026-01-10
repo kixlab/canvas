@@ -1,6 +1,8 @@
 from typing import List, Dict, Tuple
 import numpy as np
 
+np.random.seed(42)
+
 def compute_single_position_similarity(box1: Dict, box2: Dict) -> float:
     """Compute position similarity based on center-point distance between two blocks."""
     center_x1 = box1["x"] + box1["width"] / 2

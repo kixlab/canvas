@@ -4,6 +4,8 @@ import numpy as np
 import os
 from skimage.metrics import peak_signal_noise_ratio
 
+np.random.seed(42)
+
 @register_metric("psnr")
 def _psnr(gt_img: str, gen_img: str, **kwargs):
     """

@@ -1,5 +1,8 @@
 from pathlib import Path
 from typing import Dict
+import numpy as np
+
+np.random.seed(42)
 
 from evaluation.metrics import register_metric
 from .block_matcher import load_and_normalize_boxes, hungarian_bbox_matching
