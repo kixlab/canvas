@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Convolutional-recurrent layers.
-"""
+"""Convolutional-recurrent layers."""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -65,7 +65,7 @@ class AttentiveConvLSTM2DCell(Layer):
         dropout=0.0,
         recurrent_dropout=0.0,
         attentive_dropout=0.0,
-        **kwargs
+        **kwargs,
     ):
         super(AttentiveConvLSTM2DCell, self).__init__(**kwargs)
         self.filters = filters
@@ -128,8 +128,7 @@ class AttentiveConvLSTM2DCell(Layer):
             channel_axis = -1
         if input_shape[channel_axis] is None:
             raise ValueError(
-                "The channel dimension of the inputs "
-                "should be defined. Found `None`."
+                "The channel dimension of the inputs should be defined. Found `None`."
             )
         input_dim = input_shape[channel_axis]
         kernel_shape = self.kernel_size + (int(input_dim), self.filters * 4)
@@ -540,7 +539,7 @@ class AttentiveConvLSTM2D(ConvRNN2D):
         dropout=0.0,
         recurrent_dropout=0.0,
         attentive_dropout=0.0,
-        **kwargs
+        **kwargs,
     ):
         print("====")
         cell = AttentiveConvLSTM2DCell(
@@ -579,7 +578,7 @@ class AttentiveConvLSTM2D(ConvRNN2D):
             return_sequences=return_sequences,
             go_backwards=go_backwards,
             stateful=stateful,
-            **kwargs
+            **kwargs,
         )
         self.activity_regularizer = regularizers.get(activity_regularizer)
 

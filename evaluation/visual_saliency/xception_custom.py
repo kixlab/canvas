@@ -9,6 +9,7 @@ is also different (same as Inception V3).
 - [Xception: Deep Learning with Depthwise Separable Convolutions](
     https://arxiv.org/abs/1610.02357)
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -46,7 +47,7 @@ def Xception(
     input_shape=None,
     pooling=None,
     classes=1000,
-    **kwargs
+    **kwargs,
 ):
     """Instantiates the Xception architecture.
     Optionally loads weights pre-trained on ImageNet. This model can
@@ -195,7 +196,11 @@ def Xception(
     x = layers.add([x, residual])
 
     residual = layers.Conv2D(
-        728, (1, 1), strides=(1, 1), padding="same", use_bias=False  # ORIGINAL (2,2)
+        728,
+        (1, 1),
+        strides=(1, 1),
+        padding="same",
+        use_bias=False,  # ORIGINAL (2,2)
     )(x)
     residual = layers.BatchNormalization()(residual)
 
@@ -211,7 +216,10 @@ def Xception(
     x = layers.BatchNormalization(name="block4_sepconv2_bn")(x)
 
     x = layers.MaxPooling2D(
-        (3, 3), strides=(1, 1), padding="same", name="block4_pool"  # ORIGINAL (2,2)
+        (3, 3),
+        strides=(1, 1),
+        padding="same",
+        name="block4_pool",  # ORIGINAL (2,2)
     )(x)
     x = layers.add([x, residual])
 
@@ -238,7 +246,11 @@ def Xception(
         x = layers.add([x, residual])
 
     residual = layers.Conv2D(
-        1024, (1, 1), strides=(1, 1), padding="same", use_bias=False  # ORIGINAL (2,2)
+        1024,
+        (1, 1),
+        strides=(1, 1),
+        padding="same",
+        use_bias=False,  # ORIGINAL (2,2)
     )(x)
     residual = layers.BatchNormalization()(residual)
 
@@ -254,7 +266,10 @@ def Xception(
     x = layers.BatchNormalization(name="block13_sepconv2_bn")(x)
 
     x = layers.MaxPooling2D(
-        (3, 3), strides=(1, 1), padding="same", name="block13_pool"  # ORIGINAL (2,2)
+        (3, 3),
+        strides=(1, 1),
+        padding="same",
+        name="block13_pool",  # ORIGINAL (2,2)
     )(x)
     x = layers.add([x, residual])
 

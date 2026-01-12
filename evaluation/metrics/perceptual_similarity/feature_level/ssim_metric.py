@@ -4,8 +4,8 @@ import numpy as np
 import os
 from skimage.metrics import structural_similarity
 
-# Set deterministic behavior for numpy
 np.random.seed(42)
+
 
 @register_metric("ssim")
 def _ssim(gt_img: str, gen_img: str, **kwargs):
@@ -21,16 +21,21 @@ def _ssim(gt_img: str, gen_img: str, **kwargs):
         gen_pil = Image.open(gen_img).convert("RGB")
 
         if gt_pil.size != gen_pil.size:
-            min_size = (min(gt_pil.width, gen_pil.width), min(gt_pil.height, gen_pil.height))
+            min_size = (
+                min(gt_pil.width, gen_pil.width),
+                min(gt_pil.height, gen_pil.height),
+            )
             gt_pil = gt_pil.resize(min_size)
             gen_pil = gen_pil.resize(min_size)
 
         gt_arr = np.asarray(gt_pil)
         gen_arr = np.asarray(gen_pil)
 
-        ssim_score = structural_similarity(gt_arr, gen_arr, multichannel=True, data_range=255)
+        ssim_score = structural_similarity(
+            gt_arr, gen_arr, multichannel=True, data_range=255
+        )
 
         return {"ssim": round(float(ssim_score), 4)}
 
     except Exception:
-        return {"ssim": None} 
+        return {"ssim": None}

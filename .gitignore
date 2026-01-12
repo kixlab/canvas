@@ -5,6 +5,5 @@ docs/
 .env*
 *__pycache__
 dataset
-dataset_sample
 __MACOSX
 *google-cloud-sdk

@@ -1,24 +1,24 @@
 agent_type: react_modification
 
 benchmark_dir: ../dataset/benchmarks/modification_gt
-results_dir: ../dataset/results/modification_gen
+results_dir: ../dataset/results/modification_gen/multi_react
 batches_config_path: ../dataset/batches/modification/batches.yaml
 
 channels:
   channel_1:
     api_base_url: http://localhost:3001
   channel_2:
-    api_base_url: http://localhost:3002
+    api_base_url: 
   channel_3:
-    api_base_url: http://localhost:3002
+    api_base_url: 
   channel_4:
-    api_base_url: http://localhost:3003
+    api_base_url: 
   channel_5:
-    api_base_url: http://localhost:3004
+    api_base_url: 
   channel_6:
-    api_base_url: http://localhost:3005
+    api_base_url: 
   channel_7:
-    api_base_url: http://localhost:3006
+    api_base_url: 
 
 models:
   gpt-4o:

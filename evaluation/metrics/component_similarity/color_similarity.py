@@ -8,12 +8,11 @@ def extract_rgb_from_fills(fills: List[Dict]) -> Optional[Tuple[int, int, int]]:
     """Extract RGB values from the first SOLID color in Figma node's fills property."""
     if not fills:
         return None
-    
+
     for fill in fills:
         if fill.get("type") == "SOLID" and fill.get("visible", True):
             color = fill.get("color")
             if color and all(k in color for k in ["r", "g", "b"]):
-                # Convert Figma colors (0-1 range) to 0-255 range
                 return (
                     int(color["r"] * 255),
                     int(color["g"] * 255),
@@ -22,10 +21,12 @@ def extract_rgb_from_fills(fills: List[Dict]) -> Optional[Tuple[int, int, int]]:
     return None
 
 
-def color_distance_to_similarity(rgb1: Tuple[int, int, int], rgb2: Tuple[int, int, int]) -> float:
+def color_distance_to_similarity(
+    rgb1: Tuple[int, int, int], rgb2: Tuple[int, int, int]
+) -> float:
     """Convert Euclidean distance between two RGB colors to similarity score (0-1 range)."""
     dist = np.linalg.norm(np.array(rgb1) - np.array(rgb2))
-    max_dist = np.sqrt(3 * (255**2))  # Maximum possible distance in RGB space
+    max_dist = np.sqrt(3 * (255**2))
     similarity = 1 - (dist / max_dist)
     return similarity
 

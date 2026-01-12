@@ -6,10 +6,12 @@ from typing import Dict, List, Any
 
 # --- Configuration Dataclasses ---
 
+
 @dataclass
 class PrecomputedBlipScoresConfig:
     replication_gen: str
     modification_gen: str
+
 
 @dataclass
 class PathsConfig:
@@ -21,7 +23,10 @@ class PathsConfig:
     precomputed_blip_scores: PrecomputedBlipScoresConfig
 
     def __post_init__(self):
-        self.precomputed_blip_scores = PrecomputedBlipScoresConfig(**self.precomputed_blip_scores)
+        self.precomputed_blip_scores = PrecomputedBlipScoresConfig(
+            **self.precomputed_blip_scores
+        )
+
 
 @dataclass
 class FilenamesConfig:
@@ -42,14 +47,17 @@ class FilenamesConfig:
     vis_bar_plot: str
     vis_box_plot: str
 
+
 @dataclass
 class WeightsConfig:
     saliency_model: str
+
 
 @dataclass
 class CompositeMetricConfig:
     components: List[str]
     digits: int
+
 
 @dataclass
 class MetricsConfig:
@@ -62,14 +70,17 @@ class MetricsConfig:
             k: CompositeMetricConfig(**v) for k, v in self.composite_metrics.items()
         }
 
+
 @dataclass
 class VisualizationConfig:
     skip_keys: List[str]
     dpi: int
 
+
 @dataclass
 class AppConfig:
     """Root configuration object."""
+
     paths: PathsConfig
     filenames: FilenamesConfig
     weights: WeightsConfig
@@ -83,9 +94,11 @@ class AppConfig:
         self.metrics = MetricsConfig(**self.metrics)
         self.visualization = VisualizationConfig(**self.visualization)
 
+
 # --- Loading Logic ---
 
 _config: AppConfig = None
+
 
 def load_config() -> AppConfig:
     """
@@ -105,6 +118,7 @@ def load_config() -> AppConfig:
         _config = AppConfig(**config_data)
     return _config
 
+
 # --- Global Accessor ---
 
-config = load_config() 
+config = load_config()

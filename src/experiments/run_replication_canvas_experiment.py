@@ -1,56 +1,54 @@
-import os
 import json
 import asyncio
 import aiohttp
 import argparse
-import base64
 from pathlib import Path
 from dotenv import load_dotenv
 from .base_runner import BaseExperiment, ExperimentConfig, parse_common_args
-
-# ---------------------------------------------------------------------------
-# NOTE
-# We intentionally keep the auto-mode implementation local to this script so
-# that core BaseExperiment / ExperimentConfig are untouched. The flag is parsed
-# here and stored dynamically in the `config` object created below.
-# ---------------------------------------------------------------------------
 from .enums import ExperimentVariant
 
 load_dotenv()
 
-# NOTE: Name aligned with script filename
+
 class ReplicationExperiment(BaseExperiment):
     def __init__(self, config: ExperimentConfig):
         super().__init__(config)
         self.figma_timeout = 30
 
     async def run(self):
-        self.logger.info(f"Starting replication experiment with model: {self.config.model.value}")
+        self.logger.info(
+            f"Starting replication experiment with model: {self.config.model.value}"
+        )
         self.logger.info(f"Variants: {[v.value for v in self.config.variants]}")
         if self.config.batch_name:
             self.logger.info(f"Batch: {self.config.batch_name}")
-        
+
         timeout = aiohttp.ClientTimeout(total=None)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-
-            # ----------------------------------------------------------
-            #  (1) Switch to desired Figma channel if specified
-            # ----------------------------------------------------------
             desired_channel = self.channel_config.get("channel_code")
             if desired_channel:
                 try:
-                    self.logger.info(f"[CHANNEL] Switching to channel {desired_channel}")
-                    async with session.post(f"{self.api_base_url}/tool/select_channel", params={"channel": desired_channel}) as resp:
+                    self.logger.info(
+                        f"[CHANNEL] Switching to channel {desired_channel}"
+                    )
+                    async with session.post(
+                        f"{self.api_base_url}/tool/select_channel",
+                        params={"channel": desired_channel},
+                    ) as resp:
                         if resp.status != 200:
-                            self.logger.warning(f"Failed to switch channel (HTTP {resp.status})")
+                            self.logger.warning(
+                                f"Failed to switch channel (HTTP {resp.status})"
+                            )
                 except Exception as e:
                     self.logger.warning(f"Exception while switching channel: {e}")
 
             for variant in self.config.variants:
                 meta_files = list(self.benchmark_dir.glob("*-meta.json"))
                 if not meta_files:
-                    raise FileNotFoundError(f"No metadata files found in {self.benchmark_dir}")
-                
+                    raise FileNotFoundError(
+                        f"No metadata files found in {self.benchmark_dir}"
+                    )
+
                 for meta_file in meta_files:
                     base_id = meta_file.stem.replace("-meta", "")
                     if self.allowed_ids and base_id not in self.allowed_ids:
@@ -60,7 +58,7 @@ class ReplicationExperiment(BaseExperiment):
                     if not image_path.exists():
                         self.logger.warning(f"Image file not found: {image_path}")
                         continue
-                    
+
                     with open(meta_file, "r", encoding="utf-8") as f:
                         meta_json = json.load(f)
 
@@ -68,50 +66,49 @@ class ReplicationExperiment(BaseExperiment):
                     self.logger.info(f"[START] Generating result for: {result_name}")
                     result_dir = self.results_dir / result_name
 
-                    # --------------------------------------------------
-                    # AUTO MODE: skip prompts and handle automatically (with lock)
-                    # --------------------------------------------------
                     if getattr(self.config, "auto", False):
-                        # Acquire lock to prevent concurrent processing of the same sample
                         lock_path = self._acquire_lock(result_name)
                         if lock_path is None:
-                            self.logger.info(f"[AUTO] Another process already working on {result_name}. Skipping.")
+                            self.logger.info(
+                                f"[AUTO] Another process already working on {result_name}. Skipping."
+                            )
                             continue
                         try:
-                            # If results already exist, no need to regenerate
                             if result_dir.exists():
-                                self.logger.info(f"[AUTO] Result already exists. Skipping: {result_name}")
-                                continue  # finally clause will release lock
+                                self.logger.info(
+                                    f"[AUTO] Result already exists. Skipping: {result_name}"
+                                )
+                                continue
 
-                            # Single attempt in auto mode
                             result = await self.run_variant(
                                 session, image_path, meta_json, result_name, variant
                             )
                             if result is None:
-                                # Skip this sample silently in auto mode
-                                continue  # lock released in finally
+                                continue
 
                             await self.save_results(result, result_name)
                         finally:
-                            # Always release lock regardless of outcome
                             self._release_lock(lock_path)
-                        continue  # move to next meta
+                        continue
 
-                    # --------------------------------------------------
-                    # INTERACTIVE MODE (default)
-                    # --------------------------------------------------
                     if result_dir.exists():
-                        user_input = input(
-                            f"[SKIP?] Result directory for '{result_name}' already exists. "
-                            "Do you want to skip? [y] skip / [n] overwrite / [q] quit > "
-                        ).strip().lower()
-                        if user_input == 'y':
-                            self.logger.info(f"[SKIP] Skipping already existing result: {result_name}")
+                        user_input = (
+                            input(
+                                f"[SKIP?] Result directory for '{result_name}' already exists. "
+                                "Do you want to skip? [y] skip / [n] overwrite / [q] quit > "
+                            )
+                            .strip()
+                            .lower()
+                        )
+                        if user_input == "y":
+                            self.logger.info(
+                                f"[SKIP] Skipping already existing result: {result_name}"
+                            )
                             continue
-                        elif user_input == 'q':
+                        elif user_input == "q":
                             self.logger.warning("[ABORT] Stopping experiment early.")
                             return
-                        elif user_input != 'n':
+                        elif user_input != "n":
                             print("Invalid input. Please enter y / n / q.")
                             continue
 
@@ -121,31 +118,43 @@ class ReplicationExperiment(BaseExperiment):
                         )
 
                         if result is None:
-                            user_choice = input(
-                                "[ERROR] Generation failed. Retry? [y] retry / [s] skip / [q] quit > "
-                            ).strip().lower()
-                            if user_choice == 'y':
-                                continue  # retry same sample
-                            elif user_choice == 's':
-                                self.logger.info(f"[SKIP] Skipping failed sample: {result_name}")
-                                break  # move to next sample
-                            elif user_choice == 'q':
-                                self.logger.warning("[ABORT] Stopping experiment early.")
+                            user_choice = (
+                                input(
+                                    "[ERROR] Generation failed. Retry? [y] retry / [s] skip / [q] quit > "
+                                )
+                                .strip()
+                                .lower()
+                            )
+                            if user_choice == "y":
+                                continue
+                            elif user_choice == "s":
+                                self.logger.info(
+                                    f"[SKIP] Skipping failed sample: {result_name}"
+                                )
+                                break
+                            elif user_choice == "q":
+                                self.logger.warning(
+                                    "[ABORT] Stopping experiment early."
+                                )
                                 return
                             else:
                                 print("Invalid input. Please enter y / s / q.")
                                 continue
 
-                        user_input = input(
-                            f"[REVIEW] Save this result?[y] yes proceed or [n] retry same sample or[q] quit > "
-                        ).strip().lower()
+                        user_input = (
+                            input(
+                                f"[REVIEW] Save this result?[y] yes proceed or [n] retry same sample or[q] quit > "
+                            )
+                            .strip()
+                            .lower()
+                        )
 
-                        if user_input == 'y':
+                        if user_input == "y":
                             await self.save_results(result, result_name)
                             break
-                        elif user_input == 'n':
+                        elif user_input == "n":
                             self.logger.info(f"[RETRY] Retrying {result_name}")
-                        elif user_input == 'q':
+                        elif user_input == "q":
                             self.logger.warning("[ABORT] Stopping experiment early.")
                             return
                         else:
@@ -165,13 +174,13 @@ class ReplicationExperiment(BaseExperiment):
             message_text = meta_json.get("description_two", "")
         else:
             raise ValueError(f"Unknown variant: {variant_value}")
-        
-        # ------------------------------------------------------------------
-        #  Helper: Build metadata (base config from YAML + dynamic fields)
-        # ------------------------------------------------------------------
 
         base_meta = self.experiment_config["models"][self.config.model.value]
-        agent_type = self.config.agent_type.value if self.config.agent_type else self.experiment_config.get("agent_type", "react_replication")
+        agent_type = (
+            self.config.agent_type.value
+            if self.config.agent_type
+            else self.experiment_config.get("agent_type", "react_replication")
+        )
         repo_frame_name = self.experiment_config.get("repo_frame_name", "ResultsRepo")
         repo_frame_id = self.experiment_config.get("repo_frame_id")
 
@@ -209,21 +218,28 @@ class ReplicationExperiment(BaseExperiment):
             try:
                 self.logger.info(f"Calling {endpoint} (attempt {attempt + 1}/3)")
                 form_data = build_form_data()
-                async with session.post(f"{self.api_base_url}/{endpoint}", data=form_data) as res:
+                async with session.post(
+                    f"{self.api_base_url}/{endpoint}", data=form_data
+                ) as res:
                     return await res.json()
             except Exception as e:
                 self.logger.warning(f"Request failed: {e}")
                 await asyncio.sleep(2)
 
-        # All attempts failed – log and return None so caller can skip this sample
-        self.logger.error(f"[SKIP] Failed to get response after 3 retries for {result_name}")
+        self.logger.error(
+            f"[SKIP] Failed to get response after 3 retries for {result_name}"
+        )
         return None
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run replication experiments")
     parser = parse_common_args(parser)
-    parser.add_argument("--auto", action="store_true", help="Run in non-interactive auto-save mode")
+    parser.add_argument(
+        "--auto", action="store_true", help="Run in non-interactive auto-save mode"
+    )
     return parser.parse_args()
+
 
 async def main():
     args = parse_args()
@@ -231,6 +247,7 @@ async def main():
     setattr(config, "auto", getattr(args, "auto", False))
     experiment = ReplicationExperiment(config)
     await experiment.run()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

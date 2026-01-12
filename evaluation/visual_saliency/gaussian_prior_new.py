@@ -25,7 +25,7 @@ class LearningPrior(Layer):
         W_regularizer=None,
         activity_regularizer=None,
         W_constraint=None,
-        **kwargs
+        **kwargs,
     ):
         self.nb_gaussian = nb_gaussian
 
@@ -178,7 +178,7 @@ class OldLearningPrior(Layer):
         W_regularizer=None,
         activity_regularizer=None,
         W_constraint=None,
-        **kwargs
+        **kwargs,
     ):
         self.nb_gaussian = nb_gaussian
         self.init = initializations.get(init, dim_ordering="th")

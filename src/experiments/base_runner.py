@@ -11,31 +11,48 @@ from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 import logging
 from config import load_experiment_config
-from .enums import ModelType, Channel, ExperimentVariant, TaskType, GuidanceType, AgentType
+from .enums import ModelType, Channel, ExperimentVariant, TaskType, AgentType
 from .logger import ExperimentLogger
 import base64
 
+
 def parse_common_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     """Add common arguments to the parser."""
-    parser.add_argument("--model", type=str, required=True, choices=[m.value for m in ModelType],
-                      help="Model to use (e.g. gpt-4, qwen)")
-    parser.add_argument("--variants", type=str,
-                      help="Comma-separated list of variants")
-    parser.add_argument("--channel", type=str, required=True, choices=[c.value for c in Channel],
-                      help="Channel name from config.yaml")
-    parser.add_argument("--config-name", type=str, required=True,
-                      help="Name of the experiment configuration")
-    parser.add_argument("--batch-name", type=str,
-                      help="Optional: batch name to run (e.g., batch_1)")
-    parser.add_argument("--batches-config-path", type=str,
-                      help="Optional: path to batches.yaml")
-    parser.add_argument("--agent-type", type=str, choices=[a.value for a in AgentType],
-                      help="Agent type to use (e.g. react, single, code)")
-    parser.add_argument("--multi-agent", action="store_true",
-                      help="Use multi-agent (supervisor-worker) mode")
-    parser.add_argument("--guidance", type=str, choices=[g.value for g in GuidanceType],
-                      help="Guidance type to use")
+    parser.add_argument(
+        "--model",
+        type=str,
+        required=True,
+        choices=[m.value for m in ModelType],
+        help="Model to use (e.g. gpt-4, qwen)",
+    )
+    parser.add_argument("--variants", type=str, help="Comma-separated list of variants")
+    parser.add_argument(
+        "--channel",
+        type=str,
+        required=True,
+        choices=[c.value for c in Channel],
+        help="Channel name from config.yaml",
+    )
+    parser.add_argument(
+        "--config-name",
+        type=str,
+        required=True,
+        help="Name of the experiment configuration",
+    )
+    parser.add_argument(
+        "--batch-name", type=str, help="Optional: batch name to run (e.g., batch_1)"
+    )
+    parser.add_argument(
+        "--batches-config-path", type=str, help="Optional: path to batches.yaml"
+    )
+    parser.add_argument(
+        "--agent-type",
+        type=str,
+        choices=[a.value for a in AgentType],
+        help="Agent type to use (e.g. react, single, code)",
+    )
     return parser
+
 
 @dataclass
 class ExperimentConfig:
@@ -47,22 +64,24 @@ class ExperimentConfig:
     task: Optional[TaskType] = None
     batches_config_path: Optional[str] = None
     agent_type: Optional[AgentType] = None
-    multi_agent: bool = False
-    guidance: Optional[GuidanceType] = None
 
     @classmethod
     def from_args(cls, args):
         return cls(
             model=ModelType(args.model),
-            variants=[ExperimentVariant(v) for v in args.variants.split(",")] if getattr(args, 'variants', None) else None,
+            variants=[ExperimentVariant(v) for v in args.variants.split(",")]
+            if getattr(args, "variants", None)
+            else None,
             channel=Channel(args.channel),
             config_name=args.config_name,
-            batch_name=getattr(args, 'batch_name', None),
-            task=TaskType(getattr(args, 'task', None)) if getattr(args, 'task', None) else None,
-            batches_config_path=getattr(args, 'batches_config_path', None),
-            agent_type=AgentType(getattr(args, 'agent_type', None)) if getattr(args, 'agent_type', None) else None,
-            multi_agent=getattr(args, 'multi_agent', False),
-            guidance=GuidanceType(getattr(args, 'guidance', None)) if getattr(args, 'guidance', None) else None
+            batch_name=getattr(args, "batch_name", None),
+            task=TaskType(getattr(args, "task", None))
+            if getattr(args, "task", None)
+            else None,
+            batches_config_path=getattr(args, "batches_config_path", None),
+            agent_type=AgentType(getattr(args, "agent_type", None))
+            if getattr(args, "agent_type", None)
+            else None,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -75,9 +94,8 @@ class ExperimentConfig:
             "task": self.task.value if self.task else None,
             "batches_config_path": self.batches_config_path,
             "agent_type": self.agent_type.value if self.agent_type else None,
-            "multi_agent": self.multi_agent,
-            "guidance": self.guidance.value if self.guidance else None,
         }
+
 
 class BaseExperiment:
     def __init__(self, config: ExperimentConfig):
@@ -86,17 +104,21 @@ class BaseExperiment:
         variant_str = f"-{config.variants[0].value}" if config.variants else ""
         self.logger = ExperimentLogger(
             experiment_id=f"{config.config_name}-{config.model.value}{variant_str}",
-            log_dir=self.results_dir
+            log_dir=self.results_dir,
         )
         self.logger.log_config(config.to_dict())
-        
-    def setup_environment(self):        
+
+    def setup_environment(self):
         self.experiment_config = load_experiment_config(self.config.config_name)
-        
-        self.channel_config = self.experiment_config["channels"].get(self.config.channel.value)
+
+        self.channel_config = self.experiment_config["channels"].get(
+            self.config.channel.value
+        )
         if self.channel_config is None:
-            raise ValueError(f"[ERROR] Channel '{self.config.channel.value}' not found in config.yaml")
-        
+            raise ValueError(
+                f"[ERROR] Channel '{self.config.channel.value}' not found in config.yaml"
+            )
+
         self.benchmark_dir = Path(self.experiment_config["benchmark_dir"])
         self.results_dir = Path(self.experiment_config["results_dir"])
         if self.config.task:
@@ -104,41 +126,25 @@ class BaseExperiment:
         if self.config.variants:
             self.results_dir = self.results_dir / self.config.variants[0].value
         self.results_dir.mkdir(parents=True, exist_ok=True)
-        
-        self.api_base_url = self.channel_config["api_base_url"]
-        self.figma_api_token = os.getenv("FIGMA_API_TOKEN")
-        self.figma_base_url = "https://api.figma.com/v1"
-        self.headers = {"X-Figma-Token": self.figma_api_token}
-        
-        self.allowed_ids = self._load_batch_ids() if self.config.batch_name else None
 
-    def set_langsmith_metadata(self):
-        project = f"{self.config.config_name}-{self.config.model.value}"
-        tags = []
-        
-        if self.config.variants:
-            tags.append(f"input_condition={','.join(v.value for v in self.config.variants)}")
-        if self.config.guidance:
-            tags.append(f"guidance={self.config.guidance.value}")
-        if self.config.channel:
-            tags.append(f"channel={self.config.channel.value}")
-        
-        machine = os.getenv("MACHINE_ID", "0")
-        if machine:
-            tags.append(f"machine={machine}")
+        self.api_base_url = self.channel_config["api_base_url"]
+
+        self.allowed_ids = self._load_batch_ids() if self.config.batch_name else None
 
     def _load_batch_ids(self) -> Optional[set]:
         """Batch ID Load"""
         if not self.config.batches_config_path:
             print(f"nothing in {self.config.batches_config_path}")
             return None
-            
+
         try:
             with open(self.config.batches_config_path, "r") as f:
                 batch_yaml = yaml.safe_load(f)
             batch_file_path = batch_yaml["batches"].get(self.config.batch_name)
             if batch_file_path is None:
-                raise ValueError(f"[ERROR] batch_name '{self.config.batch_name}' not found in {self.config.batches_config_path}")
+                raise ValueError(
+                    f"[ERROR] batch_name '{self.config.batch_name}' not found in {self.config.batches_config_path}"
+                )
             with open(batch_file_path, "r") as f:
                 return set(line.strip() for line in f)
         except Exception as e:
@@ -148,7 +154,9 @@ class BaseExperiment:
         """Ensure the canvas is empty by deleting all top-level nodes."""
         for _ in range(3):
             try:
-                async with session.post(f"{self.api_base_url}/tool/delete_all_top_level_nodes") as del_res:
+                async with session.post(
+                    f"{self.api_base_url}/tool/delete_all_top_level_nodes"
+                ) as del_res:
                     if del_res.status == 200:
                         try:
                             payload = await del_res.json()
@@ -157,10 +165,14 @@ class BaseExperiment:
                             status = ""
 
                         if status == "success":
-                            self.logger.info("[CLEANUP] Canvas is now empty (or already empty)")
+                            self.logger.info(
+                                "[CLEANUP] Canvas is now empty (or already empty)"
+                            )
                             return
                         else:
-                            self.logger.info(f"[CLEANUP-RETRY] Unexpected response status: {status}")
+                            self.logger.info(
+                                f"[CLEANUP-RETRY] Unexpected response status: {status}"
+                            )
                     else:
                         self.logger.info(f"[CLEANUP-RETRY] HTTP {del_res.status}")
 
@@ -173,7 +185,9 @@ class BaseExperiment:
 
     async def create_root_frame(self, session: aiohttp.ClientSession) -> Dict[str, Any]:
         params = {"x": 0, "y": 0, "width": 320, "height": 720, "name": "Frame"}
-        async with session.post(f"{self.api_base_url}/tool/create_root_frame", params=params) as res:
+        async with session.post(
+            f"{self.api_base_url}/tool/create_root_frame", params=params
+        ) as res:
             return await res.json()
 
     async def get_document_info(self) -> Dict[str, Any]:
@@ -200,7 +214,9 @@ class BaseExperiment:
         # TODO: Implement run_*_experiment.py to inherit this
         raise NotImplementedError
 
-    async def _save_snapshots(self, payload: Dict[str, Any], result_dir: Path, result_name: str):
+    async def _save_snapshots(
+        self, payload: Dict[str, Any], result_dir: Path, result_name: str
+    ):
         """Save each snapshot contained in the server payload.
 
         For every snapshot object we create:
@@ -222,7 +238,9 @@ class BaseExperiment:
                 # ------------------------------------------------------------------
                 # 1) Save raw snapshot JSON
                 # ------------------------------------------------------------------
-                snapshot_json_path = snapshots_dir / f"{result_name}-snapshot-{turn}.json"
+                snapshot_json_path = (
+                    snapshots_dir / f"{result_name}-snapshot-{turn}.json"
+                )
                 with open(snapshot_json_path, "w", encoding="utf-8") as f:
                     json.dump(snap, f, indent=2, ensure_ascii=False)
 
@@ -231,7 +249,9 @@ class BaseExperiment:
                 # ------------------------------------------------------------------
                 structure = snap.get("structure")
                 if structure is not None:
-                    structure_path = snapshots_dir / f"{result_name}-snapshot-{turn}-structure.json"
+                    structure_path = (
+                        snapshots_dir / f"{result_name}-snapshot-{turn}-structure.json"
+                    )
                     with open(structure_path, "w", encoding="utf-8") as f:
                         json.dump(structure, f, indent=2, ensure_ascii=False)
 
@@ -247,7 +267,9 @@ class BaseExperiment:
                         with open(img_path, "wb") as img_f:
                             img_f.write(image_bytes)
                     except Exception as e:
-                        self.logger.warning(f"[SNAPSHOT] Failed to decode image for turn {turn}: {e}")
+                        self.logger.warning(
+                            f"[SNAPSHOT] Failed to decode image for turn {turn}: {e}"
+                        )
             except Exception as e:
                 self.logger.warning(f"[SNAPSHOT] Error processing snapshot: {e}")
 
@@ -274,7 +296,9 @@ class BaseExperiment:
 
         # Guard – make sure payload exists
         if not isinstance(result, dict) or result.get("status") != "success":
-            self.logger.warning("[SAVE] Result status is not 'success'. Skipping payload extraction.")
+            self.logger.warning(
+                "[SAVE] Result status is not 'success'. Skipping payload extraction."
+            )
             return
 
         payload = result.get("payload", {})
@@ -286,7 +310,7 @@ class BaseExperiment:
             with open(json_structure_file, "w", encoding="utf-8") as f:
                 json.dump(json_structure, f, indent=2, ensure_ascii=False)
             self.logger.info(f"[SAVE] json_structure saved to {json_structure_file}")
-            
+
             # For code agent, also save HTML code separately
             if isinstance(json_structure, dict) and "html" in json_structure:
                 html_code = json_structure["html"]
@@ -350,7 +374,9 @@ class BaseExperiment:
         except Exception as e:
             # Any unexpected error is treated as lock acquisition failure.
             if hasattr(self, "logger"):
-                self.logger.warning(f"[LOCK] Unexpected error acquiring lock {lock_path}: {e}")
+                self.logger.warning(
+                    f"[LOCK] Unexpected error acquiring lock {lock_path}: {e}"
+                )
             return None
 
     def _release_lock(self, lock_path):

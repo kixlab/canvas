@@ -1088,19 +1088,16 @@ class ImpAndClassifGenerator(Sequence):
         if self.extra_imgs is not None:
             # Sample a new set of extra images
             extra_imgs_this_epoch = self.extra_imgs[
-                self.extra_idx
-                * self.extras_per_epoch : (self.extra_idx + 1)
+                self.extra_idx * self.extras_per_epoch : (self.extra_idx + 1)
                 * self.extras_per_epoch
             ]
             extra_imps_this_epoch = self.extra_imps[
-                self.extra_idx
-                * self.extras_per_epoch : (self.extra_idx + 1)
+                self.extra_idx * self.extras_per_epoch : (self.extra_idx + 1)
                 * self.extras_per_epoch
             ]
             if self.extra_fixs is not None:
                 extra_fixs_this_epoch = self.extra_fixs[
-                    self.extra_idx
-                    * self.extras_per_epoch : (self.extra_idx + 1)
+                    self.extra_idx * self.extras_per_epoch : (self.extra_idx + 1)
                     * self.extras_per_epoch
                 ]
             else:

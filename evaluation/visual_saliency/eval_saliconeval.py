@@ -1,6 +1,7 @@
 """
-Eval functions used by the SUN 2017 challenge. 
+Eval functions used by the SUN 2017 challenge.
 """
+
 import numpy as np
 import scipy
 from sal_imp_utilities import *

@@ -93,9 +93,9 @@ def cc_npy(gt, predicted):
 
 
 def nss_npy(gt_locs, predicted_map):
-    assert (
-        gt_locs.shape == predicted_map.shape
-    ), "dim missmatch in nss_npy: %s vs %s" % (gt_locs.shape, predicted_map.shape)
+    assert gt_locs.shape == predicted_map.shape, (
+        "dim missmatch in nss_npy: %s vs %s" % (gt_locs.shape, predicted_map.shape)
+    )
     predicted_map_norm = (predicted_map - np.mean(predicted_map)) / np.std(
         predicted_map
     )
@@ -390,7 +390,9 @@ def get_stats_multiduration(
             gt_fix_points_batch = [gt_fix_points_batch]
             names_batch = [name]
 
-        pred_batch = model.predict(imgs)[
+        pred_batch = model.predict(
+            imgs
+        )[
             0
         ]  # the model outputs 4 maps (one for each loss), we take the first one as they're all the same here
 

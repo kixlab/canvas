@@ -1,5 +1,9 @@
 from evaluation.metrics import register_metric
-from evaluation.metrics.perceptual_similarity.pattern_level.saliency_helpers import similarity, predict_saliency_map_pair
+from evaluation.metrics.perceptual_similarity.pattern_level.saliency_helpers import (
+    similarity,
+    predict_saliency_map_pair,
+)
+
 
 @register_metric("saliency_sim")
 def _saliency_sim(gt_img: str, gen_img: str, **kwargs):
@@ -11,4 +15,4 @@ def _saliency_sim(gt_img: str, gen_img: str, **kwargs):
         score = similarity(gt_sal, gen_sal)
         return {"saliency_sim": round(score, 4)}
     except Exception:
-        return {"saliency_sim": None} 
+        return {"saliency_sim": None}

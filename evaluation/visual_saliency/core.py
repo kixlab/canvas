@@ -236,7 +236,7 @@ def save_saliency_outputs(
     axes[1].set_title("GT overlay")
     axes[2].imshow(gen_ov_rgb)
     axes[2].set_title(
-        f"Gen overlay\nCC={round(cc(gt_sal, gen_sal),4)}  SIM={round(similarity(gt_sal, gen_sal),4)}  KL={round(kl_divergence(gt_sal, gen_sal),4)}"
+        f"Gen overlay\nCC={round(cc(gt_sal, gen_sal), 4)}  SIM={round(similarity(gt_sal, gen_sal), 4)}  KL={round(kl_divergence(gt_sal, gen_sal), 4)}"
     )
 
     for ax in axes:

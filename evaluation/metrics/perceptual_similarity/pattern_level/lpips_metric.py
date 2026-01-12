@@ -20,7 +20,7 @@ def _numpy_to_tensor(image: np.ndarray) -> torch.Tensor:
 def _lpips(gt_img: str, gen_img: str, model=None, **kwargs):
     """
     Computes the LPIPS between two images.
-    
+
     Args:
         gt_img: Path to ground truth image
         gen_img: Path to generated image
@@ -34,7 +34,10 @@ def _lpips(gt_img: str, gen_img: str, model=None, **kwargs):
         gen_pil = Image.open(gen_img).convert("RGB")
 
         if gt_pil.size != gen_pil.size:
-            min_size = (min(gt_pil.width, gen_pil.width), min(gt_pil.height, gen_pil.height))
+            min_size = (
+                min(gt_pil.width, gen_pil.width),
+                min(gt_pil.height, gen_pil.height),
+            )
             gt_pil = gt_pil.resize(min_size)
             gen_pil = gen_pil.resize(min_size)
 
@@ -51,4 +54,4 @@ def _lpips(gt_img: str, gen_img: str, model=None, **kwargs):
         return {"lpips": round(float(distance.squeeze().item()), 4)}
 
     except Exception:
-        return {"lpips": None} 
+        return {"lpips": None}

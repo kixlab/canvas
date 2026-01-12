@@ -1,5 +1,9 @@
 from evaluation.metrics import register_metric
-from evaluation.metrics.perceptual_similarity.pattern_level.saliency_helpers import cc, predict_saliency_map_pair
+from evaluation.metrics.perceptual_similarity.pattern_level.saliency_helpers import (
+    cc,
+    predict_saliency_map_pair,
+)
+
 
 @register_metric("saliency_cc")
 def _saliency_cc(gt_img: str, gen_img: str, **kwargs):

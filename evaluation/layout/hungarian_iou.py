@@ -5,8 +5,9 @@ import cv2
 from typing import List, Dict, Tuple
 from scipy.optimize import linear_sum_assignment
 
+
 # ---------- Helper: Visualization ----------
-def draw_boxes_on_image_gt(img_path, boxes, color=(0,255,0), label_prefix=""):
+def draw_boxes_on_image_gt(img_path, boxes, color=(0, 255, 0), label_prefix=""):
     if not os.path.exists(img_path):
         return None
     img = cv2.imread(img_path)
@@ -14,16 +15,24 @@ def draw_boxes_on_image_gt(img_path, boxes, color=(0,255,0), label_prefix=""):
         return None
     h, w = img.shape[:2]
     for b in boxes:
-        x1, y1 = int(b['x'] * w), int(b['y'] * h)
-        x2, y2 = int((b['x']+b['width']) * w), int((b['y']+b['height']) * h)
-        cv2.rectangle(img, (x1,y1), (x2,y2), color, 2)
-        name = b.get('name', '')
-        typ = b.get('type', '')
-        cv2.putText(img, f"{label_prefix}{name}:{typ}", (x1, max(10,y1-4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+        x1, y1 = int(b["x"] * w), int(b["y"] * h)
+        x2, y2 = int((b["x"] + b["width"]) * w), int((b["y"] + b["height"]) * h)
+        cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+        name = b.get("name", "")
+        typ = b.get("type", "")
+        cv2.putText(
+            img,
+            f"{label_prefix}{name}:{typ}",
+            (x1, max(10, y1 - 4)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.4,
+            color,
+            1,
+        )
     return img
 
 
-def draw_boxes_on_image_gen(img_path, boxes, color=(0,255,0), label_prefix=""):
+def draw_boxes_on_image_gen(img_path, boxes, color=(0, 255, 0), label_prefix=""):
     if not os.path.exists(img_path):
         return None
     img = cv2.imread(img_path)
@@ -46,11 +55,20 @@ def draw_boxes_on_image_gen(img_path, boxes, color=(0,255,0), label_prefix=""):
             y2 = int((b["y"] + b["height"]) * h)
 
         cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
-        name = b.get('name', '')
-        typ = b.get('type', '')
-        cv2.putText(img, f"{label_prefix}{name}:{typ}", (x1, max(10,y1-4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+        name = b.get("name", "")
+        typ = b.get("type", "")
+        cv2.putText(
+            img,
+            f"{label_prefix}{name}:{typ}",
+            (x1, max(10, y1 - 4)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.4,
+            color,
+            1,
+        )
 
     return img
+
 
 # ---------- Robust BBox Extraction ----------
 def extract_boxes_from_node(node: Dict, results: List[Dict], depth=0):
@@ -67,18 +85,21 @@ def extract_boxes_from_node(node: Dict, results: List[Dict], depth=0):
             "y": box["y"],
             "width": box["width"],
             "height": box["height"],
-            "depth": depth
+            "depth": depth,
         }
         if render_box:
-            result.update({
-                "render_x": render_box["x"],
-                "render_y": render_box["y"],
-                "render_width": render_box["width"],
-                "render_height": render_box["height"]
-            })
+            result.update(
+                {
+                    "render_x": render_box["x"],
+                    "render_y": render_box["y"],
+                    "render_width": render_box["width"],
+                    "render_height": render_box["height"],
+                }
+            )
         results.append(result)
     for child in node.get("children", []):
-        extract_boxes_from_node(child, results, depth+1)
+        extract_boxes_from_node(child, results, depth + 1)
+
 
 def find_root_frame(node: Dict) -> Dict:
     if "absoluteBoundingBox" in node and node.get("type") in ["FRAME", "CANVAS"]:
@@ -88,6 +109,7 @@ def find_root_frame(node: Dict) -> Dict:
         if frame:
             return frame
     return None
+
 
 def load_boxes_from_json(json_path: str) -> Tuple[List[Dict], Dict]:
     with open(json_path, "r") as f:
@@ -119,6 +141,7 @@ def load_boxes_from_json(json_path: str) -> Tuple[List[Dict], Dict]:
 
     return results, frame
 
+
 # ---------- IoU Matching Only ----------
 def compute_iou(boxA: Dict, boxB: Dict) -> float:
     xA = max(boxA["x"], boxB["x"])
@@ -131,13 +154,14 @@ def compute_iou(boxA: Dict, boxB: Dict) -> float:
     unionArea = boxAArea + boxBArea - interArea
     return interArea / unionArea if unionArea > 0 else 0.0
 
+
 def compute_layout_iou(
     gt_json: str,
     gen_json: str,
     out_dir: str = None,
     case_id: str = "caseX",
     gt_img_path=None,
-    gen_img_path=None
+    gen_img_path=None,
 ) -> Dict[str, float]:
     if out_dir:
         os.makedirs(os.path.join(out_dir, case_id), exist_ok=True)
@@ -185,25 +209,43 @@ def compute_layout_iou(
         # Draw GT + Gen with matched/unmatched
         if gt_img_path and os.path.exists(gt_img_path):
             gt_img_boxes = [gt_boxes[i] for i, _, _ in matched_pairs] + unmatched_gt
-            img = draw_boxes_on_image_gt(gt_img_path, gt_img_boxes, (0,255,0), label_prefix="GT_")
+            img = draw_boxes_on_image_gt(
+                gt_img_path, gt_img_boxes, (0, 255, 0), label_prefix="GT_"
+            )
             if img is not None:
                 cv2.imwrite(os.path.join(out_dir, case_id, f"gt_boxes.jpg"), img)
         if gen_img_path and os.path.exists(gen_img_path):
             gen_img_boxes = [gen_boxes[j] for _, j, _ in matched_pairs] + unmatched_gen
-            img = draw_boxes_on_image_gen(gen_img_path, gen_img_boxes, (255,0,0), label_prefix="GEN_")
+            img = draw_boxes_on_image_gen(
+                gen_img_path, gen_img_boxes, (255, 0, 0), label_prefix="GEN_"
+            )
             if img is not None:
                 cv2.imwrite(os.path.join(out_dir, case_id, f"gen_boxes.jpg"), img)
 
         # Save JSON for interpretability
         def boxes_to_dicts(boxes):
-            return [{"name": b.get("name"),"name": b.get("name"), "type": b.get("type"), "x": b["x"], "y": b["y"], "w": b["width"], "h": b["height"], "depth": b["depth"]} for b in boxes]
+            return [
+                {
+                    "name": b.get("name"),
+                    "name": b.get("name"),
+                    "type": b.get("type"),
+                    "x": b["x"],
+                    "y": b["y"],
+                    "w": b["width"],
+                    "h": b["height"],
+                    "depth": b["depth"],
+                }
+                for b in boxes
+            ]
+
         summary = {
             "matched_pairs": [
                 {
                     "gt": boxes_to_dicts([gt_boxes[i]])[0],
                     "gen": boxes_to_dicts([gen_boxes[j]])[0],
-                    "iou": round(iou,3)
-                } for (i,j,iou) in matched_pairs
+                    "iou": round(iou, 3),
+                }
+                for (i, j, iou) in matched_pairs
             ],
             "unmatched_gt": boxes_to_dicts(unmatched_gt),
             "unmatched_gen": boxes_to_dicts(unmatched_gen),
@@ -212,7 +254,7 @@ def compute_layout_iou(
             "recall": round(recall, 4),
             "num_gt": n_gt,
             "num_gen": n_gen,
-            "num_matched": len(matched_pairs)
+            "num_matched": len(matched_pairs),
         }
         with open(os.path.join(out_dir, case_id, "layout_iou_report.json"), "w") as f:
             json.dump(summary, f, indent=2)
@@ -226,5 +268,5 @@ def compute_layout_iou(
         "precision": round(precision, 4),
         "recall": round(recall, 4),
         "num_unmatched_gt": len(unmatched_gt),
-        "num_unmatched_gen": len(unmatched_gen)
+        "num_unmatched_gen": len(unmatched_gen),
     }

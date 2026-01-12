@@ -5,7 +5,12 @@ import os
 import cv2
 import numpy as np
 from scipy.optimize import linear_sum_assignment
-from evaluation.layout.hungarian_iou import load_boxes_from_json, compute_iou, draw_boxes_on_image_gt, draw_boxes_on_image_gen
+from evaluation.layout.hungarian_iou import (
+    load_boxes_from_json,
+    compute_iou,
+    draw_boxes_on_image_gt,
+    draw_boxes_on_image_gen,
+)
 
 TOLERANCE: float = 0.02
 MIN_ELEMENTS_PER_GROUP = 2
@@ -14,6 +19,7 @@ AlignmentGroup = Dict[str, Any]
 
 
 # --------------------------- Alignment group detection --------------------------- #
+
 
 def _round_coord(coord: float, tol: float) -> int:
     """Convert a coordinate to an integer bucket index based on tolerance."""
@@ -29,7 +35,9 @@ def _union_bbox(boxes: Sequence[Dict]) -> Tuple[float, float, float, float]:
     return min_x, min_y, max_x - min_x, max_y - min_y
 
 
-def build_alignment_groups(json_path: str, tol: float = TOLERANCE) -> List[AlignmentGroup]:
+def build_alignment_groups(
+    json_path: str, tol: float = TOLERANCE
+) -> List[AlignmentGroup]:
     """Extract alignment groups from a Figma JSON file."""
     boxes, _frame = load_boxes_from_json(json_path)  # 정규화 좌표 (0-1)
 
@@ -57,25 +65,30 @@ def build_alignment_groups(json_path: str, tol: float = TOLERANCE) -> List[Align
         if len(members) < MIN_ELEMENTS_PER_GROUP:
             continue  # skip tiny groups
         x, y, w, h = _union_bbox(members)
-        groups.append({
-            "alignment_type": atype,  # e.g., "x_left", "y_center"
-            "x": x,
-            "y": y,
-            "width": w,
-            "height": h,
-            "members": members,
-        })
+        groups.append(
+            {
+                "alignment_type": atype,  # e.g., "x_left", "y_center"
+                "x": x,
+                "y": y,
+                "width": w,
+                "height": h,
+                "members": members,
+            }
+        )
 
     return groups
 
 
 # ------------------------- Hungarian matching & evaluation -------------------------- #
 
+
 def _bbox_iou(a: AlignmentGroup, b: AlignmentGroup) -> float:
     return compute_iou(a, b)  # type: ignore[arg-type]
 
 
-def match_alignment_groups(gt_groups: List[AlignmentGroup], gen_groups: List[AlignmentGroup]):
+def match_alignment_groups(
+    gt_groups: List[AlignmentGroup], gen_groups: List[AlignmentGroup]
+):
     n_gt, n_gen = len(gt_groups), len(gen_groups)
     if n_gt == 0 or n_gen == 0:
         return [], []
@@ -89,11 +102,14 @@ def match_alignment_groups(gt_groups: List[AlignmentGroup], gen_groups: List[Ali
             cost[i, j] = 1 - iou
 
     row_ind, col_ind = linear_sum_assignment(cost)
-    matched_pairs = [(i, j, iou_mat[i, j]) for i, j in zip(row_ind, col_ind) if iou_mat[i, j] > 0.0]
+    matched_pairs = [
+        (i, j, iou_mat[i, j]) for i, j in zip(row_ind, col_ind) if iou_mat[i, j] > 0.0
+    ]
     return matched_pairs, iou_mat
 
 
 # --------------------------- 메인 Metric 함수 --------------------------- #
+
 
 def compute_alignment_score(
     gt_json_path: str,
@@ -120,25 +136,50 @@ def compute_alignment_score(
 
     precision = correct / len(gen_groups) if gen_groups else 1.0
     recall = correct / len(gt_groups) if gt_groups else 1.0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    f1 = (
+        2 * precision * recall / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
 
     # -------------------- Visualization (optional) -------------------- #
     if out_dir:
         os.makedirs(os.path.join(out_dir, case_id), exist_ok=True)
 
         def _group_to_box(g: AlignmentGroup):
-            return {"x": g["x"], "y": g["y"], "width": g["width"], "height": g["height"], "name": g["alignment_type"], "type": "ALIGN"}
+            return {
+                "x": g["x"],
+                "y": g["y"],
+                "width": g["width"],
+                "height": g["height"],
+                "name": g["alignment_type"],
+                "type": "ALIGN",
+            }
 
         # GT visualization
         if gt_img_path and os.path.exists(gt_img_path):
-            img = draw_boxes_on_image_gt(gt_img_path, [_group_to_box(g) for g in gt_groups], (0, 255, 0), label_prefix="GT_")
+            img = draw_boxes_on_image_gt(
+                gt_img_path,
+                [_group_to_box(g) for g in gt_groups],
+                (0, 255, 0),
+                label_prefix="GT_",
+            )
             if img is not None:
-                cv2.imwrite(os.path.join(out_dir, case_id, "gt_alignment_groups.jpg"), img)
+                cv2.imwrite(
+                    os.path.join(out_dir, case_id, "gt_alignment_groups.jpg"), img
+                )
         # Gen visualization
         if gen_img_path and os.path.exists(gen_img_path):
-            img = draw_boxes_on_image_gen(gen_img_path, [_group_to_box(g) for g in gen_groups], (255, 0, 0), label_prefix="GEN_")
+            img = draw_boxes_on_image_gen(
+                gen_img_path,
+                [_group_to_box(g) for g in gen_groups],
+                (255, 0, 0),
+                label_prefix="GEN_",
+            )
             if img is not None:
-                cv2.imwrite(os.path.join(out_dir, case_id, "gen_alignment_groups.jpg"), img)
+                cv2.imwrite(
+                    os.path.join(out_dir, case_id, "gen_alignment_groups.jpg"), img
+                )
 
         # Save matching report
         summary = {
@@ -154,12 +195,17 @@ def compute_alignment_score(
                     "gt": gt_groups[i]["alignment_type"],
                     "gen": gen_groups[j]["alignment_type"],
                     "iou": round(_iou, 3),
-                    "is_correct": gt_groups[i]["alignment_type"] == gen_groups[j]["alignment_type"],
+                    "is_correct": gt_groups[i]["alignment_type"]
+                    == gen_groups[j]["alignment_type"],
                 }
                 for i, j, _iou in matched_pairs
             ],
         }
-        with open(os.path.join(out_dir, case_id, "alignment_report.json"), "w", encoding="utf-8") as f:
+        with open(
+            os.path.join(out_dir, case_id, "alignment_report.json"),
+            "w",
+            encoding="utf-8",
+        ) as f:
             json.dump(summary, f, indent=2)
 
     return {

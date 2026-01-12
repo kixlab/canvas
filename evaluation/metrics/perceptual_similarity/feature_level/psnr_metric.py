@@ -6,6 +6,7 @@ from skimage.metrics import peak_signal_noise_ratio
 
 np.random.seed(42)
 
+
 @register_metric("psnr")
 def _psnr(gt_img: str, gen_img: str, **kwargs):
     """
@@ -20,7 +21,10 @@ def _psnr(gt_img: str, gen_img: str, **kwargs):
         gen_pil = Image.open(gen_img).convert("RGB")
 
         if gt_pil.size != gen_pil.size:
-            min_size = (min(gt_pil.width, gen_pil.width), min(gt_pil.height, gen_pil.height))
+            min_size = (
+                min(gt_pil.width, gen_pil.width),
+                min(gt_pil.height, gen_pil.height),
+            )
             gt_pil = gt_pil.resize(min_size)
             gen_pil = gen_pil.resize(min_size)
 
@@ -32,4 +36,4 @@ def _psnr(gt_img: str, gen_img: str, **kwargs):
         return {"psnr": round(float(psnr_score), 4)}
 
     except Exception:
-        return {"psnr": None} 
+        return {"psnr": None}

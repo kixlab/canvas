@@ -2,14 +2,16 @@ import re
 from typing import List, Dict, Set
 from collections import Counter
 
+
 def normalize_text(text: str) -> str:
     """Normalize text by lowercasing, removing punctuation, and standardizing whitespace."""
     if not isinstance(text, str):
         return ""
     text = text.lower()
-    text = re.sub(r'[^\w\s]', '', text)  # Remove all characters except alphanumeric and whitespace
-    text = re.sub(r'\s+', ' ', text).strip()  # Normalize multiple spaces to single space
+    text = re.sub(r"[^\w\s]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
     return text
+
 
 def _extract_text_frequencies(boxes: List[Dict]) -> Counter:
     """Extract normalized text frequencies from node list."""
@@ -21,7 +23,10 @@ def _extract_text_frequencies(boxes: List[Dict]) -> Counter:
                 text_counter[normalized] += 1
     return text_counter
 
-def compute_text_coverage_metrics(gt_boxes: List[Dict], gen_boxes: List[Dict]) -> Dict[str, float]:
+
+def compute_text_coverage_metrics(
+    gt_boxes: List[Dict], gen_boxes: List[Dict]
+) -> Dict[str, float]:
     """
     Compute text coverage metrics (Precision, Recall, F1) by comparing GT and generated text sets.
     Uses frequency-based calculation for accurate assessment.
@@ -29,7 +34,6 @@ def compute_text_coverage_metrics(gt_boxes: List[Dict], gen_boxes: List[Dict]) -
     gt_text_freq = _extract_text_frequencies(gt_boxes)
     gen_text_freq = _extract_text_frequencies(gen_boxes)
 
-    # Handle edge case when GT has no text
     if not gt_text_freq:
         return {
             "precision": 1.0 if not gen_text_freq else 0.0,
@@ -37,7 +41,6 @@ def compute_text_coverage_metrics(gt_boxes: List[Dict], gen_boxes: List[Dict]) -
             "f1_score": 1.0 if not gen_text_freq else 0.0,
         }
 
-    # Calculate correctly generated count for each text
     correctly_generated_count = 0
     total_gt_count = sum(gt_text_freq.values())
     total_gen_count = sum(gen_text_freq.values())
@@ -46,13 +49,19 @@ def compute_text_coverage_metrics(gt_boxes: List[Dict], gen_boxes: List[Dict]) -
         gen_count = gen_text_freq.get(text, 0)
         correctly_generated_count += min(gt_count, gen_count)
 
-    precision = correctly_generated_count / total_gen_count if total_gen_count > 0 else 0.0
+    precision = (
+        correctly_generated_count / total_gen_count if total_gen_count > 0 else 0.0
+    )
     recall = correctly_generated_count / total_gt_count if total_gt_count > 0 else 0.0
-    
-    f1_score = (2 * precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+
+    f1_score = (
+        (2 * precision * recall) / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
 
     return {
         "precision": precision,
         "recall": recall,
         "f1_score": f1_score,
-    } 
+    }

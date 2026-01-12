@@ -25,8 +25,8 @@ def load_and_normalize_boxes(json_path: Path) -> Tuple[List[Dict], Dict]:
         raise ValueError(f"Unsupported Figma JSON structure in {json_path}.")
 
     def find_root_frame(node: Dict) -> Dict:
+        """Find root frame node in Figma document structure."""
         if node.get("type") == "CANVAS" and node.get("children"):
-            # Usually the first child of canvas is the main frame
             for child in node["children"]:
                 if child.get("type") == "FRAME":
                     return child
@@ -40,16 +40,19 @@ def load_and_normalize_boxes(json_path: Path) -> Tuple[List[Dict], Dict]:
 
     root_frame_node = find_root_frame(root)
     if not root_frame_node or "absoluteBoundingBox" not in root_frame_node:
-        # Use canvas itself as root frame
         if "absoluteBoundingBox" in root:
-             root_frame_node = root
+            root_frame_node = root
         else:
-             raise ValueError(f"Could not find a root frame with absoluteBoundingBox in {json_path}.")
+            raise ValueError(
+                f"Could not find a root frame with absoluteBoundingBox in {json_path}."
+            )
 
     frame_bbox = root_frame_node["absoluteBoundingBox"]
 
     all_nodes: List[Dict] = []
+
     def extract_nodes_recursive(node: Dict):
+        """Recursively extract all visible nodes with bounding boxes."""
         if node.get("visible", True) is False:
             return
 
@@ -71,22 +74,31 @@ def load_and_normalize_boxes(json_path: Path) -> Tuple[List[Dict], Dict]:
         if not all(k in box for k in ["x", "y", "width", "height"]):
             continue
 
-        # Normalize coordinates
         norm_box = {
-            "x": (box["x"] - frame_bbox["x"]) / frame_bbox["width"] if frame_bbox["width"] > 0 else 0,
-            "y": (box["y"] - frame_bbox["y"]) / frame_bbox["height"] if frame_bbox["height"] > 0 else 0,
-            "width": box["width"] / frame_bbox["width"] if frame_bbox["width"] > 0 else 0,
-            "height": box["height"] / frame_bbox["height"] if frame_bbox["height"] > 0 else 0,
+            "x": (box["x"] - frame_bbox["x"]) / frame_bbox["width"]
+            if frame_bbox["width"] > 0
+            else 0,
+            "y": (box["y"] - frame_bbox["y"]) / frame_bbox["height"]
+            if frame_bbox["height"] > 0
+            else 0,
+            "width": box["width"] / frame_bbox["width"]
+            if frame_bbox["width"] > 0
+            else 0,
+            "height": box["height"] / frame_bbox["height"]
+            if frame_bbox["height"] > 0
+            else 0,
         }
 
-        extracted_boxes.append({
-            "id": node.get("id"),
-            "name": node.get("name", ""),
-            "type": node.get("type", ""),
-            "characters": node.get("characters"),
-            "fills": node.get("fills", []),
-            **norm_box
-        })
+        extracted_boxes.append(
+            {
+                "id": node.get("id"),
+                "name": node.get("name", ""),
+                "type": node.get("type", ""),
+                "characters": node.get("characters"),
+                "fills": node.get("fills", []),
+                **norm_box,
+            }
+        )
 
     return extracted_boxes, frame_bbox
 
@@ -113,7 +125,7 @@ def hungarian_bbox_matching(
     """Match boxes using Hungarian algorithm based on IoU cost matrix."""
     num_gt = len(gt_boxes)
     num_gen = len(gen_boxes)
-    
+
     if num_gt == 0 or num_gen == 0:
         return [], np.array([])
 
