@@ -1,13 +1,11 @@
-/* ---------- Types and Interfaces ---------- */
-
 export type Direction = 'incoming' | 'outgoing' | 'system';
 export type ProgressStatus = 'started' | 'in_progress' | 'completed' | 'error';
 
 export interface LogEntry {
-  timestamp: string; // ISO string
+  timestamp: string;
   direction: Direction;
-  type: string; // "websocket", "error", …
-  data: unknown; // arbitrary payload
+  type: string;
+  data: unknown;
 }
 
 export interface PendingRequest {

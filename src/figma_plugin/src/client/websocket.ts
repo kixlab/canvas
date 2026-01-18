@@ -9,7 +9,6 @@ import { ProgressData } from './types.js';
 import { generateId } from './utils.js';
 import { InternalFigmaMessageType } from '../types.js';
 
-// Type definitions to match socket server
 enum MessageSource {
   SOCKET_SERVER = 'socket_server',
   MCP_SERVER = 'mcp_server',
@@ -34,7 +33,35 @@ interface Message {
   payload?: any;
 }
 
-/* ---------- WebSocket Lifecycle ---------- */
+const logEntry = (direction: 'incoming' | 'system', type: string, data: unknown) =>
+  addLogEntry({
+    timestamp: new Date().toISOString(),
+    direction,
+    type,
+    data,
+  });
+
+const resetConnection = (message: string) => {
+  UIstate.connected = false;
+  UIstate.socket = null;
+  UIstate.joinedChannel = false;
+  UIstate.currentChannel = null;
+  updateConnectionStatus(false, message);
+  updateChannelSelectUI(false);
+};
+
+const notifyPlugin = (message: string) => {
+  parent.postMessage(
+    {
+      pluginMessage: {
+        type: InternalFigmaMessageType.NOTIFY,
+        message,
+      },
+    },
+    '*'
+  );
+};
+
 export async function connectToServer(port: number): Promise<void> {
   if (UIstate.connected && UIstate.socket) {
     updateConnectionStatus(true, 'Already connected to server');
@@ -57,34 +84,20 @@ export async function connectToServer(port: number): Promise<void> {
   socket.onmessage = (event: MessageEvent<string>) => {
     try {
       const message = JSON.parse(event.data) as Message;
-      /* Handle different message types */
       switch (message.type) {
         case MessageType.CONNECTION:
           updateConnectionStatus(true, `Connected to server on port ${port}`);
-          parent.postMessage(
-            {
-              pluginMessage: {
-                type: InternalFigmaMessageType.NOTIFY,
-                message: `Connected to server on port ${port}`,
-              },
-            },
-            '*'
-          );
+          notifyPlugin(`Connected to server on port ${port}`);
           break;
-
         case MessageType.GET_CHANNELS:
           handleChannelList(message.payload?.channels as string[]);
           break;
-
         case MessageType.JOIN_RESULT:
           handleJoinResult(message.payload);
           break;
-
         case MessageType.ERROR:
-          console.error('Error:', message.payload?.message);
           updateConnectionStatus(false, `Error: ${message.payload?.message}`);
           break;
-
         case MessageType.NOTIFY:
           if (
             UIstate.joinedChannel &&
@@ -93,14 +106,8 @@ export async function connectToServer(port: number): Promise<void> {
           ) {
             return;
           }
-          addLogEntry({
-            timestamp: new Date().toISOString(),
-            direction: 'system',
-            type: 'notification',
-            data: message.payload?.message || 'System notification',
-          });
+          logEntry('system', 'notification', message.payload?.message || '');
           break;
-
         case MessageType.TRANSMIT:
           if (
             UIstate.joinedChannel &&
@@ -111,41 +118,18 @@ export async function connectToServer(port: number): Promise<void> {
           }
           handleSocketMessage(message.payload);
           break;
-
         default:
-          console.warn('Unknown message type:', message.type);
+          break;
       }
 
-      /* Log the message */
-      addLogEntry({
-        timestamp: new Date().toISOString(),
-        direction: 'incoming',
-        type: 'websocket',
-        data: message,
-      });
+      logEntry('incoming', 'websocket', message);
     } catch (err) {
       console.error('Error parsing message:', err);
     }
   };
 
-  socket.onclose = () => {
-    UIstate.connected = false;
-    UIstate.socket = null;
-    UIstate.joinedChannel = false;
-    UIstate.currentChannel = null;
-    updateConnectionStatus(false, 'Disconnected from server');
-    updateChannelSelectUI(false);
-  };
-
-  socket.onerror = (err) => {
-    console.error('WebSocket error:', err);
-    UIstate.connected = false;
-    UIstate.socket = null;
-    UIstate.joinedChannel = false;
-    UIstate.currentChannel = null;
-    updateConnectionStatus(false, 'Connection error');
-    updateChannelSelectUI(false);
-  };
+  socket.onclose = () => resetConnection('Disconnected from server');
+  socket.onerror = () => resetConnection('Connection error');
 }
 
 export function disconnectFromServer(): void {
@@ -166,9 +150,7 @@ function requestAvailableChannels(): void {
   const message: Message = {
     source: MessageSource.FIGMA_CLIENT,
     type: MessageType.GET_CHANNELS,
-    payload: {
-      id: generateId(),
-    },
+    payload: { id: generateId() },
   };
 
   UIstate.socket.send(JSON.stringify(message));
@@ -176,12 +158,7 @@ function requestAvailableChannels(): void {
 
 function handleChannelList(channels: string[]): void {
   if (!Array.isArray(channels) || channels.length === 0) {
-    addLogEntry({
-      timestamp: new Date().toISOString(),
-      direction: 'system',
-      type: 'warning',
-      data: 'No channels available from server',
-    });
+    logEntry('system', 'warning', 'No channels available from server');
     return;
   }
 
@@ -200,19 +177,17 @@ function handleJoinResult(payload: any): void {
       true,
       `Connected on port ${UIstate.serverPort}, joined channel: ${UIstate.currentChannel}`
     );
-    addLogEntry({
-      timestamp: new Date().toISOString(),
-      direction: 'system',
-      type: 'channel',
-      data: `Successfully joined channel: ${UIstate.currentChannel}`,
-    });
+    logEntry(
+      'system',
+      'channel',
+      `Successfully joined channel: ${UIstate.currentChannel}`
+    );
   } else {
-    addLogEntry({
-      timestamp: new Date().toISOString(),
-      direction: 'system',
-      type: 'error',
-      data: `Failed to join channel: ${payload?.error ?? 'Unknown error'}`,
-    });
+    logEntry(
+      'system',
+      'error',
+      `Failed to join channel: ${payload?.error ?? 'Unknown error'}`
+    );
   }
 }
 
@@ -240,7 +215,6 @@ export function joinChannel(): void {
   };
 
   UIstate.socket.send(JSON.stringify(message));
-
   updateConnectionStatus(
     true,
     `Connected to server, joining channel: ${UIstate.currentChannel}…`
@@ -275,7 +249,6 @@ export async function sendCommand(
 
     UIstate.socket.send(JSON.stringify(message));
 
-    /* timeout fallback */
     setTimeout(() => {
       if (UIstate.pendingRequests.has(id)) {
         UIstate.pendingRequests.delete(id);
@@ -346,7 +319,7 @@ async function handleSocketMessage(payload: any): Promise<void> {
     } catch (err) {
       sendErrorResponse(
         data.id,
-        (err as Error).message ?? 'Error executing command'
+        err instanceof Error ? err.message : 'Error executing command'
       );
     }
   }

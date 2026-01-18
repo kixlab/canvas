@@ -3,11 +3,11 @@ export function generateId(): string {
 }
 
 export function uint8ToPngDataUrlSync(u8Arr: Uint8Array): string {
-  const CHUNK = 0x8000; // 32 KB
+  const chunkSize = 0x8000;
   let binary = '';
-  for (let i = 0; i < u8Arr.length; i += CHUNK) {
-    const slice = u8Arr.subarray(i, Math.min(i + CHUNK, u8Arr.length));
+  for (let i = 0; i < u8Arr.length; i += chunkSize) {
+    const slice = u8Arr.subarray(i, Math.min(i + chunkSize, u8Arr.length));
     binary += String.fromCharCode(...slice);
   }
-  return window.btoa(binary); // if you need the full data-URL, prepend 'data:image/png;base64,'
+  return window.btoa(binary);
 }
