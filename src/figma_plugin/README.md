@@ -11,7 +11,7 @@ src/
 ├── ui.html              # Plugin UI interface
 ├── styles.css           # Plugin styling
 ├── manifest.json        # Figma plugin manifest
-└── code/
+├── engine/
     ├── handlers.ts      # Command handling logic
     ├── figma-api.ts     # Figma API utilities
     ├── types.ts         # TypeScript type definitions
@@ -26,6 +26,11 @@ src/
         ├── operationCommands.ts
         ├── styleCommands.ts
         └── textCommands.ts
+└── client/
+    ├── ui.ts            # UI logic and handlers
+    ├── websocket.ts     # Socket client
+    ├── types.ts         # UI types
+    └── utils.ts         # UI utilities
 ```
 
 ## Development

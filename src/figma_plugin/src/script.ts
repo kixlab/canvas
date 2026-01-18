@@ -13,7 +13,7 @@ import {
   tabContents,
   btnClearLogs,
   btnClearLogsTab,
-} from './script/ui.js';
+} from './client/ui.js';
 import {
   connectToServer,
   disconnectFromServer,
@@ -21,23 +21,29 @@ import {
   sendSuccessResponse,
   sendErrorResponse,
   sendProgressUpdateToServer,
-} from './script/websocket.js';
+} from './client/websocket.js';
 import { InternalFigmaMessageType } from './types.js';
 
-/* ---------- UI Event Wiring ---------- */
+const setStatus = (connected: boolean, message: string, className = 'status') => {
+  updateConnectionStatus(connected, message);
+  connectionStatus.className = className;
+};
+
+const setActiveTab = (activeTab: HTMLElement) => {
+  tabs.forEach((tab) => tab.classList.remove('active'));
+  tabContents.forEach((content) => content.classList.remove('active'));
+  activeTab.classList.add('active');
+  const contentId = `content-${activeTab.id.split('-')[1]}`;
+  document.getElementById(contentId)?.classList.add('active');
+};
+
 channelSelect.addEventListener('change', () => {
   UIstate.currentChannel = channelSelect.value;
   joinChannel();
 });
 
 tabs.forEach((tab) => {
-  tab.addEventListener('click', () => {
-    tabs.forEach((t) => t.classList.remove('active'));
-    tabContents.forEach((c) => c.classList.remove('active'));
-    tab.classList.add('active');
-    const contentId = `content-${tab.id.split('-')[1]}`;
-    document.getElementById(contentId)?.classList.add('active');
-  });
+  tab.addEventListener('click', () => setActiveTab(tab));
 });
 
 btnClearLogs.addEventListener('click', clearLogs);
@@ -45,23 +51,18 @@ btnClearLogsTab.addEventListener('click', clearLogs);
 
 connectButton.addEventListener('click', () => {
   const port = Number.parseInt(portInput.value, 10) || 3055;
-  updateConnectionStatus(false, 'Connecting…');
-  connectionStatus.className = 'status info';
+  setStatus(false, 'Connecting…', 'status info');
   connectToServer(port);
 });
 
 disconnectButton.addEventListener('click', () => {
-  updateConnectionStatus(false, 'Disconnecting…');
-  connectionStatus.className = 'status info';
+  setStatus(false, 'Disconnecting…', 'status info');
   disconnectFromServer();
 });
 
-/* ---------- Bridge to Figma plugin ---------- */
 window.onmessage = (evt: MessageEvent) => {
-  const msg = (evt.data as any).pluginMessage;
+  const msg = (evt.data as any)?.pluginMessage;
   if (!msg) return;
-
-  console.log('Received message from plugin:', msg);
 
   switch (msg.type) {
     case InternalFigmaMessageType.UPDATE_SETTINGS:
@@ -86,7 +87,6 @@ window.onmessage = (evt: MessageEvent) => {
   }
 };
 
-/* ---------- Patch WebSocket.send for logging ---------- */
 const originalSend = WebSocket.prototype.send;
 WebSocket.prototype.send = function patchedSend(
   this: WebSocket,
@@ -98,6 +98,5 @@ WebSocket.prototype.send = function patchedSend(
     type: 'websocket',
     data,
   });
-  // @ts-expect-error -- apply needs correct overload
-  originalSend.apply(this, arguments);
+  originalSend.call(this, data as any);
 };

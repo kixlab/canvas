@@ -1,5 +1,8 @@
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   margin: 0;
   padding: 12px;
   color: #e0e0e0;
@@ -9,13 +12,19 @@ body {
   display: flex;
   flex-direction: column;
 }
-h1, h2 {
+h1,
+h2 {
   font-weight: 600;
   color: #ffffff;
   margin-bottom: 8px;
 }
-h1 { font-size: 16px; }
-h2 { font-size: 14px; margin-top: 16px; }
+h1 {
+  font-size: 16px;
+}
+h2 {
+  font-size: 14px;
+  margin-top: 16px;
+}
 button {
   background-color: #18a0fb;
   border: none;
@@ -56,8 +65,12 @@ button:disabled {
   color: #999;
   font-size: 9px;
 }
-.log-entry.incoming { color: #4ade80; }
-.log-entry.outgoing { color: #66b3ff; }
+.log-entry.incoming {
+  color: #4ade80;
+}
+.log-entry.outgoing {
+  color: #66b3ff;
+}
 .log-direction {
   display: inline-block;
   padding: 1px 3px;
@@ -116,19 +129,27 @@ label {
   border-radius: 4px;
   font-size: 13px;
 }
-.status.connected { background-color: #1a472a; color: #4ade80; }
-.status.disconnected { background-color: #471a1a; color: #ff9999; }
-.status.info { background-color: #1a3147; color: #66b3ff; }
-.section { margin-bottom: 16px; }
-.hidden { display: none; }
-.header {
-  display: flex;
-  align-items: center;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 12px;
-  color: #aaaaaa;
-  font-style: italic;
-  margin-bottom: 8px;
+.status.connected {
+  background-color: #1a472a;
+  color: #4ade80;
 }
-.operation-complete { color: #4ade80; }
-.operation-error { color: #ff9999; }
+.status.disconnected {
+  background-color: #471a1a;
+  color: #ff9999;
+}
+.status.info {
+  background-color: #1a3147;
+  color: #66b3ff;
+}
+.section {
+  margin-bottom: 16px;
+}
+.hidden {
+  display: none;
+}
+.operation-complete {
+  color: #4ade80;
+}
+.operation-error {
+  color: #ff9999;
+}

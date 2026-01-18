@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -8,9 +8,6 @@
   </head>
   <body>
     <div class="container">
-      <div class="header">
-        A machine tracing dreams
-      </div>
       <div class="tabs">
         <div id="tab-connection" class="tab active">Connection</div>
       </div>
@@ -37,19 +34,36 @@
         <div class="section">
           <label for="channel-select">Channel</label>
           <div style="display: flex; gap: 8px">
-            <select id="channel-select" style="flex-grow: 1; padding: 6px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px;" disabled>
+            <select
+              id="channel-select"
+              style="
+                flex-grow: 1;
+                padding: 6px;
+                background-color: #2d2d2d;
+                color: #e0e0e0;
+                border: 1px solid #444;
+                border-radius: 4px;
+              "
+              disabled
+            >
               <option value="">Fetching channels...</option>
             </select>
           </div>
         </div>
-        
-        
+
         <div id="connection-status" class="status disconnected">
           Not connected to server
         </div>
 
         <div class="section">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 6px;
+            "
+          >
             <h2>Logs</h2>
             <button id="btn-clear-logs" class="secondary">Clear</button>
           </div>
@@ -58,10 +72,33 @@
         <div id="progress-container" class="section hidden">
           <h2>Operation Progress</h2>
           <div id="progress-message">No operation in progress</div>
-          <div style="width: 100%; background-color: #444; border-radius: 4px; margin-top: 8px;">
-            <div id="progress-bar" style="width: 0%; height: 6px; background-color: #18a0fb; border-radius: 4px; transition: width 0.3s;"></div>
+          <div
+            style="
+              width: 100%;
+              background-color: #444;
+              border-radius: 4px;
+              margin-top: 8px;
+            "
+          >
+            <div
+              id="progress-bar"
+              style="
+                width: 0%;
+                height: 6px;
+                background-color: #18a0fb;
+                border-radius: 4px;
+                transition: width 0.3s;
+              "
+            ></div>
           </div>
-          <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px;">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              margin-top: 4px;
+              font-size: 11px;
+            "
+          >
             <div id="progress-status">Not started</div>
             <div id="progress-percentage">0%</div>
           </div>
@@ -71,15 +108,17 @@
       <div id="content-logs" class="tab-content">
         <div class="section">
           <h2>Communication Logs</h2>
-          <div style="display: flex; justify-content: flex-end; margin-bottom: 6px">
-            <button id="btn-clear-logs-tab" class="secondary">Clear Logs</button>
+          <div
+            style="display: flex; justify-content: flex-end; margin-bottom: 6px"
+          >
+            <button id="btn-clear-logs-tab" class="secondary">
+              Clear Logs
+            </button>
           </div>
           <div id="log-panel-tab" class="log-panel"></div>
         </div>
       </div>
     </div>
-    <script>
-
-    </script>
+    <script></script>
   </body>
 </html>

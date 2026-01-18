@@ -1,16 +1,27 @@
-// Entry point for Figma plugin
-import { handleCommand } from './code/handlers';
+import { handleCommand } from './engine/handlers';
 
-const internalState = {
-  serverPort: 3055 as number,
-};
+const state = { serverPort: 3055 };
 
 figma.showUI(__html__, { width: 350, height: 700 });
+
+const sendInitSettings = () => {
+  figma.ui.postMessage({
+    type: 'init-settings',
+    settings: { serverPort: state.serverPort },
+  });
+};
+
+const saveSettings = async (settings: { serverPort?: number }) => {
+  if (settings.serverPort) state.serverPort = settings.serverPort;
+  await figma.clientStorage.setAsync('settings', {
+    serverPort: state.serverPort,
+  });
+};
 
 figma.ui.onmessage = async (msg) => {
   switch (msg.type) {
     case 'update-settings':
-      updateSettings(msg);
+      await saveSettings(msg);
       break;
     case 'notify':
       figma.notify(msg.message);
@@ -21,11 +32,7 @@ figma.ui.onmessage = async (msg) => {
     case 'execute-command':
       try {
         const result = await handleCommand(msg.command, msg.params);
-        figma.ui.postMessage({
-          type: 'command-result',
-          id: msg.id,
-          result,
-        });
+        figma.ui.postMessage({ type: 'command-result', id: msg.id, result });
       } catch (error) {
         figma.ui.postMessage({
           type: 'command-error',
@@ -37,35 +44,15 @@ figma.ui.onmessage = async (msg) => {
   }
 };
 
-figma.on('run', ({ command }) => {
+figma.on('run', () => {
   figma.ui.postMessage({ type: 'auto-connect' });
 });
 
-function updateSettings(settings: { serverPort?: number }) {
-  if (settings.serverPort) {
-    internalState.serverPort = settings.serverPort;
-  }
-  figma.clientStorage.setAsync('settings', {
-    serverPort: internalState.serverPort,
-  });
-}
-
-(async function initializePlugin() {
+(async () => {
   try {
     const savedSettings = await figma.clientStorage.getAsync('settings');
-    if (savedSettings) {
-      if (savedSettings.serverPort) {
-        internalState.serverPort = savedSettings.serverPort;
-      }
-    }
-
-    // Send initial settings to UI
-    figma.ui.postMessage({
-      type: 'init-settings',
-      settings: {
-        serverPort: internalState.serverPort,
-      },
-    });
+    if (savedSettings?.serverPort) state.serverPort = savedSettings.serverPort;
+    sendInitSettings();
   } catch (error) {
     console.error('Error loading settings:', error);
   }
