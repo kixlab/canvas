@@ -9,7 +9,7 @@ import { Canvas, Image } from "@napi-rs/canvas";
 
 const COLORS = {
   GRAY: "\x1b[90m",
-  CLIENT: "\x1b[35m", // Magenta for client to distinguish from server (cyan)
+  CLIENT: "\x1b[35m",
   RESET: "\x1b[0m",
   ITALIC: "\x1b[3m",
   ERROR: "\x1b[31m",
@@ -22,41 +22,23 @@ const WARN_TAG = `[${COLORS.ITALIC}warn${COLORS.RESET}]`;
 const ERROR_TAG = `[${COLORS.ERROR}error${COLORS.RESET}]`;
 const LOG_TAG = `[${COLORS.ITALIC}log${COLORS.RESET}]`;
 
+type LogEntry = { header: string; body?: string };
+
+const writeLog =
+  (tag: string) =>
+  ({ header, body }: LogEntry) =>
+    process.stderr.write(
+      `${CLIENT_TAG}${tag} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    );
+
 export const logger = {
-  info: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `${CLIENT_TAG}${INFO_TAG} ${header}${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
-
-  debug: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `${CLIENT_TAG}${DEBUG_TAG} ${header}${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
-
-  warn: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `${CLIENT_TAG}${WARN_TAG} ${header}${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
-
-  error: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `${CLIENT_TAG}${ERROR_TAG} ${header}${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
-
-  log: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `${CLIENT_TAG}${LOG_TAG} ${header}${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
+  info: writeLog(INFO_TAG),
+  debug: writeLog(DEBUG_TAG),
+  warn: writeLog(WARN_TAG),
+  error: writeLog(ERROR_TAG),
+  log: writeLog(LOG_TAG),
 };
 
 export interface Message {
@@ -67,11 +49,7 @@ export interface Message {
 
 export function messageTypeToRole(message: any): string {
   if (!message) return "system";
-
-  if (message.role) {
-    return message.role;
-  }
-
+  if (message.role) return message.role;
   if (message.type) {
     switch (message.type) {
       case "human":
@@ -85,8 +63,7 @@ export function messageTypeToRole(message: any): string {
     }
   }
 
-  // Fallback based on constructor name or other properties
-  const className = message.constructor?.name || "";
+  const className = message.constructor?.name ?? "";
   if (className.includes("Human")) return "user";
   if (className.includes("AI")) return "assistant";
   if (className.includes("Tool")) return "tool";
@@ -105,32 +82,35 @@ export function createImageUrl(
   return `data:${mimeType};base64,${base64Data}`;
 }
 
+const DEFAULT_FRAME = { width: 393, height: 852 };
+
+const resolveImageSize = async (requestMessage: UserRequestMessage) => {
+  let width = DEFAULT_FRAME.width;
+  let height = DEFAULT_FRAME.height;
+
+  for (const content of requestMessage.content) {
+    if (content.type !== ContentType.IMAGE) continue;
+    const img = new Image();
+    img.src = `data:${content.mimeType};base64,${content.data}`;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = reject;
+    });
+    width = img.width;
+    height = img.height;
+    break;
+  }
+
+  return { width, height };
+};
+
 export const intializeMainScreenFrame = async (
   requestMessage: UserRequestMessage,
   tools: Tools
 ) => {
   try {
-    let canvasWidth = 393; // Default canvas width
-    let canvasHeight = 852; // Default canvas height
-
-    if (requestMessage.content.length > 0) {
-      for (const content of requestMessage.content) {
-        if (content.type === ContentType.IMAGE) {
-          const image = content.data;
-          const img = new Image();
-          img.src = `data:${content.mimeType};base64,${image}`;
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => {
-              canvasWidth = img.width;
-              canvasHeight = img.height;
-              resolve();
-            };
-            img.onerror = reject;
-          });
-          break;
-        }
-      }
-    }
+    const { width: canvasWidth, height: canvasHeight } =
+      await resolveImageSize(requestMessage);
 
     const initializeMainScreenFrameToolCall = tools.createToolCall(
       "create_frame",
@@ -170,12 +150,17 @@ export const intializeMainScreenFrame = async (
   }
 };
 
+const ALLOWED_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+] as const;
+
 export const reduceBase64Image = async (
   base64Image: string,
   mimeType: string = "image/png",
   maxHeight: number = 1024
 ): Promise<{ base64: string; width: number; height: number }> => {
-  // 1.  Load the image from the Base-64 string.
   const img = new Image();
   img.src = `data:${mimeType};base64,${base64Image}`;
 
@@ -183,14 +168,12 @@ export const reduceBase64Image = async (
     img.onload = () => {
       let { width, height } = img;
 
-      // 2.  Decide whether resizing is necessary.
       if (height > maxHeight) {
         const scale = maxHeight / height;
         width = Math.round(width * scale);
         height = maxHeight;
       }
 
-      // 3.  Draw (and implicitly resample) to a canvas.
       const canvas = new Canvas(width, height);
       const ctx = canvas.getContext("2d");
       if (!ctx) {
@@ -199,14 +182,9 @@ export const reduceBase64Image = async (
       }
       ctx.drawImage(img, 0, 0, width, height);
 
-      // 4. String type check.
-      const allowedMimeTypes = [
-        "image/png",
-        "image/jpeg",
-        "image/webp",
-      ] as const;
-      const safeMimeType = allowedMimeTypes.includes(mimeType as any)
-        ? (mimeType as "image/png" | "image/jpeg" | "image/webp")
+      // Canvas export only supports a limited set of mime types.
+      const safeMimeType = ALLOWED_MIME_TYPES.includes(mimeType as any)
+        ? (mimeType as (typeof ALLOWED_MIME_TYPES)[number])
         : "image/png";
       const resizedBase64 = canvas
         .toDataURL(safeMimeType)
@@ -218,6 +196,7 @@ export const reduceBase64Image = async (
     img.onerror = (err) => reject(new Error(`Failed to load image: ${err}`));
   });
 };
+
 const traverseTree = (node: any, elementTypes: Map<string, string>) => {
   if (node.id && node.type) {
     elementTypes.set(node.id, node.type);
@@ -229,6 +208,9 @@ const traverseTree = (node: any, elementTypes: Map<string, string>) => {
   }
 };
 
+const CORRECT_PARENT_TYPES = ["FRAME", "GROUP", "SECTION"];
+const DOCUMENT_TYPES = ["DOCUMENT", "PAGE"];
+
 export const switchParentId = async ({
   tools,
   callToolRequests,
@@ -238,10 +220,6 @@ export const switchParentId = async ({
   callToolRequests: CallToolRequestParams[];
   mainScreenFrameId: string;
 }) => {
-  const CORRECT_PARENT_TYPES = ["FRAME", "GROUP", "SECTION"];
-  const DOCUMENT_TYPES = ["DOCUMENT", "PAGE"];
-
-  // Build list of element with their types
   const getStructureCall = tools.createToolCall(
     "get_page_structure",
     randomUUID(),
@@ -271,7 +249,6 @@ export const switchParentId = async ({
       .get(toolCall.name)
       ?.inputSchema.properties!.hasOwnProperty("parentId");
 
-    // Parent ID Validation
     if (hasParentIdArg && toolArguments.parentId) {
       const parentId = toolArguments.parentId as string;
       const parentType = elementTypes.get(parentId);
@@ -285,7 +262,6 @@ export const switchParentId = async ({
         warning = `parentId ${parentId} is of forbidden type ${parentType}.`;
       }
 
-      // Parent ID Modification
       if (warning) {
         logger.warn({
           header: `Tool call ${toolCall.name}`,
@@ -296,7 +272,7 @@ export const switchParentId = async ({
       }
     }
 
-    // Parent ID Insertion
+    // Insert the main screen frame when parentId is missing.
     if (hasParentIdArg && !toolArguments.parentId) {
       toolArguments["parentId"] = mainScreenFrameId;
     }
@@ -326,7 +302,6 @@ export async function getPageStructure(tools: Tools): Promise<Object> {
   ) {
     throw new Error("Wrong structure format in the page structure response");
   }
-  // Find the Main Screen frame in the document structure
   const frameNode =
     documentStructureResult.structuredContent.document.children.find(
       (node: any) => node.name === "Main Screen"
@@ -336,13 +311,23 @@ export async function getPageStructure(tools: Tools): Promise<Object> {
     throw new Error("Main Screen frame not found in the page structure");
   }
 
-  // Convert the frame node to a JSON structure
   const structureJSON = {
     document: frameNode,
   };
 
   return structureJSON;
 }
+
+const extractStructureTree = (structuredContent: any) => {
+  // Responses may provide either structureTree or children.
+  if (Array.isArray(structuredContent?.structureTree)) {
+    return structuredContent.structureTree;
+  }
+  if (Array.isArray(structuredContent?.children)) {
+    return structuredContent.children;
+  }
+  return [];
+};
 
 export async function clearPage(tools: Tools): Promise<Array<any>> {
   const getPageStructureRequest = tools.createToolCall(
@@ -356,14 +341,7 @@ export async function clearPage(tools: Tools): Promise<Array<any>> {
     throw new Error("Failed to get page structure");
   }
 
-  const documentInfo = response.structuredContent || {};
-
-  const docAny = documentInfo as any;
-  const childrenArray = Array.isArray(docAny.structureTree)
-    ? docAny.structureTree
-    : Array.isArray(docAny.children)
-    ? docAny.children
-    : [];
+  const childrenArray = extractStructureTree(response.structuredContent);
 
   if (childrenArray.length === 0) {
     return [];
@@ -400,19 +378,8 @@ export async function isPageClear(tools: Tools): Promise<boolean> {
     throw new Error("Failed to get page structure");
   }
 
-  const documentInfo = response.structuredContent || {};
-
-  const docAny = documentInfo as any;
-  const childrenArray = Array.isArray(docAny.structureTree)
-    ? docAny.structureTree
-    : Array.isArray(docAny.children)
-    ? docAny.children
-    : [];
-
-  if (childrenArray.length === 0) {
-    return true;
-  }
-  return false;
+  const childrenArray = extractStructureTree(response.structuredContent);
+  return childrenArray.length === 0;
 }
 
 export async function getPageImage(tools: Tools): Promise<string> {

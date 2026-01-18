@@ -1,6 +1,6 @@
 import { Response } from "express";
 import { randomUUID } from "crypto";
-import { getTextImageBasedModificationPrompt } from "../utils/prompts";
+import { getModificationPrompt } from "../utils/prompts";
 import { base64Encode, logger, reduceBase64Image } from "../utils/helpers";
 import {
   AgentType,
@@ -109,11 +109,7 @@ export const runModification = async (
       originalBase64Image,
       mimeType
     );
-    const instruction = getTextImageBasedModificationPrompt(
-      message,
-      width,
-      height
-    );
+    const instruction = getModificationPrompt(message, width, height);
     const userRequest = buildUserRequest(instruction, {
       data: base64,
       mimeType,

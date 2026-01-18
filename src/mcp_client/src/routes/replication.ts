@@ -1,6 +1,6 @@
 import { Response } from "express";
 import { randomUUID } from "crypto";
-import { getImageBasedGenerationPrompt } from "../utils/prompts";
+import { getReplicationPrompt } from "../utils/prompts";
 import { base64Encode, logger, reduceBase64Image } from "../utils/helpers";
 import {
   AgentType,
@@ -105,7 +105,7 @@ export const runReplication = async (
       originalBase64Image,
       mimeType
     );
-    const instruction = getImageBasedGenerationPrompt(
+    const instruction = getReplicationPrompt(
       width,
       height,
       metadata.agent_type as AgentType
