@@ -1,4 +1,4 @@
-## Setting Up Bedrock Claude API
+## Setting Up Bedrock (Amazon) Claude
 
 - 1. Create an IAM credential (https://docs.aws.amazon.com/IAM/latest/UserGuide/getting-started-workloads.html).
 - 2. Collect the access keys from the IAM credential (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html).
@@ -8,7 +8,7 @@
 
 - 1. Setup a local Ollama server in the environment.
 - 2. Configure a localhost address and the port for the Ollama.
-- 3. Serve the Ollama server and define the Ollama address as an environment variable in the `.env` inside `src/mcp_client/src/.env`.
+- 3. Serve the Ollama server and define `OLLAMA_BASE_URL` in `src/mcp_client/src/.env` (required when using the Ollama provider).
 
 ## Environment variable structure
 
@@ -37,6 +37,14 @@ npm run dev ## for hot reloading
 npm run start -- --port=3001
 ```
 
+## Debug UI
+
+- Open `http://localhost:<PORT>` after running the server.
+- Use **Replication** for image-only replication.
+- Use **Modification** for image + instruction updates (requires `baseJsonString`).
+- The tool panel supports channel selection and basic canvas utility calls.
+- You can test individual examples with this client as well.
+
 ## Code structure
 
 ```
@@ -44,30 +52,36 @@ src/
 ├── app.ts              # Express server setup and initialization
 ├── types.ts            # TypeScript type definitions
 ├── agents/             # AI agent implementations
-│   ├── agentInstance.ts # Abstract base agent class
-│   ├── index.ts        # Agent exports
-│   ├── reactReplicationAgent.ts # ReAct replication agent
+│   ├── agentInstance.ts          # Base agent class
+│   ├── index.ts                  # Agent exports
+│   ├── reactReplicationAgent.ts  # ReAct replication agent
+│   ├── reactModificationAgent.ts # ReAct modification agent
+│   ├── singleReplicationAgent.ts # Single-turn replication agent
+│   ├── singleModificationAgent.ts # Single-turn modification agent
+│   ├── codeReplicationAgent.ts   # Code replication agent
 ├── core/               # Core functionality
 │   ├── session.ts      # Session management
 │   └── tools.ts        # Tool integration and execution
 ├── models/             # LLM model implementations
 │   ├── bedrockModel.ts # Bedrock/Claude integration
-│   ├── modelInstance.ts # Abstract model interface
+│   ├── modelInstance.ts # Base model interface
 │   ├── index.ts        # Model exports
-│   └── openaiModel.ts  # OpenAI integration
+│   ├── openaiModel.ts  # OpenAI integration
+│   ├── googleModel.ts  # Gemini integration
+│   └── ollamaModel.ts  # Ollama integration
 ├── routes/             # Express route handlers
-│   ├── replication.ts     # Content generation endpoints
-│   ├── index.ts        # Route configuration
-│   ├── modification.ts       # Content modification endpoints
+│   ├── replication.ts     # Replication endpoint
+│   ├── modification.ts    # Modification endpoint
+│   ├── index.ts           # Route configuration
 │   └── utility.ts      # Utility endpoints
 └── utils/              # Helper utilities
     ├── helpers.ts      # General helper functions
     └── prompts.ts      # Prompt templates
 ```
 
-## API Endpoint
+## API Endpoints
 
-### Replication Routes
+### Replication Route
 
 - **POST** `/replication`
   - Body: `image` (file), `metadata` (JSON string)
@@ -88,10 +102,10 @@ src/
     }
     ```
 
-### Modification Routes
+### Modification Route
 
 - **POST** `/modification`
-  - Body: `message` (string), `image` (file), `baseJsonString` (string), `metadata` (JSON string)
+  - Body: `message` (string), `image` (file), `baseJsonString` (string, required), `metadata` (JSON string)
   - Content-Type: `multipart/form-data`
   - **Response**:
     ```json
@@ -114,9 +128,9 @@ src/
 ```json
 {
   "case_id": "string",
-  "model_provider": "string",
+  "model_provider": "openai | google | amazon | ollama",
   "model_name": "string",
-  "agent_type": "string",
+  "agent_type": "react_replication | react_modification | code_replication | single_replication | single_modification",
   "temperature": "number",
   "input_cost": "number",
   "output_cost": "number",
@@ -204,48 +218,30 @@ src/
     }
     ```
 
-## Python Request Example
+## Expanding Model Types
+
+1. Add a model class under `src/mcp_client/src/models` that implements `ModelInstance`.
+2. Register the provider and model in `src/mcp_client/src/models/index.ts`.
+3. Add the provider enum value in `src/mcp_client/src/types.ts`.
+4. Add presets in the debug UI (`src/mcp_client/src/public/templates/index.html`) and experiments config if needed.
+
+## Python Request Examples
 
 ```python
-# Example 1: Text generation
-def generate_text_example():
-    url = f"{BASE_URL}/replication"
-
-    metadata = {
-        "case_id": "test_case_001",
-        "model_provider": "amazon",
-        "model_name": "claude-3-sonnet",
-        "agent_type": "react",
-        "temperature": 0.7,
-        "input_cost": 0.003,
-        "output_cost": 0.015,
-        "max_tokens": 1000,
-        "max_turns": 5,
-        "max_retries": 3
-    }
-
-    data = {
-        "message": "Create a simple button component",
-        "metadata": json.dumps(metadata)
-    }
-
-    response = requests.post(url, data=data)
-    return response.json()
-
-# Example 2: Image generation
+# Example 1: Image replication
 def generate_image_example():
     url = f"{BASE_URL}/replication"
 
     metadata = {
         "case_id": "test_case_002",
-        "model_provider": "amazon",
-        "model_name": "claude-3-sonnet",
-        "agent_type": "visual",
-        "temperature": 0.5,
-        "input_cost": 0.003,
-        "output_cost": 0.015,
-        "max_tokens": 1500,
-        "max_turns": 3
+        "model_provider": "openai",
+        "model_name": "gpt-4o-2024-08-06",
+        "agent_type": "react_replication",
+        "temperature": 0.0,
+        "input_cost": 0.0025,
+        "output_cost": 0.0125,
+        "max_tokens": 4096,
+        "max_turns": 100
     }
 
     files = {
@@ -259,20 +255,20 @@ def generate_image_example():
     response = requests.post(url, files=files, data=data)
     return response.json()
 
-# Example 3: Text + Image generation
-def generate_text_image_example():
-    url = f"{BASE_URL}/replication"
+# Example 2: Image modification
+def modify_image_example():
+    url = f"{BASE_URL}/modification"
 
     metadata = {
         "case_id": "test_case_003",
-        "model_provider": "openai",
-        "model_name": "gpt-4-vision-preview",
-        "agent_type": "visual",
-        "temperature": 0.8,
-        "input_cost": 0.01,
-        "output_cost": 0.03,
-        "max_tokens": 2000,
-        "max_turns": 4
+        "model_provider": "amazon",
+        "model_name": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "agent_type": "react_modification",
+        "temperature": 0.0,
+        "input_cost": 0.003,
+        "output_cost": 0.015,
+        "max_tokens": 8192,
+        "max_turns": 100
     }
 
     files = {
@@ -280,7 +276,8 @@ def generate_text_image_example():
     }
 
     data = {
-        "message": "Analyze this UI and suggest improvements",
+        "message": "Change the primary button to green and update the title text.",
+        "baseJsonString": "{\"document\": {\"id\": \"...\"}}",
         "metadata": json.dumps(metadata)
     }
 
