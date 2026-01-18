@@ -4,7 +4,6 @@ import { ResponseData, ResponseStatus } from "../types";
 import { globalSession } from "../core/session";
 import { clearPage, isPageClear, getPageImage, logger } from "../utils/helpers";
 
-// Helper function for common validation
 const validateTools = (res: Response<ResponseData>) => {
   if (!globalSession.state.tools) {
     res.status(400).json({

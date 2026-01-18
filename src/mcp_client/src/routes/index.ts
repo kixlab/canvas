@@ -1,39 +1,40 @@
 import { Router } from "express";
 import multer from "multer";
-import * as generateRoutes from "./generate";
-import * as modifyRoutes from "./modify";
+import * as replicationRoutes from "./replication";
+import * as modificationRoutes from "./modification";
 import * as toolRoutes from "./utility";
 
-// Configure multer for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit
-    fieldSize: 100 * 1024 * 1024, // 100MB limit
+    fileSize: 100 * 1024 * 1024,
+    fieldSize: 100 * 1024 * 1024,
   },
 });
 
 export const createRoutes = () => {
   const router = Router();
 
-  // Generation routes
-  router.post("/generate/text", upload.none(), generateRoutes.generateFromText);
   router.post(
-    "/generate/image",
-    upload.single("image"),
-    generateRoutes.generateFromImage
+    "/replication/text",
+    upload.none(),
+    replicationRoutes.replicationFromText
   );
   router.post(
-    "/generate/text-image",
+    "/replication/image",
     upload.single("image"),
-    generateRoutes.generateFromTextAndImage
+    replicationRoutes.replicationFromImage
   );
   router.post(
-    "/modify/text-image",
+    "/replication/text-image",
     upload.single("image"),
-    modifyRoutes.modifyFromTextAndImage
+    replicationRoutes.replicationFromTextAndImage
   );
-  // Tool routes
+  router.post(
+    "/modification/text-image",
+    upload.single("image"),
+    modificationRoutes.modificationFromTextAndImage
+  );
   router.post("/tool/get_selection", toolRoutes.getSelection);
   router.post(
     "/tool/delete_all_top_level_nodes",

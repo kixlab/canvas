@@ -164,13 +164,13 @@ class ReplicationExperiment(BaseExperiment):
         variant_value = variant.value
 
         if variant_value == ExperimentVariant.IMAGE_ONLY.value:
-            endpoint = "generate/image"
+            endpoint = "replication/image"
             message_text = None
         elif variant_value == ExperimentVariant.TEXT_LEVEL_1.value:
-            endpoint = "generate/text-image"
+            endpoint = "replication/text-image"
             message_text = meta_json.get("description_one", "")
         elif variant_value == ExperimentVariant.TEXT_LEVEL_2.value:
-            endpoint = "generate/text-image"
+            endpoint = "replication/text-image"
             message_text = meta_json.get("description_two", "")
         else:
             raise ValueError(f"Unknown variant: {variant_value}")

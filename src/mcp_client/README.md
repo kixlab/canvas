@@ -56,9 +56,9 @@ src/
 │   ├── index.ts        # Model exports
 │   └── openaiModel.ts  # OpenAI integration
 ├── routes/             # Express route handlers
-│   ├── generate.ts     # Content generation endpoints
+│   ├── replication.ts     # Content generation endpoints
 │   ├── index.ts        # Route configuration
-│   ├── modify.ts       # Content modification endpoints
+│   ├── modification.ts       # Content modification endpoints
 │   └── utility.ts      # Utility endpoints
 └── utils/              # Helper utilities
     ├── helpers.ts      # General helper functions
@@ -69,7 +69,7 @@ src/
 
 ### Generation Routes
 
-- **POST** `/generate/text`
+- **POST** `/replication/text`
   - Body: `message` (string), `metadata` (JSON string)
   - Content-Type: `application/x-www-form-urlencoded`
   - **Response**:
@@ -88,7 +88,7 @@ src/
     }
     ```
 
-- **POST** `/generate/image`
+- **POST** `/replication/image`
   - Body: `image` (file), `metadata` (JSON string)
   - Content-Type: `multipart/form-data`
   - **Response**:
@@ -107,7 +107,7 @@ src/
     }
     ```
 
-- **POST** `/generate/text-image`
+- **POST** `/replication/text-image`
   - Body: `message` (string), `image` (file), `metadata` (JSON string)
   - Content-Type: `multipart/form-data`
   - **Response**:
@@ -226,7 +226,7 @@ src/
 ```python
 # Example 1: Text generation
 def generate_text_example():
-    url = f"{BASE_URL}/generate/text"
+    url = f"{BASE_URL}/replication/text"
 
     metadata = {
         "case_id": "test_case_001",
@@ -251,7 +251,7 @@ def generate_text_example():
 
 # Example 2: Image generation
 def generate_image_example():
-    url = f"{BASE_URL}/generate/image"
+    url = f"{BASE_URL}/replication/image"
 
     metadata = {
         "case_id": "test_case_002",
@@ -278,7 +278,7 @@ def generate_image_example():
 
 # Example 3: Text + Image generation
 def generate_text_image_example():
-    url = f"{BASE_URL}/generate/text-image"
+    url = f"{BASE_URL}/replication/text-image"
 
     metadata = {
         "case_id": "test_case_003",

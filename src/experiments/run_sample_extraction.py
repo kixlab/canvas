@@ -98,13 +98,13 @@ class SampleExtractionExperiment(BaseExperiment):
 
     async def run_variant(self, session, image_path, meta_json, result_name, variant):
         if variant == "image_only":
-            endpoint = "generate/image"
+            endpoint = "replication/image"
             message_text = None
         elif variant == "text_level_1":
-            endpoint = "generate/text-image"
+            endpoint = "replication/text-image"
             message_text = meta_json.get("description_one", "")
         elif variant == "text_level_2":
-            endpoint = "generate/text-image"
+            endpoint = "replication/text-image"
             message_text = meta_json.get("description_two", "")
         else:
             raise ValueError(f"Unknown variant: {variant}")

@@ -1498,7 +1498,7 @@
                 formData.append('message', message);
                 formData.append('metadata', JSON.stringify(metadata));
 
-                const response = await fetch('/generate/text', {
+                const response = await fetch('/replication/text', {
                     method: 'POST',
                     body: formData,
                 });
@@ -1535,7 +1535,7 @@
                 formData.append('image', imageFile);
                 formData.append('metadata', JSON.stringify(metadata));
                 
-                const response = await fetch('/generate/image', {
+                const response = await fetch('/replication/image', {
                     method: 'POST',
                     body: formData,
                 });
@@ -1574,7 +1574,7 @@
                 formData.append('image', imageFile);
                 formData.append('metadata', JSON.stringify(metadata));
                 
-                const response = await fetch('/generate/text-image', {
+                const response = await fetch('/replication/text-image', {
                     method: 'POST',
                     body: formData,
                 });
@@ -1618,7 +1618,7 @@
                 formData.append('baseJsonString', baseJsonString);
                 formData.append('metadata', JSON.stringify(metadata));
                 
-                const response = await fetch('/modify/text-image', {
+                const response = await fetch('/modification/text-image', {
                     method: 'POST',
                     body: formData,
                 });
