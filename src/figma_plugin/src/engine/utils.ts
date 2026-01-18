@@ -103,7 +103,7 @@ function uniqBy<T, K extends PropertyKey>(
   const seen = new Map<K, T>();
 
   for (const item of arr) {
-    if (item == null) continue; // keep original null/undefined skip
+    if (item == null) continue;
     const key = cb(item);
     if (!seen.has(key)) seen.set(key, item);
   }
@@ -151,10 +151,10 @@ interface RangeItem {
   delimiter: string;
 }
 
+// Build font runs that preserve mixed font ranges across newlines/spaces.
 const buildLinearOrder = (node: TextNode): RangeItem[] => {
   const fontTree: FontRunInfo[] = [];
 
-  // Collect newline ranges first
   const newLinesPos = getDelimiterPos(node.characters, '\n');
 
   newLinesPos.forEach(([newLinesRangeStart, newLinesRangeEnd]) => {
@@ -164,7 +164,6 @@ const buildLinearOrder = (node: TextNode): RangeItem[] => {
     ) as FontName | typeof figma.mixed;
 
     if (newLinesRangeFont === figma.mixed) {
-      // If newline range itself is mixed, break it down by spaces
       const spacesPos = getDelimiterPos(
         node.characters,
         ' ',
@@ -179,7 +178,6 @@ const buildLinearOrder = (node: TextNode): RangeItem[] => {
         ) as FontName | typeof figma.mixed;
 
         if (spacesRangeFont === figma.mixed) {
-          // Edge case: single char – fall back to first-char font
           const firstCharFont = node.getRangeFontName(
             spacesRangeStart,
             spacesRangeStart + 1
@@ -200,7 +198,6 @@ const buildLinearOrder = (node: TextNode): RangeItem[] => {
         }
       });
     } else {
-      // Newline range is uniform
       fontTree.push({
         start: newLinesRangeStart,
         delimiter: '\n',
@@ -210,7 +207,6 @@ const buildLinearOrder = (node: TextNode): RangeItem[] => {
     }
   });
 
-  // Sort by start index, then strip to {family, style, delimiter}
   return fontTree
     .sort((a, b) => a.start - b.start)
     .map(({ family, style, delimiter }) => ({ family, style, delimiter }));
@@ -234,14 +230,11 @@ const setCharactersWithSmartMatchFont = async (
     ({ family, style }) => `${family}::${style}`
   ).map(({ family, style }) => ({ family, style }));
 
-  // Load every distinct font plus the fallback
   await Promise.all([...fontsToLoad, fallbackFont].map(figma.loadFontAsync));
 
-  // Apply fallback font globally, then set new characters
   node.fontName = fallbackFont;
   node.characters = characters;
 
-  // Walk through rangeTree and re-apply the per-range fonts
   let prevPos = 0;
   rangeTree.forEach(({ family, style, delimiter }) => {
     if (prevPos < node.characters.length) {
@@ -266,7 +259,6 @@ const setCharactersWithStrictMatchFont = async (
 ): Promise<boolean> => {
   const fontHashTree: Record<string, string> = {};
 
-  // Build a map { "startIdx_endIdx" → "Family::Style" } for each uniform run
   for (let i = 1; i < node.characters.length; i++) {
     const startIdx = i - 1;
     const startCharFont = node.getRangeFontName(startIdx, i) as FontName;
@@ -282,14 +274,12 @@ const setCharactersWithStrictMatchFont = async (
     fontHashTree[`${startIdx}_${i}`] = startCharFontVal;
   }
 
-  // Apply fallback font globally, then update characters
   await figma.loadFontAsync(fallbackFont);
   node.fontName = fallbackFont;
   node.characters = characters;
 
   console.log(fontHashTree);
 
-  // Restore original fonts for each contiguous run
   await Promise.all(
     Object.keys(fontHashTree).map(async (range) => {
       console.log(range, fontHashTree[range]);
@@ -308,8 +298,8 @@ const setCharactersWithStrictMatchFont = async (
 type SmartStrategy = 'prevail' | 'strict' | 'experimental';
 
 interface SmartFontOptions {
-  fallbackFont?: FontName; // e.g. { family: 'Inter', style: 'Regular' }
-  smartStrategy?: SmartStrategy; // strategy selector
+  fallbackFont?: FontName;
+  smartStrategy?: SmartStrategy;
 }
 
 export async function setCharacters(
@@ -317,13 +307,13 @@ export async function setCharacters(
   characters: string,
   options?: SmartFontOptions
 ): Promise<boolean> {
+  // Resolve mixed fonts before setting characters to avoid Figma errors.
   const fallbackFont: FontName = (options && options.fallbackFont) || {
     family: 'Inter',
     style: 'Regular',
   };
 
   try {
-    // ── Font loading branch ──────────────────────────────
     if (node.fontName === figma.mixed) {
       if (options && options.smartStrategy === 'prevail') {
         const fontHashTree: Record<string, number> = {};
@@ -444,7 +434,6 @@ export async function processTextNode(
       }
     } catch (highlightErr) {
       console.error('Error highlighting text node:', highlightErr);
-      // Continue anyway, highlighting is just visual feedback
     }
 
     return safeTextNode;
@@ -572,30 +561,27 @@ export function customBase64Encode(bytes: Uint8Array): string {
   for (let i = 0; i < mainLength; i = i + 3) {
     chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
 
-    // Use bitmasks to extract 6-bit segments from the triplet
-    a = (chunk & 16515072) >> 18; // 16515072 = (2^6 - 1) << 18
-    b = (chunk & 258048) >> 12; // 258048  = (2^6 - 1) << 12
-    c = (chunk & 4032) >> 6; // 4032    = (2^6 - 1) << 6
-    d = chunk & 63; // 63      = 2^6 - 1
+    a = (chunk & 16515072) >> 18;
+    b = (chunk & 258048) >> 12;
+    c = (chunk & 4032) >> 6;
+    d = chunk & 63;
 
-    // Convert the raw binary segments to the appropriate ASCII encoding
     base64 += chars[a] + chars[b] + chars[c] + chars[d];
   }
 
-  // Deal with the remaining bytes and padding
   if (byteRemainder === 1) {
     chunk = bytes[mainLength];
 
-    a = (chunk & 252) >> 2; // 252 = (2^6 - 1) << 2
-    b = (chunk & 3) << 4; // 3   = 2^2 - 1
+    a = (chunk & 252) >> 2;
+    b = (chunk & 3) << 4;
 
     base64 += chars[a] + chars[b] + '==';
   } else if (byteRemainder === 2) {
     chunk = (bytes[mainLength] << 8) | bytes[mainLength + 1];
 
-    a = (chunk & 64512) >> 10; // 64512 = (2^6 - 1) << 10
-    b = (chunk & 1008) >> 4; // 1008  = (2^6 - 1) << 4
-    c = (chunk & 15) << 2; // 15    = 2^4 - 1
+    a = (chunk & 64512) >> 10;
+    b = (chunk & 1008) >> 4;
+    c = (chunk & 15) << 2;
 
     base64 += chars[a] + chars[b] + chars[c] + '=';
   }
@@ -656,7 +642,6 @@ export function distillNodeInfo(node: any): any {
     filtered.cornerRadius = node.cornerRadius;
   }
 
-  // Stick to absoluteBoundingBox for position and size
   if ('absoluteBoundingBox' in node) {
     filtered.position = {
       x: node.absoluteBoundingBox.x || 0,

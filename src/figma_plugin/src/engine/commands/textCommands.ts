@@ -9,7 +9,8 @@ import {
 } from '../utils';
 import { NodeInfo, MinimalTextNode } from '../types';
 
-const TEXT_CHUNK_CHANGE_DELAY = 500; // ms
+// Throttle chunk updates to avoid UI lockups.
+const TEXT_CHUNK_CHANGE_DELAY = 500;
 
 export async function setNodeCharacters(params: {
   nodeId: string;
@@ -164,7 +165,7 @@ export async function getTextNodeInfo(params: {
       commandId,
       'get_text_node_info',
       'in_progress',
-      Math.round(5 + ((chunksProcessed - 1) / totalChunks) * 90), // 5–95 %
+      Math.round(5 + ((chunksProcessed - 1) / totalChunks) * 90),
       totalNodes,
       processedNodes,
       `Processing chunk ${chunksProcessed}/${totalChunks}`,
@@ -191,10 +192,9 @@ export async function getTextNodeInfo(params: {
           );
         }
       }
-      await delay(5); // yield to UI
+      await delay(5);
     }
 
-    // Add results from this chunk
     allTextNodes.push(...chunkTextNodes);
     processedNodes += chunkNodesInfo.length;
     chunksProcessed++;
@@ -217,7 +217,7 @@ export async function getTextNodeInfo(params: {
       }
     );
 
-    if (i + chunkSize < totalNodes) await delay(50); // pause before next chunk
+    if (i + chunkSize < totalNodes) await delay(50);
   }
 
   sendProgressUpdate(
@@ -278,7 +278,6 @@ export async function setTextContent(params: {
   if (!changes || !Array.isArray(changes)) {
     const errorMsg = 'Missing required parameters: changes array';
 
-    // Send error progress update
     sendProgressUpdate(
       commandId,
       'set_text_content',
@@ -295,7 +294,6 @@ export async function setTextContent(params: {
 
   console.log(`Starting text change for ${changes.length} nodes`);
 
-  // Send started progress update
   sendProgressUpdate(
     commandId,
     'set_text_content',
@@ -307,12 +305,10 @@ export async function setTextContent(params: {
     { totalChanges: changes.length }
   );
 
-  // Define the results array and counters
   const results: ChangeResult[] = [];
   let successCount = 0;
   let failureCount = 0;
 
-  // Split text changes into chunks of 5
   const CHUNK_SIZE = 5;
   const chunks: TextChanges[][] = [];
 
@@ -322,12 +318,11 @@ export async function setTextContent(params: {
 
   console.log(`Split ${changes.length} changes into ${chunks.length} chunks`);
 
-  // Send chunking info update
   sendProgressUpdate(
     commandId,
     'set_text_content',
     'in_progress',
-    5, // 5 % progress for planning phase
+    5,
     changes.length,
     0,
     `Preparing to change text in ${changes.length} nodes using ${chunks.length} chunks`,
@@ -338,21 +333,17 @@ export async function setTextContent(params: {
     }
   );
 
-  // ──────────────────────────────
-  // Process each chunk sequentially
-  // ──────────────────────────────
   for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
     const chunk = chunks[chunkIndex];
     console.log(
       `Processing chunk ${chunkIndex + 1}/${chunks.length} with ${chunk.length} changes`
     );
 
-    // Send chunk processing start update
     sendProgressUpdate(
       commandId,
       'set_text_content',
       'in_progress',
-      Math.round(5 + (chunkIndex / chunks.length) * 90), // 5-95 % for processing
+      Math.round(5 + (chunkIndex / chunks.length) * 90),
       changes.length,
       successCount + failureCount,
       `Processing text changes chunk ${chunkIndex + 1}/${chunks.length}`,
@@ -364,7 +355,6 @@ export async function setTextContent(params: {
       }
     );
 
-    // Process changes within a chunk in parallel
     const chunkPromises = chunk.map(
       async (replacement): Promise<ChangeResult> => {
         if (!replacement.nodeId || replacement.text === undefined) {
@@ -378,7 +368,6 @@ export async function setTextContent(params: {
             `Attempting to change text in node: ${replacement.nodeId}`
           );
 
-          // Get the text node (validate existence & type)
           const textNode = (await figma.getNodeByIdAsync(
             replacement.nodeId
           )) as TextNode | undefined;
@@ -387,12 +376,10 @@ export async function setTextContent(params: {
             throw new Error(`Node not found: ${replacement.nodeId}`);
           }
 
-          // Save original text for the result
           const originalText = textNode.characters;
           console.log(`Original text: "${originalText}"`);
           console.log(`Will translate to: "${replacement.text}"`);
 
-          // Replace the text (handles font loading, etc.)
           await setNodeCharacters({
             nodeId: replacement.nodeId,
             text: replacement.text,
@@ -415,16 +402,13 @@ export async function setTextContent(params: {
       }
     );
 
-    // Wait for all changes in this chunk
     const chunkResults = await Promise.all(chunkPromises);
 
-    // Tally results
     for (const r of chunkResults) {
       r.success ? successCount++ : failureCount++;
       results.push(r);
     }
 
-    // Chunk done update
     sendProgressUpdate(
       commandId,
       'set_text_content',
@@ -442,7 +426,6 @@ export async function setTextContent(params: {
       }
     );
 
-    // Gentle throttle between chunks
     if (chunkIndex < chunks.length - 1) {
       console.log('Pausing between chunks to avoid overloading Figma...');
       await delay(TEXT_CHUNK_CHANGE_DELAY);
@@ -453,7 +436,6 @@ export async function setTextContent(params: {
     `Change complete: ${successCount} successful, ${failureCount} failed`
   );
 
-  // Final progress update
   sendProgressUpdate(
     commandId,
     'set_text_content',

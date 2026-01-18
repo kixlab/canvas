@@ -72,18 +72,16 @@ export async function setCornerRadius(params: {
   const node = (await figma.getNodeByIdAsync(nodeId)) as
     | (SceneNode & CornerMixin)
     | null
-    | any; // `any` keeps the original property checks simple
+    | any;
 
   if (!node) {
     throw new Error(`Node not found with ID: ${nodeId}`);
   }
 
-  // Check if node supports corner radius
   if (!('cornerRadius' in node)) {
     throw new Error(`Node does not support corner radius: ${nodeId}`);
   }
 
-  // If corners array provided, set individual radii where possible
   if (corners && Array.isArray(corners) && corners.length === 4) {
     if ('topLeftRadius' in node) {
       if (corners[0]) node.topLeftRadius = radius;
@@ -91,10 +89,10 @@ export async function setCornerRadius(params: {
       if (corners[2]) node.bottomRightRadius = radius;
       if (corners[3]) node.bottomLeftRadius = radius;
     } else {
-      node.cornerRadius = radius; // only uniform radius supported
+      node.cornerRadius = radius;
     }
   } else {
-    node.cornerRadius = radius; // uniform radius
+    node.cornerRadius = radius;
   }
 
   return {
@@ -194,7 +192,7 @@ export async function setFillGradient(params: {
     position: number;
   }[];
   gradientType?: GradientPaint['type'];
-  angle: number; // Only used for linear gradients
+  angle: number;
 }) {
   const {
     nodeId,
@@ -283,7 +281,7 @@ export async function copyStyle(params: {
 
   props.forEach((prop) => {
     if (prop in src && prop in dst) {
-      // @ts-ignore – indexing dynamic property
+      // @ts-ignore
       dst[prop] = src[prop];
     }
   });

@@ -33,7 +33,6 @@ export async function moveNode(params: {
   }
   const [oldX, oldY] = getAbsoluteGeometry(node);
 
-  // Set Parent if provided
   if (newParentId && node.parent?.id !== newParentId) {
     const newParent = (await figma.getNodeByIdAsync(
       newParentId
@@ -44,7 +43,6 @@ export async function moveNode(params: {
     newParent.appendChild(node);
   }
 
-  // Set Coordinates
   const [newX, newY] = getLocalPosition(x, y, node.parent ? node.parent : null);
 
   node.x = newX;
@@ -118,12 +116,10 @@ export async function deleteNode(params: { nodeIds: string[] }) {
       {}
     );
 
-    // Process in chunks of 5
     const chunkSize = 5;
     for (let i = 0; i < nodeIds.length; i += chunkSize) {
       const chunk = nodeIds.slice(i, i + chunkSize);
 
-      // Process each chunk
       for (const nodeId of chunk) {
         try {
           const node = await figma.getNodeByIdAsync(nodeId);
@@ -150,7 +146,6 @@ export async function deleteNode(params: { nodeIds: string[] }) {
         }
       }
 
-      // Delay between chunks
       if (i + chunkSize < nodeIds.length) {
         await delay(200);
       }
@@ -218,12 +213,10 @@ export async function cloneNode(params: {
     if (!node) throw new Error(`Node not found: ${nodeId}`);
     if (!hasClone(node)) throw new Error('Node does not support clone');
 
-    // Clone the node
     const clone = node.clone();
 
     if (x !== undefined && y !== undefined) {
       if (newParentId) {
-        // If newParentId is provided, append to that parent
         const newParent = (await figma.getNodeByIdAsync(
           newParentId
         )) as ChildrenMixin & SceneNode;
@@ -232,14 +225,12 @@ export async function cloneNode(params: {
         }
         newParent.appendChild(clone as SceneNode);
       } else {
-        // If no newParentId, append to the current page or the node's parent
         if (node.parent) {
           node.parent.appendChild(clone as SceneNode);
         } else {
           figma.currentPage.appendChild(clone as SceneNode);
         }
       }
-      // Set position relative to the new parent
       const [localX, localY] = getLocalPosition(x, y, clone.parent);
       (clone as SceneNode).x = localX;
       (clone as SceneNode).y = localY;
@@ -307,10 +298,10 @@ export async function reorderNode(params: {
       newIndex = 0;
       break;
     case 'FORWARD':
-      newIndex = Math.min(oldIndex + 2, siblings.length); // insertChild will place before the index
+      newIndex = Math.min(oldIndex + 2, siblings.length);
       break;
     case 'BACKWARD':
-      newIndex = Math.max(oldIndex - 1, 0); // insertChild will move to the previous index
+      newIndex = Math.max(oldIndex - 1, 0);
       break;
   }
 
@@ -340,7 +331,6 @@ export async function groupNodes(params: {
     nodes.push(n);
   }
 
-  // Determine / coerce parent
   let parent: ChildrenMixin & SceneNode = nodes[0].parent as ChildrenMixin &
     SceneNode;
 
@@ -413,7 +403,7 @@ export async function rotateNode(params: { nodeId: string; angle: number }) {
   const cxNew = tNew[0][0] * halfW + tNew[0][1] * halfH + tNew[0][2];
   const cyNew = tNew[1][0] * halfW + tNew[1][1] * halfH + tNew[1][2];
 
-  /* ----------------- translate so centres match ---------------- */
+
   node.x += cxOld - cxNew;
   node.y += cyOld - cyNew;
 
@@ -472,8 +462,9 @@ export async function booleanNodes(params: {
   return {
     id: booleanNode.id,
     name: booleanNode.name,
-    operation: booleanNode.booleanOperation, // "UNION", "SUBTRACT", …
+    operation: booleanNode.booleanOperation,
     parentId: parent.id,
     containedIds: targets.map((n) => n.id),
   };
 }
+

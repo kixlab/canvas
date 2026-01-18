@@ -129,47 +129,38 @@ export async function createFrame(params: {
   frame.resize(width, height);
   frame.name = name;
 
-  // Set layout mode if provided
   if (layoutMode !== 'NONE') {
     frame.layoutMode = layoutMode as any;
     frame.layoutWrap = layoutWrap as any;
 
-    // Set padding values only when layoutMode is not NONE
     frame.paddingTop = paddingTop;
     frame.paddingRight = paddingRight;
     frame.paddingBottom = paddingBottom;
     frame.paddingLeft = paddingLeft;
 
-    // Set axis alignment only when layoutMode is not NONE
     frame.primaryAxisAlignItems = primaryAxisAlignItems as any;
     frame.counterAxisAlignItems = counterAxisAlignItems as any;
 
-    // Set layout sizing only when layoutMode is not NONE
     frame.layoutSizingHorizontal = layoutSizingHorizontal as any;
     frame.layoutSizingVertical = layoutSizingVertical as any;
 
-    // Set item spacing only when layoutMode is not NONE
     frame.itemSpacing = itemSpacing;
   }
 
-  // Set fill color if provided
   if (fillColor) {
     const paintStyle = makeSolidPaint(fillColor);
     frame.fills = [paintStyle];
   }
 
-  // Set stroke color and weight if provided
   if (strokeColor) {
     const strokeStyle = makeSolidPaint(strokeColor);
     frame.strokes = [strokeStyle];
   }
 
-  // Set stroke weight if provided
   if (strokeWeight !== undefined) {
     frame.strokeWeight = strokeWeight;
   }
 
-  // If parentId is provided, append to that node, otherwise append to current page
   if (parentId) {
     const parentNode = await figma.getNodeByIdAsync(parentId);
     if (!parentNode) {
@@ -241,7 +232,6 @@ export async function createText(params: {
     parentId,
   } = params;
 
-  // ---- create and style the text node ----
   const textNode = figma.createText();
   textNode.x = x;
   textNode.y = y;
@@ -282,7 +272,6 @@ export async function createText(params: {
     figma.currentPage.appendChild(textNode);
   }
 
-  // ---- return payload ----
   const [absX, absY] = getAbsoluteGeometry(textNode as SceneNode);
   return {
     id: textNode.id,
@@ -583,8 +572,8 @@ export async function createLine(params: {
   parentId?: string;
   strokeColor?: RGB | RGBA;
   strokeWeight?: number;
-  strokeCap?: StrokeCap; // NONE | ROUND | SQUARE
-  dashPattern?: readonly number[]; // [dash, gap]
+  strokeCap?: StrokeCap;
+  dashPattern?: readonly number[];
 }) {
   const {
     startX,
@@ -599,25 +588,21 @@ export async function createLine(params: {
     dashPattern,
   } = params ?? {};
 
-  // Calculate geometry
   const dx = endX - startX;
   const dy = endY - startY;
   const length = Math.hypot(dx, dy);
   const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
 
-  // Create the node
   const line = figma.createLine();
   line.name = name;
-  line.resize(length, 0); // horizontal baseline
+  line.resize(length, 0);
   line.rotation = angleDeg;
 
-  // Style
   if (strokeColor) line.strokes = [makeSolidPaint(strokeColor)];
   line.strokeWeight = strokeWeight;
   line.strokeCap = strokeCap;
   if (dashPattern) line.dashPattern = dashPattern;
 
-  // Parent / positioning
   const parent = parentId
     ? ((await figma.getNodeByIdAsync(parentId)) as SceneNode & ChildrenMixin)
     : figma.currentPage;
@@ -653,7 +638,6 @@ export async function createMask(params: {
   if (!Array.isArray(contentNodeIds) || contentNodeIds.length === 0)
     throw new Error('contentNodeIds must contain at least one ID');
 
-  // Fetch nodes
   const maskNode = (await figma.getNodeByIdAsync(maskNodeId)) as SceneNode;
   if (!maskNode) throw new Error(`Mask node not found: ${maskNodeId}`);
 
@@ -666,11 +650,11 @@ export async function createMask(params: {
     contentNodes.push(n);
   }
 
-  /* 1 . Turn the node into a mask */
+
   if ('isMask' in maskNode) (maskNode as any).isMask = true;
   else throw new Error('Chosen mask node cannot act as a mask');
 
-  /* 2 . Group mask + content (mask goes first) */
+
   const parent =
     (maskNode.parent as (SceneNode & ChildrenMixin) | null) ??
     figma.currentPage;
@@ -685,3 +669,4 @@ export async function createMask(params: {
     parentId: parent.id,
   };
 }
+

@@ -1,21 +1,22 @@
 // @ts-nocheck
+// Figma runtime objects use dynamic shapes not fully covered by typings.
 
 type FetchedNode = Record<string, any>;
 type XYWH = { x: number; y: number; width: number; height: number };
 function clone(val) {
   return JSON.parse(JSON.stringify(val));
 }
-/** Cofactor / determinant for a 3×3 matrix */
+
 function det3(m: Mat3): number {
   const [[a, b, c], [d, e, f], [g, h, i]] = m;
   return a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
 }
 
-/** Classical-adjugate inverse. Returns null if the matrix is singular. */
+
 function inv3(m: Mat3): Mat3 | null {
   const [[a, b, c], [d, e, f], [g, h, i]] = m;
   const det = det3(m);
-  if (Math.abs(det) < 1e-8) return null; // avoid blowing up
+  if (Math.abs(det) < 1e-8) return null;
 
   const invDet = 1 / det;
   return [
@@ -37,7 +38,7 @@ function inv3(m: Mat3): Mat3 | null {
   ];
 }
 
-/** Standard 3×3 matrix multiply */
+
 function mul3(a: Mat3, b: Mat3): Mat3 {
   const r: Mat3 = [
     [0, 0, 0],
@@ -53,46 +54,41 @@ function mul3(a: Mat3, b: Mat3): Mat3 {
 }
 type Transform = [[number, number, number], [number, number, number]];
 const IDENTITY_HANDLES: Mat3 = [
-  [0, 1, 0], // x-coords of (0,0.5) (1,0.5) (0,1)
-  [0.5, 0.5, 1], // y-coords
-  [1, 1, 1], // homogeneous row
+  [0, 1, 0],
+  [0.5, 0.5, 1],
+  [1, 1, 1],
 ];
 
 function handlesToTransform(h: Vector[]): Transform {
-  // Build D = [ p0 | p1 | p2 ]
   const D: Mat3 = [
     [h[0].x, h[1].x, h[2].x],
     [h[0].y, h[1].y, h[2].y],
     [1, 1, 1],
   ];
 
-  const invD = inv3(D) ?? IDENTITY_HANDLES; // sane fallback
-  const M = mul3(IDENTITY_HANDLES, invD); // M = O · D⁻¹
-  return [M[0] as any, M[1] as any]; // top two rows only
+  const invD = inv3(D) ?? IDENTITY_HANDLES;
+  const M = mul3(IDENTITY_HANDLES, invD);
+  return [M[0] as any, M[1] as any];
 }
 
 function sanitisePathData(path: string): string {
   return (
     path
-      // 1. space *after* command letter (if next char isn’t whitespace/comma)
       .replace(/([MLHVCSQTAZmlhvcsqtaz])(?=[^\s,])/g, '$1 ')
-      // 2. space *before* command letter (if prev char isn’t whitespace/comma)
       .replace(/([^\s,])([MLHVCSQTAZmlhvcsqtaz])/g, '$1 $2')
-      // 3. space before a minus-sign that follows a digit or dot
       .replace(/([0-9.])(-)/g, '$1 $2')
-      // 4. collapse whitespace noise
       .replace(/\s+/g, ' ')
       .trim()
   );
 }
 
 function degFromMatrix(t: Transform): number {
-  const [[a, b], [c, d]] = t; // ignore translation
-  const radians = Math.atan2(c, a); // atan2(m10, m00)
+  const [[a, b], [c, d]] = t;
+  const radians = Math.atan2(c, a);
   return (radians * 180) / Math.PI;
 }
 
-/** Smallest absolute difference between two angles (deg). */
+
 function deltaDeg(a: number, b: number): number {
   return Math.abs(((a - b + 180) % 360) - 180);
 }
@@ -101,7 +97,6 @@ export function tideFloat(n: number, eps = 1e-6): number {
   return Math.abs(n) < eps ? 0 : Number(n.toFixed(6));
 }
 
-// ─── helper ────────────────────────────────────────────────────────────────
 function wantsAbsolute(staticNode: FetchedNode): boolean {
   return (
     (staticNode as any).layoutPositioning === 'ABSOLUTE' ||
@@ -116,20 +111,18 @@ function finaliseAbsolutePositioning(
 ) {
   try {
     if (
-      !wantsAbsolute(staticChild) || // not requested
-      !('layoutMode' in liveParent) || // parent not a frame
-      liveParent.layoutMode === 'NONE' || // parent not auto-layout
-      !('layoutPositioning' in liveChild) // property not supported
+      !wantsAbsolute(staticChild) ||
+      !('layoutMode' in liveParent) ||
+      liveParent.layoutMode === 'NONE' ||
+      !('layoutPositioning' in liveChild)
     ) {
       return;
     }
 
-    // 1 — switch to ABSOLUTE *now that the parent is valid*
     if ('layoutPositioning' in liveChild) {
       (liveChild as any).layoutPositioning = 'ABSOLUTE';
     }
 
-    // 2 — apply the stored matrix translation as x / y (parent-space)
     if (
       Array.isArray(staticChild.relativeTransform) &&
       staticChild.relativeTransform.length === 2
@@ -154,9 +147,9 @@ function formatPaint(p: any): Paint | undefined {
   const rgba = ({ r, g, b, a }: any): RGBA => ({ r, g, b, a: a ?? 1 });
 
   switch (p.type) {
-    /* ────────── SOLID ────────── */
+
     case 'SOLID': {
-      if (!p.color) return; // invalid
+      if (!p.color) return;
       return {
         type: 'SOLID',
         color: rgb(p.color),
@@ -166,7 +159,7 @@ function formatPaint(p: any): Paint | undefined {
       };
     }
 
-    /* ────────── IMAGE ────────── */
+
     case 'IMAGE': {
       return {
         type: 'IMAGE',
@@ -181,7 +174,7 @@ function formatPaint(p: any): Paint | undefined {
       };
     }
 
-    /* ────────── GRADIENTS ────────── */
+
     case 'GRADIENT_LINEAR':
     case 'GRADIENT_RADIAL':
     case 'GRADIENT_ANGULAR':
@@ -196,11 +189,11 @@ function formatPaint(p: any): Paint | undefined {
           : [
               [1, 0, 0],
               [0, 1, 0],
-            ]); // ultimate fallback
+            ]);
 
       return {
         type: p.type,
-        gradientTransform: transform, // ✔ plugin-safe
+        gradientTransform: transform,
         gradientStops: p.gradientStops.map((s: any) => ({
           position: s.position,
           color: rgba(s.color),
@@ -222,46 +215,39 @@ const assignPaints = (
 
   const rawArr = source[key] as any[];
 
-  // 1. Empty array → explicitly clear paints on the liveNode
   if (rawArr.length === 0) {
     (target as any)[key] = [];
     return;
   }
 
-  // 2. Otherwise map & assign as before
   const paints = rawArr
     .map(formatPaint)
     .filter((p): p is Paint => p !== undefined);
 
-  (target as any)[key] = paints; // even if paints.length === 0
+  (target as any)[key] = paints;
 };
 
-/**
- * Entrypoint used from code.ts
- */
+
 export async function createNode(
   staticNode: FetchedNode,
   parentNode: BaseNode & ChildrenMixin,
   staticParentNode: FetchedNode
 ): Promise<SceneNode | null> {
-  // 1 – instantiate an empty SceneNode of the right kind
   const liveNode = await instantiateNode(staticNode);
   if (!liveNode) return null;
 
-  // 2 – apply every group of properties that the API exposes
-  applyCommonProps(liveNode, staticNode); // name, visibility, opacity
+  applyCommonProps(liveNode, staticNode);
   applyVectorData(liveNode, staticNode);
-  applyTransform(liveNode, staticNode, staticParentNode); // x, y, w, h, resize, relativeTransform
-  applyGeometry(liveNode, staticNode); // fills, strokes, effects, corner radius…
+  applyTransform(liveNode, staticNode, staticParentNode);
+  applyGeometry(liveNode, staticNode);
   applyBackground(liveNode, staticNode);
-  applyStrokeProps(liveNode, staticNode); // strokeCap, strokeJoin, strokeAlign, dashPattern, strokeMiterLimit
-  applyShapeProps(liveNode, staticNode); // arcData, rectangleCornerRadius, pointCount, innerRadius
-  await applyText(liveNode, staticNode); // characters, fonts, paragraph & run styles
-  applyAutoLayout(liveNode, staticNode); // layoutMode, padding*, itemSpacing…
-  applyConstraints(liveNode, staticNode); // constraints, layoutAlign, layoutGrow…
-  applyBlend(liveNode, staticNode); // blendMode, opacity, masks
+  applyStrokeProps(liveNode, staticNode);
+  applyShapeProps(liveNode, staticNode);
+  await applyText(liveNode, staticNode);
+  applyAutoLayout(liveNode, staticNode);
+  applyConstraints(liveNode, staticNode);
+  applyBlend(liveNode, staticNode);
 
-  // 3 – recurse for children. Groups & boolean ops need a special path
   if (Array.isArray(staticNode.children) && 'appendChild' in liveNode) {
     for (const staticChildNode of staticNode.children) {
       const liveChildNode = await createNode(
@@ -275,7 +261,6 @@ export async function createNode(
       }
     }
 
-    // If the JSON layer was a GROUP, convert the temporary Frame
     if (staticNode.type === 'GROUP') {
       const group = figma.group(
         (liveNode as FrameNode).children,
@@ -286,31 +271,28 @@ export async function createNode(
       return group;
     }
 
-    // If the JSON layer was a BOOLEAN_OPERATION, convert the temporary Frame
     if (staticNode.type === 'BOOLEAN_OPERATION') {
       const boolNode = applyBoolean(liveNode, staticNode, parentNode);
       if (boolNode) {
-        // re-apply properties that must live on the final node
         applyCommonProps(boolNode, staticNode);
         applyTransform(boolNode, staticNode, staticParentNode);
         applyGeometry(boolNode, staticNode);
         applyBackground(boolNode, staticNode);
         applyBlend(boolNode, staticNode);
-        return boolNode; // ← return the real Boolean group
+        return boolNode;
       }
     }
   }
   return liveNode;
 }
 
-// ───────────────────── creators ─────────────────────
 
 async function instantiateNode(
   staticNode: FetchedNode
 ): Promise<SceneNode | null> {
   const map: Record<string, () => SceneNode> = {
     FRAME: () => figma.createFrame(),
-    GROUP: () => figma.createFrame(), // temporary (re-group later)
+    GROUP: () => figma.createFrame(),
     SECTION: () => figma.createSection?.() || figma.createFrame(),
     RECTANGLE: () => figma.createRectangle(),
     ELLIPSE: () => figma.createEllipse(),
@@ -326,37 +308,32 @@ async function instantiateNode(
   return ctor ? ctor() : null;
 }
 
-// ───────────────────── applicators ─────────────────────
 
 function applyVectorData(liveNode: SceneNode, staticNode: FetchedNode) {
   try {
-    if (staticNode.type !== 'VECTOR') return; // bail on non‑vectors
+    if (staticNode.type !== 'VECTOR') return;
     const vector = liveNode as VectorNode;
 
-    // ───────────────────── pick geometry ─────────────────────
     const hasFillGeo =
       Array.isArray(staticNode.fillGeometry) && staticNode.fillGeometry.length;
     const geo: any[] = hasFillGeo
-      ? staticNode.fillGeometry // normal filled vector
-      : (staticNode.strokeGeometry ?? []); // outline (possibly collapsed)
+      ? staticNode.fillGeometry
+      : (staticNode.strokeGeometry ?? []);
 
-    if (!geo.length) return; // nothing to draw
+    if (!geo.length) return;
 
-    // ───────────────────── vector paths (always) ─────────────────────
     vector.vectorPaths = geo.map((g: any) => ({
       windingRule: (g.windingRule as WindingRule) ?? 'NONZERO',
       data: sanitisePathData(g.path as string),
     }));
 
-    // ───────────────────── paint strategy ─────────────────────
     const strokePaints = Array.isArray(staticNode.strokes)
       ? clone(staticNode.strokes)
       : [];
 
-    // prepend so original fills (if any) draw on top of the outline
     staticNode.fills = strokePaints.concat(staticNode.fills ?? []);
-    staticNode.strokes = []; // prevent re‑applying as stroke
-    delete staticNode.strokeWeight; // no weight on a filled outline
+    staticNode.strokes = [];
+    delete staticNode.strokeWeight;
   } catch (e) {
     console.error('applyVectorData →', e);
   }
@@ -378,14 +355,14 @@ function applyTransform(
   staticParentNode: FetchedNode
 ) {
   try {
-    /* 0 – flags --------------------------------------------------------- */
+
     const parentIsAutoLayout =
       typeof staticParentNode.layoutMode === 'string' &&
       staticParentNode.layoutMode !== 'NONE';
 
     const absoluteLater = parentIsAutoLayout && wantsAbsolute(staticNode);
 
-    /* 1 – size (unchanged) --------------------------------------------- */
+
     const w =
       staticNode.size?.x ??
       staticNode.absoluteBoundingBox?.width ??
@@ -404,7 +381,7 @@ function applyTransform(
       (liveNode as LayoutMixin).resize(w, h);
     }
 
-    /* 2 – position / rotation ------------------------------------------ */
+
     const canEditXYNow = !parentIsAutoLayout && !absoluteLater;
     const isRoot =
       staticParentNode.type === 'DOCUMENT' || staticParentNode.type === 'PAGE';
@@ -418,7 +395,7 @@ function applyTransform(
     ) {
       const M = staticNode.relativeTransform as Transform;
 
-      /* 2 a – sanitise tiny float noise (Figma rejects 1.000000000002 …) */
+
       const safe: Transform = [
         [tideFloat(M[0][0]), tideFloat(M[0][1]), tideFloat(M[0][2])],
         [tideFloat(M[1][0]), tideFloat(M[1][1]), tideFloat(M[1][2])],
@@ -435,7 +412,7 @@ function applyTransform(
         );
       }
     }
-    /* 3 – legacy fallback (same gate) ---------------------------------- */
+
     if (canEditXYNow && staticNode.absoluteBoundingBox) {
       const { x, y } = staticNode.absoluteBoundingBox as XYWH;
       liveNode.x = x - (staticParentNode.absoluteBoundingBox?.x ?? 0);
@@ -456,9 +433,9 @@ function applyTransform(
 function applyGeometry(liveNode: SceneNode, staticNode: FetchedNode) {
   try {
     const DEFAULT_GRADIENT_HANDLES: Vector[] = [
-      { x: 0.0, y: 0.0 }, // start
-      { x: 1.0, y: 0.0 }, // end
-      { x: 0.0, y: 1.0 }, // width-direction (any non-collinear third point works)
+      { x: 0.0, y: 0.0 },
+      { x: 1.0, y: 0.0 },
+      { x: 0.0, y: 1.0 },
     ];
 
     if ('fills' in liveNode) {
@@ -474,21 +451,18 @@ function applyGeometry(liveNode: SceneNode, staticNode: FetchedNode) {
     if ('cornerRadius' in liveNode) {
       const tgt = liveNode as unknown as CornerMixin;
 
-      // Helper to coerce undefined → 0 (Figma rejects NaN/undefined)
       const asNum = (v: any) => (typeof v === 'number' ? v : 0);
 
-      // 1 · bulk array from REST (rectangleCornerRadii[4])
       if (
         Array.isArray(staticNode.rectangleCornerRadii) &&
         staticNode.rectangleCornerRadii.length === 4
       ) {
         const [tl, tr, br, bl] = staticNode.rectangleCornerRadii.map(asNum);
-        tgt.topLeftRadius = tl; // ← always assign – frame nodes usually
-        tgt.topRightRadius = tr; //    *don’t* carry the per‑corner
-        tgt.bottomRightRadius = br; //    props in the REST payload
+        tgt.topLeftRadius = tl;
+        tgt.topRightRadius = tr;
+        tgt.bottomRightRadius = br;
         tgt.bottomLeftRadius = bl;
       } else {
-        // 2 · individual props from REST (topLeftRadius …)
         if (staticNode.topLeftRadius !== undefined)
           tgt.topLeftRadius = asNum(staticNode.topLeftRadius);
         if (staticNode.topRightRadius !== undefined)
@@ -499,7 +473,6 @@ function applyGeometry(liveNode: SceneNode, staticNode: FetchedNode) {
           tgt.bottomLeftRadius = asNum(staticNode.bottomLeftRadius);
       }
 
-      // 3 · uniform fallback (legacy behaviour)
       if (
         staticNode.rectangleCornerRadii === undefined &&
         staticNode.topLeftRadius === undefined &&
@@ -508,7 +481,6 @@ function applyGeometry(liveNode: SceneNode, staticNode: FetchedNode) {
         tgt.cornerRadius = asNum(staticNode.cornerRadius);
       }
 
-      // 4 · optional smoothing
       if (staticNode.cornerSmoothing !== undefined) {
         tgt.cornerSmoothing = staticNode.cornerSmoothing;
       }
@@ -522,7 +494,7 @@ function applyGeometry(liveNode: SceneNode, staticNode: FetchedNode) {
 }
 
 function applyBackground(liveNode: SceneNode, staticNode: FetchedNode) {
-  /* 0 — quick bail-out if the JSON carries no background info */
+
   const hasBgInput =
     staticNode.backgroundColor != null ||
     (Array.isArray(staticNode.background) &&
@@ -530,7 +502,7 @@ function applyBackground(liveNode: SceneNode, staticNode: FetchedNode) {
     typeof staticNode.backgroundStyleId === 'string';
   if (!hasBgInput) return;
 
-  /* ───────────────── 1 · PAGE nodes ───────────────── */
+
   if (liveNode.type === 'PAGE' || staticNode.type === 'PAGE') {
     if (staticNode.backgroundColor) {
       const { r, g, b } = staticNode.backgroundColor;
@@ -541,7 +513,6 @@ function applyBackground(liveNode: SceneNode, staticNode: FetchedNode) {
       'backgroundStyleId' in liveNode
     ) {
       try {
-        // since API 1.105 pages can reference a paint style
         (liveNode as any).backgroundStyleId = staticNode.backgroundStyleId;
       } catch (err) {
         console.error('Error applying background style:', err);
@@ -550,11 +521,11 @@ function applyBackground(liveNode: SceneNode, staticNode: FetchedNode) {
     return;
   }
 
-  /* ─────── 2 · nodes that expose `backgrounds` (Frame / Component / Instance) ─────── */
+
   if ('background' in liveNode) {
     const frameLike = liveNode as FrameNode | ComponentNode | InstanceNode;
 
-    /* 2 a – paint style */
+
     if (
       typeof staticNode.backgroundStyleId === 'string' &&
       'backgroundStyleId' in frameLike
@@ -569,7 +540,7 @@ function applyBackground(liveNode: SceneNode, staticNode: FetchedNode) {
       }
     }
 
-    /* 2 b – explicit `background` array */
+
     if (Array.isArray(staticNode.background) && staticNode.background.length) {
       const paints = staticNode.background
         .map(formatPaint)
@@ -581,7 +552,7 @@ function applyBackground(liveNode: SceneNode, staticNode: FetchedNode) {
       return;
     }
 
-    /* 2 c – fallback solid if absolutely nothing else was set */
+
     if (
       staticNode.backgroundColor &&
       (!frameLike.background || frameLike.background.length === 0) &&
@@ -595,7 +566,7 @@ function applyBackground(liveNode: SceneNode, staticNode: FetchedNode) {
     return;
   }
 
-  /* ───────────── 3 · Geometry nodes (RECTANGLE, VECTOR, …) ───────────── */
+
   if ('fills' in liveNode) {
     const geo = liveNode as GeometryMixin & { fillStyleId?: string };
 
@@ -606,7 +577,7 @@ function applyBackground(liveNode: SceneNode, staticNode: FetchedNode) {
       (Array.isArray(geo.fills) && geo.fills.length > 0) ||
       typeof geo.fillStyleId === 'string';
 
-    /* fallback */
+
     if (!liveHasPaint && staticNode.backgroundColor) {
       const { r, g, b, a } = staticNode.backgroundColor;
       geo.fills = [{ type: 'SOLID', color: { r, g, b }, opacity: a ?? 1 }];
@@ -615,7 +586,7 @@ function applyBackground(liveNode: SceneNode, staticNode: FetchedNode) {
 }
 
 function applyStrokeProps(liveNode: SceneNode, staticNode: FetchedNode) {
-  if (!('strokes' in liveNode)) return; // nothing to do
+  if (!('strokes' in liveNode)) return;
 
   const target = liveNode as unknown as {
     strokeCap?: StrokeCap;
@@ -638,16 +609,13 @@ function applyStrokeProps(liveNode: SceneNode, staticNode: FetchedNode) {
       ? (staticNode as any).strokeDashes
       : undefined;
 
-  // only assign when we really have a pattern (API rejects empty writes)
   if (dash && dash.length) {
-    // `dashPattern` is typed ReadonlyArray – clone to satisfy the runtime
     target.dashPattern = [...dash];
   }
 
   const indivdualWeights = staticNode.individualStrokeWeights;
-  if (!indivdualWeights || typeof indivdualWeights !== 'object') return; // nothing to do
+  if (!indivdualWeights || typeof indivdualWeights !== 'object') return;
 
-  // Normalise to plain numbers or leave undefined → keep existing weight
   const top =
     typeof indivdualWeights.top === 'number' ? indivdualWeights.top : undefined;
   const right =
@@ -663,7 +631,6 @@ function applyStrokeProps(liveNode: SceneNode, staticNode: FetchedNode) {
       ? indivdualWeights.left
       : undefined;
 
-  // New composite setter (API ≥1.106) …
   if ('individualStrokeWeights' in liveNode) {
     (liveNode as any).individualStrokeWeights = {
       top:
@@ -690,7 +657,6 @@ function applyStrokeProps(liveNode: SceneNode, staticNode: FetchedNode) {
     return;
   }
 
-  // … older per‑side fields (typings before Feb‑2024)
   if ('strokeTopWeight' in liveNode && top !== undefined)
     (liveNode as any).strokeTopWeight = top;
   if ('strokeRightWeight' in liveNode && right !== undefined)
@@ -703,11 +669,10 @@ function applyStrokeProps(liveNode: SceneNode, staticNode: FetchedNode) {
 
 function applyShapeProps(liveNode: SceneNode, staticNode: FetchedNode) {
   switch (staticNode.type) {
-    /* ──────────────── ELLIPSE ──────────────── */
+
     case 'ELLIPSE': {
       if ('arcData' in staticNode) {
         const src = staticNode.arcData;
-        // REST % (0-100)  → plugin 0-1
         const inner =
           typeof src.innerRadius === 'number' && src.innerRadius > 1
             ? src.innerRadius / 100
@@ -721,7 +686,7 @@ function applyShapeProps(liveNode: SceneNode, staticNode: FetchedNode) {
       break;
     }
 
-    /* ─────────────── RECTANGLE ─────────────── */
+
     case 'RECTANGLE': {
       const r = liveNode as RectangleNode;
 
@@ -747,10 +712,10 @@ function applyShapeProps(liveNode: SceneNode, staticNode: FetchedNode) {
       break;
     }
 
-    /* ──────────────── POLYGON ──────────────── */
+
     case 'POLYGON': {
       const p = liveNode as PolygonNode;
-      if ('pointCount' in staticNode) p.pointCount = staticNode.pointCount; // :contentReference[oaicite:1]{index=1}
+      if ('pointCount' in staticNode) p.pointCount = staticNode.pointCount;
       if ('cornerRadius' in staticNode) {
         p.cornerRadius =
           staticNode.cornerRadius > 1
@@ -763,21 +728,21 @@ function applyShapeProps(liveNode: SceneNode, staticNode: FetchedNode) {
       break;
     }
 
-    /* ───────────────── STAR ────────────────── */
+
     case 'STAR': {
       const s = liveNode as StarNode;
-      if ('pointCount' in staticNode) s.pointCount = staticNode.pointCount; // :contentReference[oaicite:2]{index=2}
+      if ('pointCount' in staticNode) s.pointCount = staticNode.pointCount;
       if ('innerRadius' in staticNode)
         s.innerRadius =
           staticNode.innerRadius > 1
             ? staticNode.innerRadius / 100
-            : staticNode.innerRadius; // :contentReference[oaicite:3]{index=3}
+            : staticNode.innerRadius;
       break;
     }
 
-    /* ──────────────── LINE ─────────────────── */
+
     case 'LINE':
-      /* nothing extra – stroke props were handled above */
+
       break;
   }
 }
@@ -789,7 +754,7 @@ async function applyText(
   if (staticNode.type !== 'TEXT') return;
   const txt = liveNode as TextNode;
 
-  /* ───── helpers ───── */
+
   const FALLBACK_FAMILY = 'Inter';
 
   async function loadFontOrFallback(requested: FontName): Promise<FontName> {
@@ -821,7 +786,7 @@ async function applyText(
         opacity: p.opacity ?? p.color.a ?? 1,
       })) as Paint[];
 
-  /* ───── style look-ups ───── */
+
   const rootStyle = staticNode.style ?? {};
   const overrides = staticNode.characterStyleOverrides ?? [];
   const table = staticNode.styleOverrideTable ?? {};
@@ -831,8 +796,8 @@ async function applyText(
     style: s.fontStyle ?? (txt.fontName as FontName).style,
   });
 
-  /* ───── 0 · preload every font we’ll need ───── */
-  await figma.loadFontAsync(txt.fontName as FontName); // default font
+
+  await figma.loadFontAsync(txt.fontName as FontName);
   const fontMap = new Map<string, FontName>();
   async function register(fn: FontName) {
     fontMap.set(JSON.stringify(fn), await loadFontOrFallback(fn));
@@ -841,17 +806,17 @@ async function applyText(
   for (const s of Object.values(table)) await register(lookupFont(s as any));
   const safe = (fn: FontName) => fontMap.get(JSON.stringify(fn))!;
 
-  /* ───── 1 · basic node values ───── */
+
   txt.characters = staticNode.characters ?? '';
   txt.fontName = safe(lookupFont(rootStyle));
   if ('fontSize' in rootStyle) txt.fontSize = rootStyle.fontSize;
 
-  /* ───── 2 · auto-resize BEFORE alignment ───── */
+
   txt.textAutoResize = (staticNode.textAutoResize ??
     rootStyle.textAutoResize ??
-    'NONE') as any; // NONE | WIDTH | HEIGHT | TRUNCATE
+    'NONE') as any;
 
-  /* ───── 3 · resolve & apply alignment ───── */
+
 
   const resolveAlignment = (): {
     h: 'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED';
@@ -865,7 +830,6 @@ async function applyText(
     const normaliseAlign = (raw: any) => {
       if (typeof raw !== 'string') return undefined;
       const up = raw.toUpperCase();
-      // REST can return "MIDDLE"; plugin API expects "CENTER"
       return up === 'MIDDLE' ? 'CENTER' : up;
     };
 
@@ -879,17 +843,17 @@ async function applyText(
     return { h: horiz, v: vert };
   };
   const { h, v } = resolveAlignment();
-  txt.textAlignHorizontal = h; // works for every resize mode
+  txt.textAlignHorizontal = h;
   if (txt.textAutoResize === 'NONE') {
     txt.textAlignVertical = v;
   }
 
-  /* ───── 4 · additional node-level props ───── */
+
   if ('textCase' in rootStyle) {
     try {
       txt.textCase = rootStyle.textCase;
     } catch {
-      /* small-caps not supported */
+
     }
   }
   if ('textDecoration' in rootStyle)
@@ -927,13 +891,13 @@ async function applyText(
     }
   }
 
-  /* root-level fills (if geometry pass didn’t set them) */
+
   if ('fills' in staticNode && (!txt.fills || txt.fills.length === 0)) {
     const paints = toPaints(staticNode.fills);
     if (paints.length) txt.fills = paints;
   }
 
-  /* ───── 5 · range-level overrides (unchanged) ───── */
+
   if (overrides.length && Object.keys(table).length) {
     let start = 0;
     while (start < overrides.length) {
@@ -954,7 +918,6 @@ async function applyText(
         if ('textDecoration' in o)
           txt.setRangeTextDecoration(start, end, o.textDecoration);
 
-        // line-height per range
         if (o.lineHeightUnit === 'AUTO') {
           txt.setRangeLineHeight(start, end, { unit: 'AUTO' });
         } else if ('lineHeightPx' in o) {
@@ -969,7 +932,6 @@ async function applyText(
           });
         }
 
-        // tracking per range
         if ('letterSpacing' in o) {
           txt.setRangeLetterSpacing(start, end, {
             value: o.letterSpacing,
@@ -977,7 +939,6 @@ async function applyText(
           });
         }
 
-        // fills per range
         if (Array.isArray(o.fills) && o.fills.length) {
           txt.setRangeFills(start, end, toPaints(o.fills));
         }
@@ -996,7 +957,7 @@ function applyAutoLayout(liveNode: SceneNode, staticNode: FetchedNode) {
   try {
     if ('clipsContent' in liveNode) {
       const clip =
-        (staticNode as any).clipsContent ?? (staticNode as any).clipContent; // legacy alias
+        (staticNode as any).clipsContent ?? (staticNode as any).clipContent;
       if (typeof clip === 'boolean') {
         (liveNode as FrameNode).clipsContent = clip;
       }
@@ -1005,13 +966,12 @@ function applyAutoLayout(liveNode: SceneNode, staticNode: FetchedNode) {
     if (!('layoutMode' in staticNode) || !('layoutMode' in liveNode)) return;
     const frame = liveNode as FrameNode;
 
-    /* 0 — basic direction -------------------------------------------------- */
-    frame.layoutMode = staticNode.layoutMode; // NONE | HORIZONTAL | …
-    const isContainer = frame.layoutMode !== 'NONE'; // only TRUE for real A-L frames
 
-    /* 1 — container-only props -------------------------------------------- */
+    frame.layoutMode = staticNode.layoutMode;
+    const isContainer = frame.layoutMode !== 'NONE';
+
+
     if (isContainer) {
-      // Modern sizing: allow HUG / FIXED, silently downgrade an illegal FILL
       if (
         'layoutSizingHorizontal' in staticNode &&
         staticNode.layoutSizingHorizontal !== 'FILL'
@@ -1025,22 +985,20 @@ function applyAutoLayout(liveNode: SceneNode, staticNode: FetchedNode) {
         frame.layoutSizingVertical = staticNode.layoutSizingVertical as any;
       }
 
-      // Legacy props for back-compat
       if ('primaryAxisSizingMode' in staticNode)
         frame.primaryAxisSizingMode = staticNode.primaryAxisSizingMode;
       if ('counterAxisSizingMode' in staticNode)
         frame.counterAxisSizingMode = staticNode.counterAxisSizingMode;
 
-      // Alignment, wrapping, gaps, grid …
       if ('primaryAxisAlignItems' in staticNode)
         frame.primaryAxisAlignItems = staticNode.primaryAxisAlignItems;
       if ('counterAxisAlignItems' in staticNode)
         frame.counterAxisAlignItems = staticNode.counterAxisAlignItems;
-      if ('layoutWrap' in staticNode) frame.layoutWrap = staticNode.layoutWrap; // WRAP / NO_WRAP :contentReference[oaicite:4]{index=4}
+      if ('layoutWrap' in staticNode) frame.layoutWrap = staticNode.layoutWrap;
       if ('counterAxisSpacing' in staticNode)
         frame.counterAxisSpacing = staticNode.counterAxisSpacing ?? 0;
 
-      /* Grid-flow props (only when layoutMode === "GRID") */
+
       if (staticNode.layoutMode === 'GRID') {
         if ('gridRowCount' in staticNode)
           frame.gridRowCount = staticNode.gridRowCount;
@@ -1056,7 +1014,7 @@ function applyAutoLayout(liveNode: SceneNode, staticNode: FetchedNode) {
           frame.gridRowsSizing = staticNode.gridRowsSizing;
       }
 
-      /* Spacing & padding -------------------------------------------------- */
+
       frame.itemSpacing = staticNode.itemSpacing ?? frame.itemSpacing ?? 0;
 
       frame.paddingLeft =
@@ -1081,8 +1039,6 @@ function applyAutoLayout(liveNode: SceneNode, staticNode: FetchedNode) {
         0;
     }
 
-    // If the liveNode is *not* an auto-layout container we bail out here;
-    // its sizing will be handled in applyConstraints (see below).
   } catch (err) {
     console.error('applyAutoLayout →', err);
   }
@@ -1094,7 +1050,6 @@ function applyConstraints(
   parent?: BaseNode & ChildrenMixin
 ) {
   try {
-    // --- 1. Persist the original JSON constraints for reference -----------
     if ('constraints' in staticNode) {
       liveNode.setPluginData?.(
         '__constraints',
@@ -1102,20 +1057,17 @@ function applyConstraints(
       );
     }
 
-    // --- 2. Handle layoutAlign / layoutGrow safely ------------------------
     const parentIsAutoLayout =
       parent &&
       'layoutMode' in parent &&
       (parent as FrameNode).layoutMode !== 'NONE';
 
     if (parentIsAutoLayout) {
-      // existing: layoutAlign / layoutGrow …
       if ('layoutAlign' in staticNode && 'layoutAlign' in liveNode)
         (liveNode as any).layoutAlign = staticNode.layoutAlign;
       if ('layoutGrow' in staticNode && 'layoutGrow' in liveNode)
         (liveNode as any).layoutGrow = staticNode.layoutGrow;
 
-      // NEW: children-only sizing
       if (
         'layoutSizingHorizontal' in staticNode &&
         'layoutSizingHorizontal' in liveNode
@@ -1146,7 +1098,6 @@ function resolveMaskType(staticNode: FetchedNode): MaskType {
 
 function applyBlend(liveNode: SceneNode, staticNode: FetchedNode) {
   try {
-    // ── existing logic ───────────────────────────────
     if ('opacity' in staticNode && 'opacity' in liveNode) {
       (liveNode as GeometryMixin).opacity = staticNode.opacity;
     }
@@ -1167,14 +1118,13 @@ function applyBlend(liveNode: SceneNode, staticNode: FetchedNode) {
 }
 
 function applyBoolean(
-  placeholder: SceneNode, // the temporary frame you created
+  placeholder: SceneNode,
   staticNode: FetchedNode,
-  parentNode: BaseNode & ChildrenMixin // real parent on the canvas
+  parentNode: BaseNode & ChildrenMixin
 ): BooleanOperationNode | void {
   try {
     if (staticNode.type !== 'BOOLEAN_OPERATION') return;
 
-    // 1 – Validate we have enough shapes to combine
     const shapes = (placeholder as ChildrenMixin).children as SceneNode[];
     if (shapes.length < 2) {
       console.warn(
@@ -1183,7 +1133,6 @@ function applyBoolean(
       return;
     }
 
-    // 2 – Pick the helper that matches the JSON operator
     const op = (staticNode.booleanOperation ?? 'UNION').toUpperCase();
     const opMap: Record<
       string,
@@ -1196,15 +1145,13 @@ function applyBoolean(
     };
     const builder = opMap[op] ?? figma.union;
 
-    // 3 – Create the Boolean group in the correct parent & z-index
     let z = parentNode.children.indexOf(placeholder);
     const boolNode =
       z >= 0 ? builder(shapes, parentNode, z) : builder(shapes, parentNode);
 
-    // 4 – Transfer metadata & clean up placeholder
     boolNode.name = staticNode.name ?? 'Boolean';
     if ('touching' in staticNode)
-      (boolNode as any).touching = staticNode.touching; // still supported in 2025 typings
+      (boolNode as any).touching = staticNode.touching;
     if (placeholder.parent) placeholder.remove();
 
     return boolNode;

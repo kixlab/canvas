@@ -11,17 +11,17 @@ export interface ProgressUpdate {
   processedItems: number;
   message: string;
   timestamp: number;
-  [key: string]: any; // Allow dynamic properties for chunk info
+  // Extra fields for chunked progress and other extensions.
+  [key: string]: any;
 }
 
-// --- Figma literal types ---
 export type LayoutMode = 'NONE' | 'HORIZONTAL' | 'VERTICAL';
 export type LayoutWrap = 'NO_WRAP' | 'WRAP';
 export type PrimaryAxisAlign = 'MIN' | 'MAX' | 'CENTER' | 'SPACE_BETWEEN';
 export type CounterAxisAlign = 'MIN' | 'MAX' | 'CENTER' | 'BASELINE';
 export type LayoutSizing = 'FIXED' | 'HUG' | 'FILL';
 
-/** Internal tuple used while walking the tree. */
+
 export interface NodeInfo {
   node: BaseNode;
   parentPath: string[];

@@ -20,19 +20,16 @@ export async function setLayoutMode(params: {
 }): Promise<SetLayoutModeResult> {
   const { nodeId, layoutMode = 'NONE', layoutWrap = 'NO_WRAP' } = params ?? {};
 
-  // Get the target node
   const node = (await figma.getNodeByIdAsync(nodeId)) as
     | FrameNode
     | ComponentNode
     | ComponentSetNode
     | InstanceNode;
-  // | null;
 
   if (!node) {
     throw new Error(`Node with ID ${nodeId} not found`);
   }
 
-  // Ensure the node supports auto-layout props
   if (
     node.type !== 'FRAME' &&
     node.type !== 'COMPONENT' &&
@@ -42,10 +39,8 @@ export async function setLayoutMode(params: {
     throw new Error(`Node type ${node['type']} does not support layoutMode`);
   }
 
-  // Set layout mode
   node.layoutMode = layoutMode as LayoutMode;
 
-  // Set layoutWrap if applicable
   if (layoutMode !== 'NONE') {
     node.layoutWrap = layoutWrap as LayoutWrap;
   }
@@ -81,7 +76,6 @@ export async function setPadding(
   const { nodeId, paddingTop, paddingRight, paddingBottom, paddingLeft } =
     params || {};
 
-  // Get the target node
   const node = (await figma.getNodeByIdAsync(nodeId)) as
     | FrameNode
     | ComponentNode
@@ -93,7 +87,6 @@ export async function setPadding(
     throw new Error(`Node with ID ${nodeId} not found`);
   }
 
-  // Check if node is a frame or component that supports padding
   if (
     node.type !== 'FRAME' &&
     node.type !== 'COMPONENT' &&
@@ -103,14 +96,12 @@ export async function setPadding(
     throw new Error(`Node type ${node['type']} does not support padding`);
   }
 
-  // Check if the node has auto-layout enabled
   if (node.layoutMode === 'NONE') {
     throw new Error(
       'Padding can only be set on auto-layout frames (layoutMode must not be NONE)'
     );
   }
 
-  // Set padding values if provided
   if (paddingTop !== undefined) node.paddingTop = paddingTop;
   if (paddingRight !== undefined) node.paddingRight = paddingRight;
   if (paddingBottom !== undefined) node.paddingBottom = paddingBottom;
@@ -141,7 +132,6 @@ export async function setAxisAlign(params: {
 }): Promise<SetAxisAlignResult> {
   const { nodeId, primaryAxisAlignItems, counterAxisAlignItems } = params || {};
 
-  // Get the target node
   const node = (await figma.getNodeByIdAsync(nodeId)) as
     | FrameNode
     | ComponentNode
@@ -153,7 +143,6 @@ export async function setAxisAlign(params: {
     throw new Error(`Node with ID ${nodeId} not found`);
   }
 
-  // Check if node is a frame or component that supports axis alignment
   if (
     node.type !== 'FRAME' &&
     node.type !== 'COMPONENT' &&
@@ -165,14 +154,12 @@ export async function setAxisAlign(params: {
     );
   }
 
-  // Check if the node has auto-layout enabled
   if (node.layoutMode === 'NONE') {
     throw new Error(
       'Axis alignment can only be set on auto-layout frames (layoutMode must not be NONE)'
     );
   }
 
-  // Validate and set primaryAxisAlignItems if provided
   if (primaryAxisAlignItems !== undefined) {
     if (
       !['MIN', 'MAX', 'CENTER', 'SPACE_BETWEEN'].includes(primaryAxisAlignItems)
@@ -184,14 +171,12 @@ export async function setAxisAlign(params: {
     node.primaryAxisAlignItems = primaryAxisAlignItems as PrimaryAxisAlign;
   }
 
-  // Validate and set counterAxisAlignItems if provided
   if (counterAxisAlignItems !== undefined) {
     if (!['MIN', 'MAX', 'CENTER', 'BASELINE'].includes(counterAxisAlignItems)) {
       throw new Error(
         'Invalid counterAxisAlignItems value. Must be one of: MIN, MAX, CENTER, BASELINE'
       );
     }
-    // BASELINE is only valid for horizontal layout
     if (
       counterAxisAlignItems === 'BASELINE' &&
       node.layoutMode !== 'HORIZONTAL'
@@ -221,20 +206,17 @@ interface SetLayoutSizingResult {
   name: string;
   layoutSizingHorizontal: LayoutSizing | undefined;
   layoutSizingVertical: LayoutSizing | undefined;
-  layoutMode: LayoutMode; // available in the Figma typings
+  layoutMode: LayoutMode;
 }
 
-/* ---------------------------------------------------------
-   Main function – original code, just typed
---------------------------------------------------------- */
+
 export async function setLayoutSizing(params: {
   nodeId: string;
-  layoutSizingHorizontal?: LayoutSizing; // 'FIXED', 'HUG', 'FILL'
-  layoutSizingVertical?: LayoutSizing; // 'FIXED', 'HUG', 'FILL'
+  layoutSizingHorizontal?: LayoutSizing;
+  layoutSizingVertical?: LayoutSizing;
 }): Promise<SetLayoutSizingResult> {
   const { nodeId, layoutSizingHorizontal, layoutSizingVertical } = params || {};
 
-  // Get the target node
   const node = (await figma.getNodeByIdAsync(nodeId)) as
     | FrameNode
     | ComponentNode
@@ -246,7 +228,6 @@ export async function setLayoutSizing(params: {
     throw new Error(`Node with ID ${nodeId} not found`);
   }
 
-  // Check if node is a frame or component that supports layout sizing
   if (
     node.type !== 'FRAME' &&
     node.type !== 'COMPONENT' &&
@@ -256,21 +237,18 @@ export async function setLayoutSizing(params: {
     throw new Error(`Node type ${node['type']} does not support layout sizing`);
   }
 
-  // Check if the node has auto-layout enabled
   if (node.layoutMode === 'NONE') {
     throw new Error(
       'Layout sizing can only be set on auto-layout frames (layoutMode must not be NONE)'
     );
   }
 
-  // Validate and set layoutSizingHorizontal if provided
   if (layoutSizingHorizontal !== undefined) {
     if (!['FIXED', 'HUG', 'FILL'].includes(layoutSizingHorizontal)) {
       throw new Error(
         'Invalid layoutSizingHorizontal value. Must be one of: FIXED, HUG, FILL'
       );
     }
-    // HUG is only valid on auto-layout frames and text nodes
     if (
       layoutSizingHorizontal === 'HUG' &&
       !['FRAME', 'TEXT'].includes(node.type)
@@ -279,7 +257,6 @@ export async function setLayoutSizing(params: {
         'HUG sizing is only valid on auto-layout frames and text nodes'
       );
     }
-    // FILL is only valid on auto-layout children
     if (
       layoutSizingHorizontal === 'FILL' &&
       (!node.parent ||
@@ -291,14 +268,12 @@ export async function setLayoutSizing(params: {
     node.layoutSizingHorizontal = layoutSizingHorizontal as LayoutSizing;
   }
 
-  // Validate and set layoutSizingVertical if provided
   if (layoutSizingVertical !== undefined) {
     if (!['FIXED', 'HUG', 'FILL'].includes(layoutSizingVertical)) {
       throw new Error(
         'Invalid layoutSizingVertical value. Must be one of: FIXED, HUG, FILL'
       );
     }
-    // HUG is only valid on auto-layout frames and text nodes
     if (
       layoutSizingVertical === 'HUG' &&
       !['FRAME', 'TEXT'].includes(node.type)
@@ -307,7 +282,6 @@ export async function setLayoutSizing(params: {
         'HUG sizing is only valid on auto-layout frames and text nodes'
       );
     }
-    // FILL is only valid on auto-layout children
     if (
       layoutSizingHorizontal === 'FILL' &&
       (!node.parent ||
@@ -339,11 +313,10 @@ interface SetItemSpacingResult {
 
 export async function setItemSpacing(params: {
   nodeId: string;
-  itemSpacing?: number; // in pixels, optional
+  itemSpacing?: number;
 }): Promise<SetItemSpacingResult> {
   const { nodeId, itemSpacing } = params || {};
 
-  // Get the target node
   const node = (await figma.getNodeByIdAsync(nodeId)) as
     | FrameNode
     | ComponentNode
@@ -355,7 +328,6 @@ export async function setItemSpacing(params: {
     throw new Error(`Node with ID ${nodeId} not found`);
   }
 
-  // Check if node is a frame or component that supports item spacing
   if (
     node.type !== 'FRAME' &&
     node.type !== 'COMPONENT' &&
@@ -385,3 +357,4 @@ export async function setItemSpacing(params: {
     layoutMode: node.layoutMode,
   };
 }
+

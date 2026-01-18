@@ -145,7 +145,7 @@ interface ExportPageImageResult {
   format: ImageFormat;
   scale: number;
   mimeType: string;
-  imageData: string; // base64
+  imageData: string;
 }
 
 export async function getResultImage(opts?: {
@@ -166,7 +166,6 @@ export async function getResultImage(opts?: {
     (n): n is SceneNode & ExportMixin => 'exportAsync' in n && n.visible
   );
   if (exportable.length === 0) {
-    // return empty image if no exportable nodes found
     return {
       pageId,
       format,
@@ -260,7 +259,6 @@ export async function importDocumentJson(params: { jsonString: string }) {
     throw new Error('No "jsonString" param supplied');
   }
 
-  // ---------- Parse & validate ------------------------------------------------
   let parsed: any;
   try {
     parsed = JSON.parse(jsonString);
@@ -274,11 +272,8 @@ export async function importDocumentJson(params: { jsonString: string }) {
     throw new Error('[importDocumentJSON] document.children not found');
   }
 
-  // ---------- Render ----------------------------------------------------------
   const page = figma.currentPage;
 
-  // Optional: clear page – comment out if you want additive behaviour
-  // page.findAll().forEach(n => n.remove());
 
   const rootNode = await createNode(parsed.document, page, page);
   if (!rootNode) {
@@ -291,8 +286,6 @@ export async function importDocumentJson(params: { jsonString: string }) {
 
   page.appendChild(rootNode);
 
-  // Give a tiny bit of feedback in the UI (for live-run inside Figma)
-  // figma.notify('✅ JSON imported');
 
   return {
     success: true,
@@ -300,3 +293,4 @@ export async function importDocumentJson(params: { jsonString: string }) {
     message: 'Document JSON imported successfully',
   };
 }
+

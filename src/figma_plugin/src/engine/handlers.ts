@@ -1,4 +1,3 @@
-// Command dispatch and plugin message handlers
 import * as CreationCommands from './commands/creationCommands';
 import * as LayoutCommands from './commands/layoutCommands';
 import * as OperationCommands from './commands/operationCommands';
@@ -6,6 +5,7 @@ import * as StyleCommands from './commands/styleCommands';
 import * as TextCommands from './commands/textCommands';
 import * as InspectionCommands from './commands/inspectionCommands';
 
+// Dispatch MCP command names to engine implementations.
 export async function handleCommand(command: string, params: any) {
   switch (command) {
     case 'get_page_info':
