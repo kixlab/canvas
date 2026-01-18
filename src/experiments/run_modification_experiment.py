@@ -247,7 +247,7 @@ class ModificationExperiment(BaseExperiment):
     async def run_modification(
         self, session, target_image_path, base_json_string, instruction, result_name
     ):
-        endpoint = "modification/text-image"
+        endpoint = "modification"
 
         base_meta = self.experiment_config["models"][self.config.model.value]
         agent_type = (

@@ -67,28 +67,9 @@ src/
 
 ## API Endpoint
 
-### Generation Routes
+### Replication Routes
 
-- **POST** `/replication/text`
-  - Body: `message` (string), `metadata` (JSON string)
-  - Content-Type: `application/x-www-form-urlencoded`
-  - **Response**:
-    ```json
-    {
-      "status": "success" | "error",
-      "message": "string",
-      "payload": {
-        "history": "array",
-        "responses": "array",
-        "json_structure": "object",
-        "image_uri": "string",
-        "case_id": "string",
-        "cost": "number"
-      }
-    }
-    ```
-
-- **POST** `/replication/image`
+- **POST** `/replication`
   - Body: `image` (file), `metadata` (JSON string)
   - Content-Type: `multipart/form-data`
   - **Response**:
@@ -107,8 +88,10 @@ src/
     }
     ```
 
-- **POST** `/replication/text-image`
-  - Body: `message` (string), `image` (file), `metadata` (JSON string)
+### Modification Routes
+
+- **POST** `/modification`
+  - Body: `message` (string), `image` (file), `baseJsonString` (string), `metadata` (JSON string)
   - Content-Type: `multipart/form-data`
   - **Response**:
     ```json
@@ -226,7 +209,7 @@ src/
 ```python
 # Example 1: Text generation
 def generate_text_example():
-    url = f"{BASE_URL}/replication/text"
+    url = f"{BASE_URL}/replication"
 
     metadata = {
         "case_id": "test_case_001",
@@ -251,7 +234,7 @@ def generate_text_example():
 
 # Example 2: Image generation
 def generate_image_example():
-    url = f"{BASE_URL}/replication/image"
+    url = f"{BASE_URL}/replication"
 
     metadata = {
         "case_id": "test_case_002",
@@ -278,7 +261,7 @@ def generate_image_example():
 
 # Example 3: Text + Image generation
 def generate_text_image_example():
-    url = f"{BASE_URL}/replication/text-image"
+    url = f"{BASE_URL}/replication"
 
     metadata = {
         "case_id": "test_case_003",

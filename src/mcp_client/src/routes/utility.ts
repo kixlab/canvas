@@ -22,6 +22,7 @@ export const getSelection = async (
   try {
     if (!validateTools(res)) return;
 
+    // Selection info is used by the UI/debug panel.
     const toolCall = globalSession.state.tools!.createToolCall(
       "get_selection_info",
       randomUUID()

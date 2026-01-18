@@ -90,7 +90,7 @@ const buildUserRequest = (
   ],
 });
 
-export const modificationFromTextAndImage = async (
+export const runModification = async (
   req: MulterRequest,
   res: Response<ResponseData>
 ): Promise<void> => {
@@ -102,6 +102,7 @@ export const modificationFromTextAndImage = async (
     const tools = requireTools();
     const metadata = parseMetadata(req.body.metadata);
 
+    // Base JSON is required to modify an existing layout.
     const originalBase64Image = base64Encode(req.file.buffer);
     const mimeType = req.file.mimetype;
     const { base64, width, height } = await reduceBase64Image(
@@ -146,7 +147,7 @@ export const modificationFromTextAndImage = async (
     });
   } catch (error) {
     logger.error({
-      header: "Error in modificationFromTextAndImage",
+      header: "Error in runModification",
       body: error instanceof Error ? error.message : String(error),
     });
     res

@@ -163,17 +163,9 @@ class ReplicationExperiment(BaseExperiment):
     async def run_variant(self, session, image_path, meta_json, result_name, variant):
         variant_value = variant.value
 
-        if variant_value == ExperimentVariant.IMAGE_ONLY.value:
-            endpoint = "replication/image"
-            message_text = None
-        elif variant_value == ExperimentVariant.TEXT_LEVEL_1.value:
-            endpoint = "replication/text-image"
-            message_text = meta_json.get("description_one", "")
-        elif variant_value == ExperimentVariant.TEXT_LEVEL_2.value:
-            endpoint = "replication/text-image"
-            message_text = meta_json.get("description_two", "")
-        else:
-            raise ValueError(f"Unknown variant: {variant_value}")
+        if variant_value != ExperimentVariant.IMAGE_ONLY.value:
+            raise ValueError(f"Unsupported variant: {variant_value}")
+        endpoint = "replication"
 
         base_meta = self.experiment_config["models"][self.config.model.value]
         agent_type = (
@@ -208,9 +200,6 @@ class ReplicationExperiment(BaseExperiment):
                 filename=image_path.name,
                 content_type="image/png",
             )
-            if message_text is not None:
-                form.add_field("message", message_text)
-
             form.add_field("metadata", build_metadata())
             return form
 

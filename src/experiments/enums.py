@@ -2,10 +2,7 @@ from enum import Enum, auto
 
 
 class ExperimentVariant(str, Enum):
-    # Generation variants
     IMAGE_ONLY = "image_only"
-    TEXT_LEVEL_1 = "text_level_1"
-    TEXT_LEVEL_2 = "text_level_2"
 
 
 class ModelType(str, Enum):

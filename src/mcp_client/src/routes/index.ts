@@ -15,25 +15,17 @@ const upload = multer({
 export const createRoutes = () => {
   const router = Router();
 
+  // Image-only replication endpoint.
   router.post(
-    "/replication/text",
-    upload.none(),
-    replicationRoutes.replicationFromText
-  );
-  router.post(
-    "/replication/image",
+    "/replication",
     upload.single("image"),
-    replicationRoutes.replicationFromImage
+    replicationRoutes.runReplication
   );
+  // Modification endpoint requires image + instruction + base JSON.
   router.post(
-    "/replication/text-image",
+    "/modification",
     upload.single("image"),
-    replicationRoutes.replicationFromTextAndImage
-  );
-  router.post(
-    "/modification/text-image",
-    upload.single("image"),
-    modificationRoutes.modificationFromTextAndImage
+    modificationRoutes.runModification
   );
   router.post("/tool/get_selection", toolRoutes.getSelection);
   router.post(

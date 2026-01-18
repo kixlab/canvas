@@ -97,17 +97,9 @@ class SampleExtractionExperiment(BaseExperiment):
                             print("Invalid input. Please enter y / n / q.")
 
     async def run_variant(self, session, image_path, meta_json, result_name, variant):
-        if variant == "image_only":
-            endpoint = "replication/image"
-            message_text = None
-        elif variant == "text_level_1":
-            endpoint = "replication/text-image"
-            message_text = meta_json.get("description_one", "")
-        elif variant == "text_level_2":
-            endpoint = "replication/text-image"
-            message_text = meta_json.get("description_two", "")
-        else:
-            raise ValueError(f"Unknown variant: {variant}")
+        if variant != "image_only":
+            raise ValueError(f"Unsupported variant: {variant}")
+        endpoint = "replication"
 
         def build_form_data():
             form = aiohttp.FormData()
@@ -117,9 +109,6 @@ class SampleExtractionExperiment(BaseExperiment):
                 filename=image_path.name,
                 content_type="image/png",
             )
-            if message_text is not None:
-                form.add_field("message", message_text)
-
             form.add_field("metadata", result_name)
             return form
 

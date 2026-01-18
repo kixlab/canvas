@@ -1,10 +1,6 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { randomUUID } from "crypto";
-import {
-  getTextBasedGenerationPrompt,
-  getImageBasedGenerationPrompt,
-  getTextImageBasedGenerationPrompt,
-} from "../utils/prompts";
+import { getImageBasedGenerationPrompt } from "../utils/prompts";
 import { base64Encode, logger, reduceBase64Image } from "../utils/helpers";
 import {
   AgentType,
@@ -81,82 +77,19 @@ const getConfigFromMetadata = (metadata: ReplicationMetadata) => ({
 
 const buildUserRequest = (
   instruction: string,
-  image?: { data: string; mimeType: string }
+  image: { data: string; mimeType: string }
 ): UserRequestMessage => ({
   id: randomUUID(),
   timestamp: Date.now(),
   type: MessageType.USER_REQUEST,
   role: RoleType.USER,
-  content: image
-    ? [
-        { type: ContentType.TEXT, text: instruction },
-        { type: ContentType.IMAGE, data: image.data, mimeType: image.mimeType },
-      ]
-    : [{ type: ContentType.TEXT, text: instruction }],
+  content: [
+    { type: ContentType.TEXT, text: instruction },
+    { type: ContentType.IMAGE, data: image.data, mimeType: image.mimeType },
+  ],
 });
 
-const runReplication = async (
-  tools: NonNullable<typeof globalSession.state.tools>,
-  metadata: ReplicationMetadata,
-  requestMessage: UserRequestMessage,
-  size?: { width: number; height: number }
-) => {
-  const { agentConfig, modelConfig } = getConfigFromMetadata(metadata);
-  const agent = createAgent(agentConfig);
-  const model = createModel(modelConfig);
-  return await agent.run({
-    requestMessage,
-    tools,
-    model,
-    metadata: {
-      caseId: metadata.case_id,
-      ...(size ? { width: size.width, height: size.height } : {}),
-    },
-  });
-};
-
-export const replicationFromText = async (
-  req: Request,
-  res: Response<ResponseData>
-): Promise<void> => {
-  try {
-    const message = req.body.message;
-    if (!message) throw new Error("No instruction provided.");
-    const tools = requireTools();
-    const metadata = parseMetadata(req.body.metadata);
-    const instruction = getTextBasedGenerationPrompt(
-      message,
-      metadata.agent_type as AgentType
-    );
-    const userRequest = buildUserRequest(instruction);
-    const result = await runReplication(tools, metadata, userRequest);
-
-    res.json({
-      status: ResponseStatus.SUCCESS,
-      message: "Generation successful",
-      payload: {
-        history: result.history,
-        responses: result.responses,
-        json_structure: result.json_structure,
-        image_uri: result.image_uri,
-        case_id: result.case_id,
-        snapshots: result.snapshots,
-        turn: result.turn,
-        cost: result.cost,
-      },
-    });
-  } catch (error) {
-    logger.error({
-      header: "Error in replicationFromText",
-      body: error instanceof Error ? error.message : String(error),
-    });
-    res
-      .status(500)
-      .json({ status: ResponseStatus.ERROR, message: String(error) });
-  }
-};
-
-export const replicationFromImage = async (
+export const runReplication = async (
   req: MulterRequest,
   res: Response<ResponseData>
 ): Promise<void> => {
@@ -164,6 +97,8 @@ export const replicationFromImage = async (
     if (!req.file) throw new Error("No image provided.");
     const tools = requireTools();
     const metadata = parseMetadata(req.body.metadata);
+
+    // Compress and normalize the input image for the model.
     const originalBase64Image = base64Encode(req.file.buffer);
     const mimeType = req.file.mimetype;
     const { base64, width, height } = await reduceBase64Image(
@@ -179,9 +114,15 @@ export const replicationFromImage = async (
       data: base64,
       mimeType,
     });
-    const result = await runReplication(tools, metadata, userRequest, {
-      width,
-      height,
+
+    const { agentConfig, modelConfig } = getConfigFromMetadata(metadata);
+    const agent = createAgent(agentConfig);
+    const model = createModel(modelConfig);
+    const result = await agent.run({
+      requestMessage: userRequest,
+      tools,
+      model,
+      metadata: { caseId: metadata.case_id, width, height },
     });
 
     res.json({
@@ -200,63 +141,7 @@ export const replicationFromImage = async (
     });
   } catch (error) {
     logger.error({
-      header: "Error in replicationFromImage",
-      body: error instanceof Error ? error.message : String(error),
-    });
-    res
-      .status(500)
-      .json({ status: ResponseStatus.ERROR, message: String(error) });
-  }
-};
-
-export const replicationFromTextAndImage = async (
-  req: MulterRequest,
-  res: Response<ResponseData>
-): Promise<void> => {
-  try {
-    const message = req.body.message;
-    if (!req.file) throw new Error("No image provided.");
-    if (!message) throw new Error("No instruction provided.");
-    const tools = requireTools();
-    const metadata = parseMetadata(req.body.metadata);
-    const originalBase64Image = base64Encode(req.file.buffer);
-    const mimeType = req.file.mimetype;
-    const { base64, width, height } = await reduceBase64Image(
-      originalBase64Image,
-      mimeType
-    );
-    const instruction = getTextImageBasedGenerationPrompt(
-      message,
-      width,
-      height,
-      metadata.agent_type as AgentType
-    );
-    const userRequest = buildUserRequest(instruction, {
-      data: base64,
-      mimeType,
-    });
-    const result = await runReplication(tools, metadata, userRequest, {
-      width,
-      height,
-    });
-
-    res.json({
-      status: ResponseStatus.SUCCESS,
-      message: "Generation successful",
-      payload: {
-        history: result.history,
-        responses: result.responses,
-        cost: result.cost,
-        json_structure: result.json_structure,
-        image_uri: result.image_uri,
-        case_id: result.case_id,
-        snapshots: result.snapshots,
-        turn: result.turn,
-      },
-    });
-  } catch (error) {
-    logger.error({
-      header: "Error in replicationFromTextAndImage",
+      header: "Error in runReplication",
       body: error instanceof Error ? error.message : String(error),
     });
     res
