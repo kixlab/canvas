@@ -1,24 +1,22 @@
 import { AgentConfig, AgentType } from "../types";
-import { AgentInstance } from "./baseAgent";
-import { CodeAgent } from "./codeAgent";
-import { FeedbackAgent } from "./feedbackAgent";
+import { AgentInstance } from "./agentInstance";
+import { CodeReplicationAgent } from "./codeReplicationAgent";
 import { ModificationAgent } from "./reactModificationAgent";
-import { ReactAgent } from "./reactAgent";
-import { SingleAgent } from "./singleAgent";
+import { ReactReplicationAgent } from "./reactReplicationAgent";
+import { SingleReplicationAgent } from "./singleReplicationAgent";
 import { SingleModificationAgent } from "./singleModificationAgent";
 
+// Factory for agent instances based on configured type.
 export function createAgent(agentConfig: AgentConfig): AgentInstance {
   switch (agentConfig.agentType) {
     case AgentType.REACT_REPLICATION:
-      return new ReactAgent(agentConfig);
-    case AgentType.FEEDBACK:
-      return new FeedbackAgent(agentConfig);
+      return new ReactReplicationAgent(agentConfig);
     case AgentType.REACT_MODIFICATION:
       return new ModificationAgent(agentConfig);
     case AgentType.CODE_REPLICATION:
-      return new CodeAgent(agentConfig);
+      return new CodeReplicationAgent(agentConfig);
     case AgentType.SINGLE_REPLICATION:
-      return new SingleAgent(agentConfig);
+      return new SingleReplicationAgent(agentConfig);
     case AgentType.SINGLE_MODIFICATION:
       return new SingleModificationAgent(agentConfig);
     default:

@@ -1,7 +1,7 @@
 import { OpenAI } from "openai";
 import * as OpenAIResponseType from "openai/resources/responses/responses";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   ModelConfig,
   CallToolRequestParams,
@@ -12,7 +12,7 @@ import {
   MessageType,
   IntermediateRequestMessage,
 } from "../types";
-import { ModelInstance } from "./baseModel";
+import { ModelInstance } from "./modelInstance";
 
 export class OpenAIModel extends ModelInstance {
   private client: OpenAI;
@@ -33,7 +33,7 @@ export class OpenAIModel extends ModelInstance {
       >
     > = {}
   ): Promise<any> {
-    // check if the modelName includes "o3" or "o1"
+    // O-series models ignore temperature.
     const reasoning =
       this.modelName.includes("o3") || this.modelName.includes("o1");
     const params: OpenAIResponseType.ResponseCreateParams = {
@@ -58,6 +58,7 @@ export class OpenAIModel extends ModelInstance {
       Omit<OpenAIResponseType.ResponseCreateParams, "input" | "model" | "tools">
     >
   ): Promise<OpenAIResponseType.Responses.Response> {
+    // O-series models ignore temperature.
     const reasoning =
       this.modelName.includes("o3") || this.modelName.includes("o1");
     const params: OpenAIResponseType.ResponseCreateParams = {
@@ -76,7 +77,6 @@ export class OpenAIModel extends ModelInstance {
     return await this.client.responses.create(params);
   }
 
-  // Generic Message -> OpenAI Response Input
   formatRequest(
     messages: GenericMessage[]
   ): OpenAIResponseType.EasyInputMessage[] {
@@ -109,7 +109,6 @@ export class OpenAIModel extends ModelInstance {
     });
   }
 
-  // OpenAI Response -> Call Tool Request
   formatCallToolRequest(
     messages: OpenAIResponseType.Responses.Response
   ): CallToolRequestParams[] {
@@ -134,7 +133,6 @@ export class OpenAIModel extends ModelInstance {
       }));
   }
 
-  // Call Tool Result -> OpenAI Response Item
   formatToolResponse(
     result: CallToolResult
   ): OpenAIResponseType.ResponseInputItem {
@@ -155,27 +153,26 @@ export class OpenAIModel extends ModelInstance {
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): OpenAIResponseType.Tool[] {
-    const toolList: OpenAIResponseType.Tool[] = [];
-    tools.forEach((tool) => {
-      toolList.push({
-        type: "function",
-        name: tool.name,
-        description: tool.description ?? "",
-        parameters: tool.inputSchema
-          ? {
-              ...tool.inputSchema,
-              additionalProperties: false,
-              required: tool.inputSchema.required || [],
-            }
-          : {
-              type: "object",
-              properties: {},
-              required: [],
-            },
-        strict: false,
-      } as OpenAIResponseType.Tool);
-    });
-    return toolList;
+    return tools.map(
+      (tool) =>
+        ({
+          type: "function",
+          name: tool.name,
+          description: tool.description ?? "",
+          parameters: tool.inputSchema
+            ? {
+                ...tool.inputSchema,
+                additionalProperties: false,
+                required: tool.inputSchema.required || [],
+              }
+            : {
+                type: "object",
+                properties: {},
+                required: [],
+              },
+          strict: false,
+        }) as OpenAIResponseType.Tool
+    );
   }
 
   formatResponseToIntermediateRequestMessage(
@@ -233,9 +230,8 @@ export class OpenAIModel extends ModelInstance {
   }
 
   formatImageData(imageData: string, mimeType: string = "image/png"): string {
-    // OpenAI expects image data in base64 format prefixed with the MIME type
     if (/^data:image\/[^;]+;base64,/.test(imageData)) {
-      return imageData; // Already formatted as a data URL
+      return imageData;
     }
     return `data:${mimeType};base64,${imageData}`;
   }

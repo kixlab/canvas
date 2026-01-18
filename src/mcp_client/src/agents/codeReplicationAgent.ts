@@ -2,27 +2,28 @@ import fs from "fs";
 import path from "path";
 import puppeteer from "puppeteer";
 import {
-  UserRequestMessage,
-  GenericMessage,
   AgentMetadata,
-  RoleType,
-  MessageType,
   ContentType,
+  GenericMessage,
+  MessageType,
+  RoleType,
   SnapshotStructure,
+  UserRequestMessage,
 } from "../types";
-import { ModelInstance } from "../models/baseModel";
+import { ModelInstance } from "../models/modelInstance";
 import { Tools } from "../core/tools";
-import { AgentInstance } from "./baseAgent";
+import { AgentInstance } from "./agentInstance";
 import { logger } from "../utils/helpers";
 
-const rickPath = path.resolve(__dirname, "../public/static/rick.png"); // adjust to your repo
+const rickPath = path.resolve(__dirname, "../public/static/rick.png");
 const rickBase64 = fs.readFileSync(rickPath, "base64");
 const rickDataURL = `data:image/png;base64,${rickBase64}`;
 
-export class CodeAgent extends AgentInstance {
+export class CodeReplicationAgent extends AgentInstance {
+  // Generate HTML/CSS, render to an image, and return the screenshot + source.
   async run(params: {
     requestMessage: UserRequestMessage;
-    tools: Tools; // kept for interface parity, not used
+    tools: Tools;
     model: ModelInstance;
     metadata: AgentMetadata;
   }): Promise<{
@@ -36,17 +37,15 @@ export class CodeAgent extends AgentInstance {
     snapshots: SnapshotStructure[];
   }> {
     logger.info({
-      header: "Code Agent Generation Started",
+      header: "Code Replication Agent Generation Started",
       body: `Model: ${params.model.modelName}, Provider: ${params.model.modelProvider}, Max Turns: ${this.maxTurns}`,
     });
 
-    // Log request details
     logger.info({
       header: "Request Details",
       body: `Case ID: ${params.metadata.caseId}, Width: ${params.metadata.width || 800}, Height: ${params.metadata.height || 600}`,
     });
 
-    // Log user request message
     if (params.requestMessage.content && params.requestMessage.content.length > 0) {
       const textContent = params.requestMessage.content.find((c: any) => c.type === 'text');
       if (textContent && (textContent as any).text) {
@@ -62,7 +61,6 @@ export class CodeAgent extends AgentInstance {
     const messageContext = params.model.createMessageContext();
     messageContext.push(params.requestMessage);
 
-    /* ---------- 1. Ask the LLM for code ---------- */
     logger.info({
       header: "Sent an LLM request for the code generation",
     });
@@ -87,9 +85,8 @@ export class CodeAgent extends AgentInstance {
       body: `Response type: ${typeof modelResponse}, Has content: ${!!modelResponse.content}`,
     });
 
-    // Add timeout to prevent hanging
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error("LLM response timeout")), 60000); // 60 seconds
+      setTimeout(() => reject(new Error("LLM response timeout")), 60000);
     });
     
     try {
@@ -108,7 +105,6 @@ export class CodeAgent extends AgentInstance {
       messageContext
     );
 
-    // Extract the actual LLM response text from the model response
     let rawText = "";
     if (modelResponse && modelResponse.content) {
       if (Array.isArray(modelResponse.content)) {
@@ -121,7 +117,6 @@ export class CodeAgent extends AgentInstance {
       }
     }
     
-    // Fallback: try to get from message context (last message should be the response)
     if (!rawText && messageContext.length > 0) {
       const lastMessage = messageContext[messageContext.length - 1];
       if (lastMessage && lastMessage.content && lastMessage.content.length > 0) {
@@ -132,7 +127,6 @@ export class CodeAgent extends AgentInstance {
       }
     }
 
-    // Check if response is incomplete
     if (modelResponse && modelResponse.status === 'incomplete') {
       logger.warn({
         header: "LLM Response Incomplete",
@@ -147,7 +141,6 @@ export class CodeAgent extends AgentInstance {
       body: `Length: ${rawText.length}, Preview: ${rawText.substring(0, 200)}...`,
     });
 
-    /* ---------- 2. Pull code block ---------- */
     const { code, success: codeBlockExists } = extractCodeBlock(rawText);
 
     logger.info({
@@ -160,7 +153,6 @@ export class CodeAgent extends AgentInstance {
         header: "No code block found in the model response",
         body: `Response: ${rawText}`,
       });
-      // Don't retry infinitely, return error response instead
       return {
         case_id: params.metadata.caseId,
         history: messageContext,
@@ -174,9 +166,7 @@ export class CodeAgent extends AgentInstance {
     }
 
     const patchedHtml = code
-      // replace any src="rick.jpg|png"
       .replace(/src=(["'])rick\.(?:png|jpg)\1/gi, `src="${rickDataURL}"`)
-      // also replace literal file names in CSS url() or elsewhere
       .replace(/\brick\.(?:png|jpg)\b/gi, rickDataURL);
 
     logger.info({
@@ -184,7 +174,6 @@ export class CodeAgent extends AgentInstance {
       body: `Code length: ${code.length}, Viewport: ${width}x${height}`,
     });
 
-    /* ---------- 3. Render with Puppeteer ---------- */
     logger.info({
       header: "Starting Puppeteer browser",
       body: "Launching headless Chrome...",
@@ -235,7 +224,7 @@ export class CodeAgent extends AgentInstance {
     };
 
     logger.info({
-      header: "Code Agent Generation Completed",
+      header: "Code Replication Agent Generation Completed",
       body: `Cost: ${result.cost}, Turn: ${result.turn}, History length: ${result.history.length}`,
     });
 
@@ -243,17 +232,16 @@ export class CodeAgent extends AgentInstance {
   }
 }
 
-/* ---------- 5. Helper ---------- */
+// Extract the first reasonable code block or HTML payload from a model response.
 function extractCodeBlock(t: string): {
   code: string;
   success: boolean;
 } {
-  // Try multiple patterns to find code blocks
   const patterns = [
-    /```(?:\w*\n)?([\s\S]*?)```/,  // Standard markdown code blocks
-    /```html\s*\n([\s\S]*?)```/,   // HTML specific code blocks
-    /```css\s*\n([\s\S]*?)```/,    // CSS specific code blocks
-    /```\s*\n([\s\S]*?)```/,       // Generic code blocks
+    /```(?:\w*\n)?([\s\S]*?)```/,
+    /```html\s*\n([\s\S]*?)```/,
+    /```css\s*\n([\s\S]*?)```/,
+    /```\s*\n([\s\S]*?)```/,
   ];
   
   for (const pattern of patterns) {
@@ -263,20 +251,16 @@ function extractCodeBlock(t: string): {
     }
   }
   
-  // If no code block found, check if the entire response looks like HTML
   if (t.trim().startsWith('<!DOCTYPE html>') || t.trim().startsWith('<html')) {
     return { code: t.trim(), success: true };
   }
   
-  // For incomplete responses, try to extract partial HTML
   if (t.includes('<!DOCTYPE html>') || t.includes('<html')) {
-    // Find the start of HTML
     const htmlStart = t.indexOf('<!DOCTYPE html>');
     const htmlStartAlt = t.indexOf('<html');
     const start = htmlStart !== -1 ? htmlStart : htmlStartAlt;
     
     if (start !== -1) {
-      // Extract from HTML start to end of text (incomplete but usable)
       const partialHtml = t.substring(start);
       return { code: partialHtml, success: true };
     }

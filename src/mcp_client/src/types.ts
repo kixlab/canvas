@@ -120,7 +120,6 @@ export enum AgentType {
   SINGLE_REPLICATION = "single_replication",
   REACT_MODIFICATION = "react_modification",
   SINGLE_MODIFICATION = "single_modification",
-  FEEDBACK = "feedback",
 }
 
 export interface ServerConfig {
@@ -151,10 +150,9 @@ export interface MulterRequest extends Request {
 
 export enum ModelProvider {
   OPENAI = "openai",
-  ANTHROPIC = "anthropic",
+  AMAZON = "amazon",
   GOOGLE = "google",
   OLLAMA = "ollama",
-  TOGETHER = "together",
 }
 
 export enum ResponseStatus {

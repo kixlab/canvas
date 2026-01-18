@@ -1,28 +1,29 @@
 import { randomUUID } from "crypto";
 import {
-  UserRequestMessage,
-  GenericMessage,
   AgentMetadata,
-  RoleType,
-  MessageType,
   ContentType,
-  ToolResponseMessage,
+  GenericMessage,
+  MessageType,
+  RoleType,
   SnapshotStructure,
+  ToolResponseMessage,
+  UserRequestMessage,
 } from "../types";
-import { ModelInstance } from "../models/baseModel";
+import { ModelInstance } from "../models/modelInstance";
 import { Tools } from "../core/tools";
-import { AgentInstance } from "./baseAgent";
+import { AgentInstance } from "./agentInstance";
 import {
-  switchParentId,
-  getPageStructure,
   clearPage,
-  isPageClear,
   getPageImage,
+  getPageStructure,
+  isPageClear,
   logger,
+  switchParentId,
 } from "../utils/helpers";
 import { MINIMUM_MODIFICATION_TURN } from "../utils/config";
 
 export class ModificationAgent extends AgentInstance {
+  // Multi-turn ReAct loop for modifying an existing UI loaded from JSON.
   async run(params: {
     requestMessage: UserRequestMessage;
     tools: Tools;
@@ -39,26 +40,20 @@ export class ModificationAgent extends AgentInstance {
     image_uri: string;
     snapshots: SnapshotStructure[];
   }> {
-    // Step 0: Check page and position the load the design.
     logger.log({
-      header: "ReAct Agent Generation Started",
+      header: "ReAct Modification Agent Generation Started",
       body: `Model: ${params.model.modelName}, Provider: ${params.model.modelProvider}, Max Turns: ${this.maxTurns}`,
     });
 
-    const pageStatus = await isPageClear(params.tools);
-    if (!pageStatus) {
-      logger.info({
-        header: "Page is not clear. Clearing the page...",
-      });
+    if (!(await isPageClear(params.tools))) {
+      logger.info({ header: "Page is not clear. Clearing the page..." });
       await clearPage(params.tools);
     }
 
     const loadJsonRequest = params.tools.createToolCall(
       "import_json",
       randomUUID(),
-      {
-        jsonString: params.baseJsonString,
-      }
+      { jsonString: params.baseJsonString }
     );
     const response = await params.tools.callTool(loadJsonRequest);
     if (response.isError) {
@@ -75,30 +70,24 @@ export class ModificationAgent extends AgentInstance {
       );
     }
 
-    // Step 1: Initialize parameters
-    const initialRequest = params.model.formatRequest([params.requestMessage]);
+    const apiMessageContext = params.model.createMessageContext();
+    const formattedMessageContext: GenericMessage[] = [];
+    const rawResponses: any[] = [];
+    const snapshots: SnapshotStructure[] = [];
+
+    apiMessageContext.push(...params.model.formatRequest([params.requestMessage]));
+    formattedMessageContext.push(params.requestMessage);
+
     const toolsArray = params.model.formatToolList(
       Array.from(params.tools.catalogue.values())
     );
 
-    // Step 2: Prepare message contexts
-    const apiMessageContext = params.model.createMessageContext();
-    const formattedMessageContext = new Array<GenericMessage>();
-    const rawResponses = new Array();
-    const snapshots = new Array<SnapshotStructure>();
-
-    apiMessageContext.push(...initialRequest);
-    formattedMessageContext.push(params.requestMessage);
-
-    // Step 3: Create an environment
     let turn = 0;
     let cost = 0;
 
-    // ReAct Loop: Reason -> Act -> Observe
     while (turn < this.maxTurns) {
-      // Reason: Generate response with tools
       logger.info({
-        header: `ReAct agent - loop turn ${turn} of maximum ${this.maxTurns}`,
+        header: `ReAct modification - loop turn ${turn} of maximum ${this.maxTurns}`,
       });
       const modelResponse = await params.model.generateResponseWithTool(
         apiMessageContext,
@@ -108,7 +97,6 @@ export class ModificationAgent extends AgentInstance {
       rawResponses.push(modelResponse);
       cost += params.model.getCostFromResponse(modelResponse);
 
-      // Update context with model response
       params.model.addToApiMessageContext(modelResponse, apiMessageContext);
       params.model.addToFormattedMessageContext(
         modelResponse,
@@ -116,14 +104,10 @@ export class ModificationAgent extends AgentInstance {
         formattedMessageContext
       );
 
-      // Check if tool calls are needed
       const callToolRequests =
         params.model.formatCallToolRequest(modelResponse);
-
       if (!callToolRequests || callToolRequests.length === 0) {
-        logger.info({
-          header: "No tool calls detected. Exiting ReAct loop.",
-        });
+        logger.info({ header: "No tool calls detected. Exiting ReAct loop." });
         break;
       }
 
@@ -133,13 +117,11 @@ export class ModificationAgent extends AgentInstance {
         mainScreenFrameId,
       });
 
-      // Act: Execute tool calls
       const toolResults = [];
       for (const toolCall of updatedCallToolRequests) {
         toolResults.push(await params.tools.callTool(toolCall));
       }
 
-      // Observe: Add tool results to context
       this.addToolResultsToContext(
         toolResults,
         apiMessageContext,
@@ -147,35 +129,29 @@ export class ModificationAgent extends AgentInstance {
         params.model
       );
 
-      // Save Snapshot: Capture the current state of the page
       const screenSnapshot = await getPageImage(params.tools);
       const structureSnapshot = await getPageStructure(params.tools);
       snapshots.push({
         case_id: params.metadata.caseId,
-        init: turn === 0 ? true : false, // First turn is not feedback
+        init: turn === 0 ? true : false,
         turn,
         image_uri: screenSnapshot,
         structure: structureSnapshot,
-        toolResults: toolResults,
+        toolResults,
       });
 
-      // Increment turn count
       turn++;
     }
 
-    // Check if we need to re-run due to insufficient turns
     if (turn < MINIMUM_MODIFICATION_TURN) {
       logger.error({
-        header: `Minimum turn requirement not met. Re-running the process...`,
+        header: "Minimum turn requirement not met. Re-running the process...",
         body: `Completed with only ${turn} turns (less than ${MINIMUM_MODIFICATION_TURN})`,
       });
-
-      // Clear the page and re-run
       await clearPage(params.tools);
       return this.run(params);
     }
 
-    // Get page structure and image
     const pageStructure = await getPageStructure(params.tools);
     const resultImage = await getPageImage(params.tools);
     await clearPage(params.tools);
@@ -186,9 +162,9 @@ export class ModificationAgent extends AgentInstance {
       responses: rawResponses,
       json_structure: pageStructure,
       image_uri: resultImage,
-      turn: turn,
-      snapshots, // Include snapshots in the result
-      cost: cost / 1000, // Convert to USD
+      turn,
+      snapshots,
+      cost: cost / 1000,
     };
   }
 
@@ -196,15 +172,13 @@ export class ModificationAgent extends AgentInstance {
     toolResults: any[],
     apiMessageContext: any[],
     formattedMessageContext: GenericMessage[],
-    model: any
+    model: ModelInstance
   ): void {
-    // Add to API context
+    // Keep API context in tool-response format and formatted context in app schema.
     for (const toolResult of toolResults) {
-      const toolResponse = model.formatToolResponse(toolResult);
-      apiMessageContext.push(toolResponse);
+      apiMessageContext.push(model.formatToolResponse(toolResult));
     }
 
-    // Add to formatted context
     formattedMessageContext.push({
       id: randomUUID(),
       timestamp: Date.now(),

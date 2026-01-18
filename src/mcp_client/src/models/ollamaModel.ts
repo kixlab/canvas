@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   ModelConfig,
   CallToolRequestParams,
@@ -11,44 +11,39 @@ import {
   MessageType,
   IntermediateRequestMessage,
 } from "../types";
-import { ModelInstance } from "./baseModel";
+import { ModelInstance } from "./modelInstance";
 import { logger } from "../utils/helpers";
 
 export type MessageRole = "system" | "user" | "assistant" | "tool";
 
-/** A single tool request emitted by the model */
 export interface ToolCall {
-  id?: string; // only present when several calls are returned
+  id?: string;
   function: {
     name: string;
-    /** Parsed JSON – *not* stringified JSON */
     arguments: Record<string, unknown>;
   };
 }
 
-/** One chat message in a request or response */
 export interface ChatMessage {
   role: MessageRole;
   content: string;
   thinking?: string;
   images?: string[] | null;
   tool_calls?: ToolCall[];
-  tool_name?: string; // set by caller when returning tool output
+  tool_name?: string;
 }
 
-/** A “function” tool definition */
 export interface FunctionTool {
   type: "function";
   function: {
     name: string;
     description?: string;
-    parameters: Record<string, unknown>; // JSON Schema object
+    parameters: Record<string, unknown>;
   };
 }
 
 export type ToolDefinition = FunctionTool;
 
-/** Body of POST /api/chat when `stream:false` */
 export interface ChatRequest {
   model: string;
   messages: ChatMessage[];
@@ -56,16 +51,15 @@ export interface ChatRequest {
   think?: boolean;
   format?: "json" | Record<string, unknown>;
   options?: Record<string, unknown>;
-  stream?: boolean; // we always send false
+  stream?: boolean;
   keep_alive?: string | number;
 }
 
-/** Non-streamed response (i.e. final chunk) */
 export interface ChatResponse {
   model: string;
-  created_at: string; // ISO timestamp
+  created_at: string;
   message: ChatMessage;
-  done: true /* always true because we disabled streaming */;
+  done: true;
   done_reason?: string;
   total_duration?: number;
   load_duration?: number;
@@ -75,9 +69,6 @@ export interface ChatResponse {
   eval_duration?: number;
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Model Implementation                                                      */
-/* -------------------------------------------------------------------------- */
 export class OllamaRESTModel extends ModelInstance {
   baseUrl: string;
 
@@ -89,9 +80,8 @@ export class OllamaRESTModel extends ModelInstance {
     this.baseUrl = config.baseUrl;
   }
 
-  /* ------------------------------ Core ----------------------------------- */
-
   async chatRequest(body: ChatRequest): Promise<ChatResponse> {
+    // Ollama REST API expects /api/chat payloads.
     const res = await fetch(`${this.baseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -117,8 +107,6 @@ export class OllamaRESTModel extends ModelInstance {
       options: {
         temperature: this.temperature,
         num_ctx: 32000,
-        // num_predict: this.maxTokens,
-        // ...(opts.options ?? {}),
       },
       ...opts,
     });
@@ -127,9 +115,7 @@ export class OllamaRESTModel extends ModelInstance {
   async generateResponseWithTool(
     input: ChatMessage[],
     tools: ToolDefinition[],
-    opts: Partial<
-      Omit<ChatRequest, "model" | "messages" | "tools" | "stream">
-    > = {}
+    opts: Partial<Omit<ChatRequest, "model" | "messages" | "tools" | "stream">> = {}
   ): Promise<ChatResponse> {
     return await this.chatRequest({
       model: this.modelName,
@@ -144,8 +130,6 @@ export class OllamaRESTModel extends ModelInstance {
       ...opts,
     });
   }
-
-  /* ---------------------- Formatting helpers ---------------------------- */
 
   formatRequest(messages: GenericMessage[]): ChatMessage[] {
     if (!messages?.length) throw new Error("No messages provided");
@@ -167,8 +151,7 @@ export class OllamaRESTModel extends ModelInstance {
         if (part.type === ContentType.TEXT) text.push(part.text);
         else if (part.type === ContentType.IMAGE)
           images.push(this.stripDataUrl(part.data));
-        else
-          throw new Error(`Unsupported content type for Ollama: ${part.type}`);
+        else throw new Error(`Unsupported content type for Ollama: ${part.type}`);
       });
 
       const chatMsg: ChatMessage = { role, content: text.join("\n") };
@@ -227,7 +210,8 @@ export class OllamaRESTModel extends ModelInstance {
   }
 
   formatImageData(b64: string): string {
-    return this.stripDataUrl(b64); // Ollama wants raw base64
+    // Ollama expects raw base64 without data URL prefix.
+    return this.stripDataUrl(b64);
   }
 
   formatResponseToIntermediateRequestMessage(
@@ -242,7 +226,6 @@ export class OllamaRESTModel extends ModelInstance {
     } as IntermediateRequestMessage;
   }
 
-  /* ---------------- Context management -------------------- */
   createMessageContext(): ChatMessage[] {
     return [];
   }
@@ -268,12 +251,10 @@ export class OllamaRESTModel extends ModelInstance {
     } as AgentRequestMessage);
   }
 
-  /* ---------------- Billing (not supported) --------------- */
   getCostFromResponse(_r: ChatResponse): number {
     return 0;
   }
 
-  /* ---------------- Utility ------------------------------- */
   private stripDataUrl(data: string) {
     return data.replace(/^data:[^;]+;base64,/, "");
   }

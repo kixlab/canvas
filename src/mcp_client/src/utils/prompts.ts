@@ -1,4 +1,4 @@
-import { ImageContent } from "@modelcontextprotocol/sdk/types";
+import { ImageContent } from "@modelcontextprotocol/sdk/types.js";
 import { AgentType } from "../types";
 
 ////////////////////
@@ -54,9 +54,12 @@ Based on the plan, respond with the exact sequence of tool(function) calls it sh
 
 export function getTextBasedGenerationPrompt(
   instruction: string,
-  agent: AgentType
+  agent: AgentType,
 ): string {
-  if (agent === AgentType.REACT_REPLICATION || agent === AgentType.REACT_MODIFICATION || agent === AgentType.FEEDBACK) {
+  if (
+    agent === AgentType.REACT_REPLICATION ||
+    agent === AgentType.REACT_MODIFICATION
+  ) {
     return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls. 
@@ -114,9 +117,12 @@ Text: ${instruction}
 export function getImageBasedGenerationPrompt(
   width: number,
   height: number,
-  agent: AgentType
+  agent: AgentType,
 ): string {
-  if (agent === AgentType.REACT_REPLICATION || agent === AgentType.REACT_MODIFICATION || agent === AgentType.FEEDBACK) {
+  if (
+    agent === AgentType.REACT_REPLICATION ||
+    agent === AgentType.REACT_MODIFICATION
+  ) {
     return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls.
@@ -174,9 +180,12 @@ export function getTextImageBasedGenerationPrompt(
   instruction: string,
   width: number,
   height: number,
-  agent: AgentType
+  agent: AgentType,
 ): string {
-  if (agent === AgentType.REACT_REPLICATION || agent === AgentType.REACT_MODIFICATION || agent === AgentType.FEEDBACK) {
+  if (
+    agent === AgentType.REACT_REPLICATION ||
+    agent === AgentType.REACT_MODIFICATION
+  ) {
     return `
 **Context**
 You are a UI-design agent with access to Figma via tool calls.
@@ -236,7 +245,7 @@ Text: ${instruction}
 export function getTextImageBasedModificationPrompt(
   instruction: string,
   width: number,
-  height: number
+  height: number,
 ): string {
   return `
 **Context**
@@ -255,43 +264,6 @@ Please analyze the provided screen image and text instruction, then update the U
 The frame size is ${width}x${height} pixels.
 Text: ${instruction}
 `;
-}
-
-///////////////////////////
-/// Feedback Generation ///
-///////////////////////////
-
-export function getFeedbackPrompt({
-  originalTargetText,
-  originalTargetImage,
-  pageStructureText,
-}: {
-  originalTargetText?: string;
-  originalTargetImage?: ImageContent;
-  pageStructureText?: string;
-}): string {
-  return `
-**Instruction**
-You are a feedback agent evaluating a UI design.
-You will receive a screenshot of (1) the current design with element ID labels and (2) a ground truth design.
-Based on the **Original Instruction** and the ground truth design, give concise feedback on (1) missing elements and (2) incorrect element properties to match the ground truth.
-Refer to **Page Structure** and the image to understand the layout.
-When referring to elements, mention their IDs.
-
-${
-  originalTargetImage
-    ? "The target image screenshot is provided as a second image."
-    : ""
-}
-
-${pageStructureText ? `**Page Structure**\n${pageStructureText}` : ""}
-
-${
-  originalTargetText
-    ? `**Original Instruction**\n"""\n${originalTargetText}\n"""`
-    : ""
-}
-`.trim();
 }
 
 //////////////////////////

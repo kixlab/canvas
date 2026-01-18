@@ -1,7 +1,7 @@
-import AnthropicBedrock from "@anthropic-ai/bedrock-sdk";
-import * as AnthropicMessageType from "@anthropic-ai/sdk/resources/messages";
+import Bedrock from "@anthropic-ai/bedrock-sdk";
+import * as BedrockMessages from "@anthropic-ai/sdk/resources/messages";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   ModelConfig,
   CallToolRequestParams,
@@ -11,14 +11,15 @@ import {
   RoleType,
   MessageType,
 } from "../types";
-import { ModelInstance } from "./baseModel";
+import { ModelInstance } from "./modelInstance";
 
-export class AnthropicModel extends ModelInstance {
-  private client: AnthropicBedrock;
+export class BedrockModel extends ModelInstance {
+  private client: Bedrock;
 
   constructor(config: ModelConfig) {
     super(config);
-    this.client = new AnthropicBedrock({
+    // AWS credentials are read from environment variables.
+    this.client = new Bedrock({
       awsAccessKey: process.env.BEDROCK_ACCESS_KEY,
       awsSecretKey: process.env.BEDROCK_SECRET_KEY,
       awsRegion: "us-west-2",
@@ -26,54 +27,47 @@ export class AnthropicModel extends ModelInstance {
   }
 
   async generateResponse(
-    messages: AnthropicMessageType.MessageParam[],
-    options: Partial<AnthropicMessageType.MessageCreateParams> = {}
-  ): Promise<AnthropicMessageType.Messages.Message> {
-    const params: AnthropicMessageType.MessageCreateParams = {
+    messages: BedrockMessages.MessageParam[],
+    options: Partial<BedrockMessages.MessageCreateParams> = {}
+  ): Promise<BedrockMessages.Messages.Message> {
+    return await this.client.messages.create({
       model: this.modelName,
-      messages: messages,
+      messages,
       max_tokens: this.maxTokens,
       temperature: this.temperature,
       ...options,
       stream: false,
-    };
-
-    return await this.client.messages.create(params);
+    });
   }
 
   async generateResponseWithTool(
-    messages: AnthropicMessageType.MessageParam[],
-    tools: AnthropicMessageType.Tool[],
-    options: Partial<AnthropicMessageType.MessageCreateParams> = {}
-  ): Promise<AnthropicMessageType.Messages.Message> {
-    const params: AnthropicMessageType.MessageCreateParams = {
+    messages: BedrockMessages.MessageParam[],
+    tools: BedrockMessages.Tool[],
+    options: Partial<BedrockMessages.MessageCreateParams> = {}
+  ): Promise<BedrockMessages.Messages.Message> {
+    return await this.client.messages.create({
       model: this.modelName,
-      messages: messages,
-      tools: tools,
+      messages,
+      tools,
       max_tokens: this.maxTokens,
       temperature: this.temperature,
       ...options,
       stream: false,
-    };
-
-    return await this.client.messages.create(params);
+    });
   }
 
-  formatRequest(
-    messages: GenericMessage[]
-  ): AnthropicMessageType.MessageParam[] {
+  formatRequest(messages: GenericMessage[]): BedrockMessages.MessageParam[] {
     if (!messages?.length) throw new Error("No messages provided");
 
     return messages.map((msg) => {
-      // Claude doesn't support system role directly, convert to user
+      // Bedrock Claude doesn't accept "system" role; map to "user".
       const role =
         msg.role === "system" ? "user" : (msg.role as "user" | "assistant");
-
       const content = msg.content.map((item) => {
         switch (item.type) {
           case ContentType.TEXT:
             return { type: "text" as const, text: item.text };
-          case ContentType.IMAGE:
+          case ContentType.IMAGE: {
             const imageData = item as any;
             if (
               !["image/jpeg", "image/png", "image/gif", "image/webp"].includes(
@@ -94,6 +88,7 @@ export class AnthropicModel extends ModelInstance {
                 data: this.formatImageData(imageData.data),
               },
             };
+          }
           default:
             throw new Error(`Unsupported content type: ${item.type}`);
         }
@@ -104,7 +99,7 @@ export class AnthropicModel extends ModelInstance {
   }
 
   formatCallToolRequest(
-    message: AnthropicMessageType.Messages.Message
+    message: BedrockMessages.Messages.Message
   ): CallToolRequestParams[] {
     const messageContent = message.content;
     if (!Array.isArray(messageContent)) return [];
@@ -113,7 +108,7 @@ export class AnthropicModel extends ModelInstance {
       .filter((c: any) => c.type === "tool_use")
       .map((c: any) => ({
         id: c.id,
-        call_id: "", // Not used in Anthropic
+        call_id: "",
         name: c.name,
         arguments: c.input ?? {},
       }));
@@ -121,7 +116,7 @@ export class AnthropicModel extends ModelInstance {
 
   formatToolResponse(
     result: CallToolResult
-  ): AnthropicMessageType.MessageParam {
+  ): BedrockMessages.MessageParam {
     const textJSON = JSON.stringify({
       content: result.content,
       structuredContent: result.structuredContent ?? {},
@@ -134,32 +129,27 @@ export class AnthropicModel extends ModelInstance {
           type: "tool_result" as const,
           tool_use_id: result.id,
           content: textJSON,
-        } as AnthropicMessageType.ToolResultBlockParam,
+        } as BedrockMessages.ToolResultBlockParam,
       ],
     };
   }
 
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
-  ): AnthropicMessageType.Tool[] {
-    const toolList: AnthropicMessageType.Tool[] = [];
-    tools.forEach((tool) => {
-      toolList.push({
-        name: tool.name,
-        description: tool.description ?? "",
-        input_schema: tool.inputSchema ?? {
-          type: "object",
-          properties: {},
-          required: [],
-        },
-      });
-    });
-
-    return toolList;
+  ): BedrockMessages.Tool[] {
+    return tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description ?? "",
+      input_schema: tool.inputSchema ?? {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    }));
   }
 
   formatResponseToIntermediateRequestMessage(
-    response: AnthropicMessageType.Messages.Message
+    response: BedrockMessages.Messages.Message
   ): GenericMessage {
     if (!response || !response.content) {
       throw new Error("Invalid response format");
@@ -178,13 +168,13 @@ export class AnthropicModel extends ModelInstance {
     } as GenericMessage;
   }
 
-  createMessageContext(): AnthropicMessageType.MessageParam[] {
+  createMessageContext(): BedrockMessages.MessageParam[] {
     return [];
   }
 
   addToApiMessageContext(
-    response: AnthropicMessageType.Messages.Message,
-    context: AnthropicMessageType.MessageParam[]
+    response: BedrockMessages.Messages.Message,
+    context: BedrockMessages.MessageParam[]
   ): void {
     context.push({
       role: response.role,
@@ -193,7 +183,7 @@ export class AnthropicModel extends ModelInstance {
   }
 
   addToFormattedMessageContext(
-    response: AnthropicMessageType.Messages.Message,
+    response: BedrockMessages.Messages.Message,
     type: MessageType,
     context: GenericMessage[]
   ): void {
@@ -212,7 +202,7 @@ export class AnthropicModel extends ModelInstance {
     } as AgentRequestMessage);
   }
 
-  getCostFromResponse(response: AnthropicMessageType.Messages.Message): number {
+  getCostFromResponse(response: BedrockMessages.Messages.Message): number {
     return (
       response.usage.input_tokens * this.inputCost +
       response.usage.output_tokens * this.outputCost
@@ -220,8 +210,6 @@ export class AnthropicModel extends ModelInstance {
   }
 
   formatImageData(imageData: string, mimeType: string = "image/png"): string {
-    // Anthropic expects base64 encoded image data without the prefix
-    imageData = imageData.replace(/^data:image\/[^;]+;base64,/, "");
-    return `${imageData}`;
+    return imageData.replace(/^data:image\/[^;]+;base64,/, "");
   }
 }

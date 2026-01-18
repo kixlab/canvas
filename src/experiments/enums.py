@@ -11,16 +11,9 @@ class ExperimentVariant(str, Enum):
 class ModelType(str, Enum):
     GPT4o = "gpt-4o"
     GPT41 = "gpt-4.1"
-    GPT4oMINI = "gpt-4o-mini"
-    GPT41NANO = "gpt-4.1-nano"
-    O3 = "o3"
     CLAUDE35 = "claude-3-5-sonnet"
     GEMINI25FLASH = "gemini-2.5-flash"
     GEMINI25PRO = "gemini-2.5-pro"
-    LLAMA4MAVERICK = "llama-4-maverick"
-    LLAMA4SCOUT = "llama-4-scout"
-    QWEN25VL = "qwen-2.5-vl-72b"
-    QWEN25VL7B = "qwen-2.5-vl-7b"
 
 
 class Channel(str, Enum):

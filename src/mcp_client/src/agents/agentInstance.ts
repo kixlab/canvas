@@ -4,7 +4,7 @@ import {
   AgentMetadata,
   SnapshotStructure,
 } from "../types";
-import { ModelInstance } from "../models/baseModel";
+import { ModelInstance } from "../models/modelInstance";
 import { Tools } from "../core/tools";
 
 export abstract class AgentInstance {
@@ -16,6 +16,7 @@ export abstract class AgentInstance {
     this.maxRetries = agentConfig.maxRetries;
   }
 
+  // Contract: run an agent and return the full execution trace + artifacts.
   abstract run(params: {
     requestMessage: UserRequestMessage;
     model: ModelInstance;

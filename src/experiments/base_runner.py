@@ -23,7 +23,7 @@ def parse_common_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         type=str,
         required=True,
         choices=[m.value for m in ModelType],
-        help="Model to use (e.g. gpt-4, qwen)",
+        help="Model to use (e.g. gpt-4o, gemini-2.5-flash)",
     )
     parser.add_argument("--variants", type=str, help="Comma-separated list of variants")
     parser.add_argument(

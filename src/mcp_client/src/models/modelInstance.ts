@@ -1,5 +1,5 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   ModelConfig,
   ModelProvider,
@@ -25,7 +25,7 @@ export abstract class ModelInstance {
     this.maxTokens = config.maxTokens;
   }
 
-  // Core methods
+  // Contract for model adapters used by agents.
   abstract generateResponse(messages: any[], options?: any): Promise<any>;
   abstract generateResponseWithTool(
     messages: any[],
@@ -33,7 +33,6 @@ export abstract class ModelInstance {
     options?: any
   ): Promise<any>;
 
-  // Formatting methods
   abstract formatRequest(messages: GenericMessage[]): any[];
   abstract formatCallToolRequest(response: any): CallToolRequestParams[];
   abstract formatToolList(
@@ -45,7 +44,6 @@ export abstract class ModelInstance {
     response: any
   ): GenericMessage;
 
-  // Context management
   abstract createMessageContext(): any[];
   abstract addToApiMessageContext(response: any, context: any[]): void;
   abstract addToFormattedMessageContext(
@@ -54,6 +52,5 @@ export abstract class ModelInstance {
     context: any[]
   ): void;
 
-  // Cost calculation
   abstract getCostFromResponse(response: any): number;
 }

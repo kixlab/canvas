@@ -7,7 +7,7 @@ import {
   Schema,
 } from "@google/genai";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { CallToolResult } from "@modelcontextprotocol/sdk/types";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   ModelConfig,
   CallToolRequestParams,
@@ -18,7 +18,7 @@ import {
   MessageType,
   IntermediateRequestMessage,
 } from "../types";
-import { ModelInstance } from "./baseModel";
+import { ModelInstance } from "./modelInstance";
 import { randomUUID } from "crypto";
 import { logger } from "../utils/helpers";
 
@@ -32,13 +32,10 @@ export class GoogleModel extends ModelInstance {
     });
   }
 
-  /**
-   * Generic content generation without tools.
-   */
   async generateResponse(
     input: ContentListUnion,
     options: Partial<{
-      systemInstruction: any; // Gemini Content
+      systemInstruction: any;
     }> = {}
   ): Promise<GenerateContentResponse> {
     return await this.client.models.generateContent({
@@ -84,10 +81,6 @@ export class GoogleModel extends ModelInstance {
               : {}),
           },
         },
-        // [DEBUG] Enable this to see internal thoughts
-        // thinkingConfig: {
-        //   includeThoughts: true,
-        // },
         ...(options.systemInstruction
           ? { systemInstruction: options.systemInstruction }
           : {}),
@@ -95,17 +88,12 @@ export class GoogleModel extends ModelInstance {
     });
   }
 
-  /* ---------------------------------------------------------------------- */
-  /*  Formatting helpers                                                    */
-  /* ---------------------------------------------------------------------- */
-
   formatRequest(messages: GenericMessage[]): ContentListUnion[] {
     if (!messages?.length) {
       throw new Error("No messages provided");
     }
 
     return messages.map((msg) => {
-      // Gemini uses roles "user" and "model".  We map everything else to user.
       const role = msg.role === RoleType.ASSISTANT ? "model" : "user";
 
       const parts = msg.content.map((item) => {
@@ -135,26 +123,23 @@ export class GoogleModel extends ModelInstance {
     });
   }
 
-  /**
-   * Extract function-call requests from a Gemini response.
-   */
   formatCallToolRequest(
     response: GenerateContentResponse
   ): CallToolRequestParams[] {
     if (!response.functionCalls?.length) return [];
     return response.functionCalls.map((call) => {
       const uuid = randomUUID();
+      // Gemini may omit IDs; generate a stable call_id for tool routing.
       return {
-        id: call.id ?? `${call.name ?? "tool_call"}` + `-${uuid}`, // Google may not provide an ID
+        id: call.id ?? `${call.name ?? "tool_call"}` + `-${uuid}`,
         call_id: uuid,
-        name: call.name ?? uuid, // Google instead uses `name` as the identifier
+        name: call.name ?? uuid,
         arguments: call.args ?? {},
       };
     });
   }
 
   formatToolResponse(result: CallToolResult): ContentListUnion {
-    // [TODO] Identify the error case
     if (!result.name || typeof result.name !== "string") {
       logger.error({
         header: "Error Detected: Missing tool name in response",
@@ -181,26 +166,15 @@ export class GoogleModel extends ModelInstance {
     };
   }
 
-  /**
-   * MCP tool list -> Gemini FunctionDeclarations
-   */
   formatToolList(
     tools: Awaited<ReturnType<Client["listTools"]>>["tools"]
   ): FunctionDeclaration[] {
-    const toolList: FunctionDeclaration[] = [];
-    tools.forEach((tool) => {
-      toolList.push({
-        name: tool.name,
-        description: tool.description ?? "",
-        parameters: tool.inputSchema as Record<string, Schema>,
-      });
-    });
-    return toolList;
+    return tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description ?? "",
+      parameters: tool.inputSchema as Record<string, Schema>,
+    }));
   }
-
-  /* ---------------------------------------------------------------------- */
-  /*  Message-level helpers                                                 */
-  /* ---------------------------------------------------------------------- */
 
   formatResponseToIntermediateRequestMessage(
     response: GenerateContentResponse
@@ -215,10 +189,6 @@ export class GoogleModel extends ModelInstance {
     } as IntermediateRequestMessage;
   }
 
-  /* ---------------------------------------------------------------------- */
-  /*  Context helpers                                                       */
-  /* ---------------------------------------------------------------------- */
-
   createMessageContext(): ContentListUnion[] {
     return [];
   }
@@ -227,7 +197,6 @@ export class GoogleModel extends ModelInstance {
     response: GenerateContentResponse,
     context: ContentListUnion[]
   ): void {
-    // Push the *model* turn (Gemini auto-lifts first candidate).
     if (response.candidates![0].finishReason === "MALFORMED_FUNCTION_CALL") {
       logger.error({
         header: "Malformed function call detected in Gemini response",
@@ -235,16 +204,6 @@ export class GoogleModel extends ModelInstance {
     }
 
     if (response.candidates?.[0]?.content) {
-      // [DEBUG] For internal thought debugging
-      // response.candidates?.[0]?.content.parts!.forEach((part) => {
-      //   if (part.text) {
-      //     logger.debug({
-      //       header: "Model internal thoughts",
-      //       body: part.text,
-      //     });
-      //   }
-      // });
-
       context.push({
         role: "model",
         parts: response.candidates[0].content.parts,
@@ -269,10 +228,6 @@ export class GoogleModel extends ModelInstance {
     } as AgentRequestMessage);
   }
 
-  /* ---------------------------------------------------------------------- */
-  /*  Billing helper                                                        */
-  /* ---------------------------------------------------------------------- */
-
   getCostFromResponse(response: GenerateContentResponse): number {
     if (!response.usageMetadata) {
       throw new Error("Response does not contain usage metadata");
@@ -289,14 +244,6 @@ export class GoogleModel extends ModelInstance {
       thoughtsTokens * this.outputCost
     );
   }
-
-  /* ---------------------------------------------------------------------- */
-  /*  Utility                                                               */
-  /* ---------------------------------------------------------------------- */
-
-  /**
-   * Remove a data-URL prefix (`data:<mime>;base64,`) if present.
-   */
 
   formatImageData(imageData: string, mimeType: string): string {
     imageData = imageData.replace(/^data:image\/[^;]+;base64,/, "");
