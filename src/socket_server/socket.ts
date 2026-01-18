@@ -1,48 +1,30 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
 
-// Custom logging functions that write to stderr instead of stdout to avoid being captured
-// ANSI color codes for styling
 const COLORS = {
-  GRAY: "\x1b[90m", // Bright black (gray)
-  RESET: "\x1b[0m", // Reset to default
+  GRAY: "\x1b[90m",
+  RESET: "\x1b[0m",
 };
 
-export const logger = {
-  info: ({ header, body }: { header: string; body?: string }) => {
+type LogEntry = { header: string; body?: string };
+
+const writeLog =
+  (level: string) =>
+  ({ header, body }: LogEntry) =>
     process.stderr.write(
-      `[INFO][socket-server] ${header} ${
+      `[${level}][socket-server] ${header} ${
         body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
       }\n`
     );
-  },
-  debug: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `[DEBUG][socket-server] ${header} ${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
-  warn: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `[WARN][socket-server] ${header} ${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
-  error: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `[ERROR][socket-server] ${header} ${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
-  log: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `[LOG][socket-server] ${header} ${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
+
+export const logger = {
+  info: writeLog("INFO"),
+  debug: writeLog("DEBUG"),
+  warn: writeLog("WARN"),
+  error: writeLog("ERROR"),
+  log: writeLog("LOG"),
 };
 
-// Type definitions
 interface ClientInfo {
   ws: WebSocket;
   channel: string | null;
@@ -75,10 +57,7 @@ interface Message {
   payload?: any;
 }
 
-// Store all connected clients with their metadata
 const clients = new Map<WebSocket, ClientInfo>();
-
-// Predefined list of available channels
 const availableChannels = [
   "1-A",
   "2-B",
@@ -92,7 +71,6 @@ const availableChannels = [
   "10-J",
 ];
 
-// Message handlers
 function handleGetChannels(ws: WebSocket, message: Message): void {
   const clientInfo = clients.get(ws);
   logger.info({
@@ -142,7 +120,6 @@ function handleJoinChannel(ws: WebSocket, message: Message): void {
     body: `Channel: ${channel}, Client type: ${clientType}`,
   });
 
-  // Notify old channel if leaving
   if (oldChannel && oldChannel !== channel) {
     broadcastToChannel(
       oldChannel,
@@ -158,7 +135,6 @@ function handleJoinChannel(ws: WebSocket, message: Message): void {
     );
   }
 
-  // Notify new channel
   broadcastToChannel(
     channel,
     {
@@ -172,7 +148,6 @@ function handleJoinChannel(ws: WebSocket, message: Message): void {
     ws
   );
 
-  // Send success response
   ws.send(
     JSON.stringify({
       source: MessageSource.SOCKET_SERVER,
@@ -207,7 +182,6 @@ function handleMessage(ws: WebSocket, message: Message): void {
     body: `Channel: ${channel}, Sender: ${clientInfo?.clientType || "unknown"}`,
   });
 
-  // Add channel to the message if not already present
   const messageData = message.payload?.message;
   if (messageData && !messageData.channel) {
     messageData.channel = channel;
@@ -234,7 +208,6 @@ function handleClientDisconnect(ws: WebSocket): void {
   const channel = clientInfo?.channel;
   clients.delete(ws);
 
-  // Notify other clients in the same channel
   if (channel && clientInfo) {
     broadcastToChannel(
       channel,
@@ -253,13 +226,12 @@ function handleClientDisconnect(ws: WebSocket): void {
   }
 }
 
-// Broadcast message to all clients in a specific channel
 function broadcastToChannel(
   channel: string,
   message: Message,
   excludeClient?: WebSocket
 ): void {
-  for (const [_, clientInfo] of clients.entries()) {
+  for (const clientInfo of clients.values()) {
     if (
       clientInfo.channel === channel &&
       clientInfo.ws !== excludeClient &&
@@ -271,7 +243,6 @@ function broadcastToChannel(
 }
 
 function handleConnection(ws: WebSocket) {
-  // Add client to our map with default values
   clients.set(ws, {
     ws,
     channel: null,
@@ -322,7 +293,7 @@ function handleConnection(ws: WebSocket) {
     } catch (err) {
       logger.error({
         header: `Error handling message`,
-        body: err.message,
+        body: err instanceof Error ? err.message : String(err),
       });
       ws.send(
         JSON.stringify({
@@ -337,9 +308,7 @@ function handleConnection(ws: WebSocket) {
   });
 }
 
-// Create HTTP server for CORS handling
 const server = createServer((req, res) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     res.writeHead(200, {
       "Access-Control-Allow-Origin": "*",
@@ -350,7 +319,6 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // Return response for non-WebSocket requests
   res.writeHead(200, {
     "Access-Control-Allow-Origin": "*",
     "Content-Type": "text/plain",
@@ -358,7 +326,6 @@ const server = createServer((req, res) => {
   res.end("WebSocket server running");
 });
 
-// Create WebSocket server
 const wss = new WebSocketServer({
   server,
   verifyClient: () => true,
