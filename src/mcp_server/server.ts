@@ -29,7 +29,6 @@ registerTextTools(server);
 
 async function main() {
   try {
-    // Try to connect to Figma socket server
     connectToFigma();
   } catch (error) {
     logger.warn({
@@ -38,7 +37,6 @@ async function main() {
     });
   }
 
-  // Start the MCP server with stdio transport
   const transport = new StdioServerTransport();
   await server.connect(transport);
   logger.info({
@@ -46,7 +44,6 @@ async function main() {
   });
 }
 
-// Run the server
 main().catch((error) => {
   logger.error({
     header: "Error starting MCP server",

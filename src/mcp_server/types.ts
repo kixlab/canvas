@@ -5,8 +5,6 @@ import {
   EmbeddedResource,
 } from "@modelcontextprotocol/sdk/types.js";
 
-// Type definitions and interfaces for the MCP server
-
 export interface FigmaResponse {
   id: string;
   result?: any;

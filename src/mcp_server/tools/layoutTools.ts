@@ -4,7 +4,6 @@ import { sendCommandToFigma } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
 
 export function registerLayoutTools(server: McpServer) {
-  // Set Padding Tool
   server.tool(
     "set_padding",
     "Configure internal spacing (padding) values for auto-layout frames to control content positioning",
@@ -31,8 +30,6 @@ export function registerLayoutTools(server: McpServer) {
           paddingLeft,
         });
         const typedResult = result as { name: string };
-
-        // Create a message about which padding values were set
         const paddingMessages: string[] = [];
         if (paddingTop !== undefined)
           paddingMessages.push(`top: ${paddingTop}`);
@@ -60,8 +57,6 @@ export function registerLayoutTools(server: McpServer) {
       }
     }
   );
-
-  // Set Axis Align Tool
   server.tool(
     "set_axis_align",
     "Configure how child elements align along primary and counter axes in auto-layout frames",
@@ -88,8 +83,6 @@ export function registerLayoutTools(server: McpServer) {
           counterAxisAlignItems,
         });
         const typedResult = result as { name: string };
-
-        // Create a message about which alignments were set
         const alignMessages: string[] = [];
         if (primaryAxisAlignItems !== undefined)
           alignMessages.push(`primary: ${primaryAxisAlignItems}`);
@@ -113,8 +106,6 @@ export function registerLayoutTools(server: McpServer) {
       }
     }
   );
-
-  // Set Layout Sizing Tool
   server.tool(
     "set_layout_sizing",
     "Control how auto-layout frames resize themselves horizontally and vertically (fixed, hug content, or fill parent)",
@@ -141,8 +132,6 @@ export function registerLayoutTools(server: McpServer) {
           layoutSizingVertical,
         });
         const typedResult = result as { name: string };
-
-        // Create a message about which sizing modes were set
         const sizingMessages: string[] = [];
         if (layoutSizingHorizontal !== undefined)
           sizingMessages.push(`horizontal: ${layoutSizingHorizontal}`);
@@ -166,8 +155,6 @@ export function registerLayoutTools(server: McpServer) {
       }
     }
   );
-
-  // Set Item Spacing Tool
   server.tool(
     "set_item_spacing",
     "Define the gap distance between child elements in auto-layout frames for consistent spacing",
@@ -202,8 +189,6 @@ export function registerLayoutTools(server: McpServer) {
       }
     }
   );
-
-  // Set Layout Mode Tool
   server.tool(
     "set_layout_mode",
     "Configure the primary layout direction (horizontal/vertical/none) and wrapping behavior for frame containers with auto-layout",

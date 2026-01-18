@@ -4,7 +4,6 @@ import { sendCommandToFigma } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
 
 export function registerOperationTools(server: McpServer) {
-  // Move Node Tool
   server.tool(
     "move_node",
     "Move a node to a new position on the canvas, optionally changing its parent container",
@@ -55,8 +54,6 @@ export function registerOperationTools(server: McpServer) {
       }
     }
   );
-
-  // Clone Node Tool
   server.tool(
     "clone_node",
     "Create a duplicate copy of an existing node, optionally placing it in a different parent container or at specific coordinates",
@@ -99,8 +96,6 @@ export function registerOperationTools(server: McpServer) {
       }
     }
   );
-
-  // Resize Node Tool
   server.tool(
     "resize_node",
     "Change the dimensions (width and height) of a node while maintaining its position",
@@ -131,8 +126,6 @@ export function registerOperationTools(server: McpServer) {
       }
     }
   );
-
-  // Delete Multiple Nodes Tool
   server.tool(
     "delete_node",
     "Permanently remove one or more nodes from their parent node",

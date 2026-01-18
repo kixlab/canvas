@@ -5,7 +5,6 @@ import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
 import { TextChangeResult } from "../types.js";
 
 export function registerTextTools(server: McpServer) {
-  // Set Text Contents Tool
   server.tool(
     "set_text_content",
     "Modify the text content of one or multiple text nodes in Figma. Use this to update the actual text displayed in text layers.",
@@ -29,8 +28,6 @@ export function registerTextTools(server: McpServer) {
         }
 
         const totalToProcess = changes.length;
-
-        // Use the plugin's set_text_content function with chunking
         const result = await sendCommandToFigma("set_text_content", {
           changes,
         });
@@ -73,8 +70,6 @@ export function registerTextTools(server: McpServer) {
       }
     }
   );
-
-  // Get Text Node Info Tool
   server.tool(
     "get_text_node_info",
     "Retrieve comprehensive information about all text nodes within a specified node or frame.",

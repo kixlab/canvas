@@ -4,7 +4,6 @@ import { sendCommandToFigma } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
 
 export function registerCreationTools(server: McpServer) {
-  // Create Rectangle Tool
   server.tool(
     "create_rectangle",
     "Create a new rectangular shape node with common styling properties",
@@ -85,8 +84,6 @@ export function registerCreationTools(server: McpServer) {
       }
     }
   );
-
-  // Create Frame Tool
   server.tool(
     "create_frame",
     "Create a new frame container with auto-layout capabilities, styling options, and layout properties",
@@ -244,8 +241,6 @@ export function registerCreationTools(server: McpServer) {
       }
     }
   );
-
-  // Create Text Tool
   server.tool(
     "create_text",
     "Create a new text node with customizable content, typography, alignment and styling options",
@@ -315,7 +310,6 @@ export function registerCreationTools(server: McpServer) {
           fontWeight: fontWeight ?? 400,
           fontColor: fontColor ?? { r: 0, g: 0, b: 0, a: 1 },
 
-          /** 🆕 pass alignment through */
           textAlignHorizontal,
           textAlignVertical,
 
@@ -337,8 +331,6 @@ export function registerCreationTools(server: McpServer) {
       }
     }
   );
-
-  // create SVG tool
   server.tool(
     "create_graphic",
     "Create a new vector graphic node from SVG markup for icons and scalable illustrations",

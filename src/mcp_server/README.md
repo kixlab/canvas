@@ -15,7 +15,6 @@ This document describes the modular structure of the MCP server for CanvasBench.
 ### Common Utilities (`common/`)
 
 - **[`websocket.ts`](common/websocket.ts)** - WebSocket connection management and communication
-- **[`prompts.ts`](common/prompts.ts)** - MCP prompts for design guidance and strategies
 - **[`utils.ts`](common/utils.ts)** - Utility functions (color conversion, node filtering, response helpers)
 
 ### Tool Modules (`tools/`)
@@ -24,7 +23,7 @@ This document describes the modular structure of the MCP server for CanvasBench.
   - `get_channels`, `select_channel`, `check_connection_status`
 
 - **[`inspectionTools.ts`](tools/inspectionTools.ts)** - Document and selection operations
-  - `get_page_info`, `get_selection_info`, `get_node_info`, `get_node_info_by_types`, `get_result_image`, `get_page_structure`
+  - `get_page_info`, `get_selection_info`, `get_node_info`, `get_node_info_by_types`, `get_result_image`, `get_page_structure`, `export_json`, `import_json`
 
 - **[`creationTools.ts`](tools/creationTools.ts)** - Element creation tools
   - `create_rectangle`, `create_frame`, `create_text`, `create_graphic`, `create_ellipse`, `create_polygon`, `create_star`, `create_line`, `create_mask`
@@ -55,13 +54,13 @@ To build the MCP server:
 npm run build
 ```
 
-For debuging, run following comand:
+For debugging, run the following command:
 
 ```bash
 npx @modelcontextprotocol/inspector node dist/server.js
 ```
 
-Alternatively, you can also call following command
+Alternatively, you can call the following command:
 
 ```bash
 npm run debug

@@ -25,7 +25,6 @@ export function registerConnectionTools(server: McpServer) {
           connectToFigma();
         }
 
-        // Get available channels
         const id = uuidv4();
         return new Promise((resolve) => {
           ws!.send(
@@ -35,7 +34,6 @@ export function registerConnectionTools(server: McpServer) {
             })
           );
 
-          // Set up a one-time listener for the response
           const messageHandler = (data: any) => {
             try {
               const json = JSON.parse(data.toString());
@@ -56,7 +54,6 @@ export function registerConnectionTools(server: McpServer) {
                 );
               }
             } catch (error) {
-              // If parsing fails, it might not be the channels response
               console.error("Error parsing channels response:", error);
 
               createErrorResponse({
@@ -68,7 +65,6 @@ export function registerConnectionTools(server: McpServer) {
 
           ws!.on("message", messageHandler);
 
-          // Set a timeout for the channels response
           setTimeout(() => {
             ws!.removeListener("message", messageHandler);
             resolve(
@@ -88,7 +84,6 @@ export function registerConnectionTools(server: McpServer) {
     }
   );
 
-  // Join Channel Tool
   server.tool(
     "select_channel",
     "[ONLY FOR DEBUGGING] Select a specific Figma channel for communication",
@@ -103,7 +98,6 @@ export function registerConnectionTools(server: McpServer) {
           connectToFigma();
         }
 
-        // Join the requested channel
         return new Promise((resolve) => {
           ws!.send(
             JSON.stringify({
@@ -116,7 +110,6 @@ export function registerConnectionTools(server: McpServer) {
             })
           );
 
-          // Set up a one-time listener for join response
           const joinHandler = (joinData: any) => {
             try {
               const joinJson = JSON.parse(joinData.toString());
@@ -148,13 +141,11 @@ export function registerConnectionTools(server: McpServer) {
                 }
               }
             } catch (error) {
-              // Keep listening, this message wasn't the join response
             }
           };
 
           ws!.on("message", joinHandler);
 
-          // Set a timeout for the join response
           setTimeout(() => {
             ws!.removeListener("message", joinHandler);
             resolve(
@@ -187,7 +178,6 @@ export function registerConnectionTools(server: McpServer) {
           connectToFigma();
         }
 
-        // If we're connected but don't have a channel
         if (!currentChannel) {
           throw new Error(
             "Connected to Figma socket server but not joined to any channel."

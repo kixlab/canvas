@@ -4,12 +4,7 @@ import {
   CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { ResponseContent } from "../types.js";
-
-/**
- * Convert RGBA color object to hex string
- */
 export function rgbaToHex(color: any): string {
-  // skip if color is already hex
   if (color.startsWith("#")) {
     return color;
   }

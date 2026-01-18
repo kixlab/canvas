@@ -13,41 +13,23 @@ const WARN_TAG = `[${COLORS.ITALIC}warn${COLORS.RESET}]`;
 const ERROR_TAG = `[${COLORS.ERROR}error${COLORS.RESET}]`;
 const LOG_TAG = `[${COLORS.ITALIC}log${COLORS.RESET}]`;
 
+type LogEntry = { header: string; body?: string };
+
+const writeLog =
+  (tag: string) =>
+  ({ header, body }: LogEntry) =>
+    process.stderr.write(
+      `${SERVER_TAG}${tag} ${header}${
+        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
+      }\n`
+    );
+
 export const logger = {
-  info: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `${SERVER_TAG}${INFO_TAG} ${header}${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
-
-  debug: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `${SERVER_TAG}${DEBUG_TAG} ${header}${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
-
-  warn: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `${SERVER_TAG}${WARN_TAG} ${header}${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
-
-  error: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `${SERVER_TAG}${ERROR_TAG} ${header}${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
-
-  log: ({ header, body }: { header: string; body?: string }) =>
-    process.stderr.write(
-      `${SERVER_TAG}${LOG_TAG} ${header}${
-        body ? `\n${COLORS.GRAY}${body}${COLORS.RESET}` : ""
-      }\n`
-    ),
+  info: writeLog(INFO_TAG),
+  debug: writeLog(DEBUG_TAG),
+  warn: writeLog(WARN_TAG),
+  error: writeLog(ERROR_TAG),
+  log: writeLog(LOG_TAG),
 };
 
 const args = process.argv.slice(2);
@@ -55,8 +37,6 @@ const serverArg = args.find((arg) => arg.startsWith("--server="));
 export const serverUrl = serverArg ? serverArg.split("=")[1] : "localhost";
 export const WS_URL =
   serverUrl === "localhost" ? `ws://${serverUrl}` : `wss://${serverUrl}`;
-
-// Server configuration
 export const SERVER_CONFIG = {
   name: "CanvasBenchMCP",
   version: "1.0.0",

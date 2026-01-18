@@ -4,7 +4,6 @@ import { sendCommandToFigma } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
 
 export function registerInspectionTools(server: McpServer) {
-  // Page Info Tool
   server.tool(
     "get_page_info",
     "Get brief information about the current Figma page, including first-level nodes and their details (e.g., names, IDs)",
@@ -26,8 +25,6 @@ export function registerInspectionTools(server: McpServer) {
       }
     }
   );
-
-  // Read My Design Tool
   server.tool(
     "get_selection_info",
     "Get detailed information about all currently selected nodes in the Figma canvas, including their properties and attributes",
@@ -59,8 +56,6 @@ export function registerInspectionTools(server: McpServer) {
       }
     }
   );
-
-  // Nodes Info Tool
   server.tool(
     "get_node_info",
     "Retrieve information (e.g., names, IDs, types, and absolute positions) in a structured format for a specific list of nodes by their IDs",
@@ -106,8 +101,6 @@ export function registerInspectionTools(server: McpServer) {
       }
     }
   );
-
-  // Get Node Summary by Types Tool
   server.tool(
     "get_node_info_by_types",
     "Get information about all nodes with specific types (e.g., FRAME, COMPONENT, TEXT) within a given parent node",
@@ -152,8 +145,6 @@ export function registerInspectionTools(server: McpServer) {
       }
     }
   );
-
-  // Get Page Image Tool
   server.tool(
     "get_result_image",
     "Export and retrieve a visual image of the current design",
@@ -192,8 +183,6 @@ export function registerInspectionTools(server: McpServer) {
       }
     }
   );
-
-  // Page layer-tree inspection Tool
   server.tool(
     "get_page_structure",
     "Get a hierarchical tree structure of all elements (nodes) on the current page, including their information (e.g., names, IDs, types, and absolute positions) in a structured format",
@@ -240,7 +229,7 @@ export function registerInspectionTools(server: McpServer) {
           messages: [
             `Fetched document with ${result.document.children.length} top-level elements`,
           ],
-          dataItem: result, // the full document JSON
+          dataItem: result,
         });
       } catch (error) {
         return createErrorResponse({

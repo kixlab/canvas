@@ -4,7 +4,6 @@ import { sendCommandToFigma } from "../common/websocket.js";
 import { createErrorResponse, createSuccessResponse } from "../common/utils.js";
 
 export function registerStyleTools(server: McpServer) {
-  // Set Fill Color Tool
   server.tool(
     "set_fill_color",
     "Set the solid fill color of a node using RGBA values. This changes the background color of nodes",
@@ -38,8 +37,6 @@ export function registerStyleTools(server: McpServer) {
       }
     }
   );
-
-  // Set Corner Radius Tool
   server.tool(
     "set_corner_radius",
     "Set the corner radius of a node to create rounded corners. You can control which specific corners to round or apply.",
@@ -85,8 +82,6 @@ export function registerStyleTools(server: McpServer) {
       }
     }
   );
-
-  // Get Styles Tool
   server.tool(
     "get_styles",
     "etrieve all available text styles, color styles, and effect styles from the current Figma document.",
