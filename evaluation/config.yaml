@@ -1,0 +1,52 @@
+paths:
+  gt_dir: "{base_dir}/benchmarks/{task_base}_gt"
+  results_dir: "{base_dir}/results/{task}/{variant}"
+  output_dir: "{base_dir}/eval_outputs/{task}/{variant}"
+  saliency_vis_dir: "{output_dir}/saliency_visualizations"
+  vis_results_dir: "{output_dir}/evaluation_results_vis"
+  precomputed_blip_scores:
+    replication_gen: "{base_dir}/eval_outputs/replication_gen/image_only/precomputed_blip_scores.json"
+    modification_gen: "{base_dir}/eval_outputs/modification_gen/{variant}/precomputed_blip_scores.json"
+
+filenames:
+  results_json: "evaluation_results.json"
+  results_with_snapshots_json: "evaluation_results_with_snapshots.json"
+  modification_results_basetarget_json: "evaluation_results_basetarget.json"
+  
+  gt_image: "{gt_id}.png"
+  gt_json: "{gt_id}.json"
+  
+  modification_base_json: "{gt_id}-base.json"
+  modification_target_json: "{gt_id}-target.json"
+  modification_base_image: "{gt_id}-base.png"
+  modification_target_image: "{gt_id}-target.png"
+
+  gen_image: "{case_id}-canvas.png"
+  gen_json: "{case_id}-json-structure.json"
+
+  snapshots_dir: "snapshots"
+  snapshot_image_glob: "{case_id}-snapshot-*.png"
+  snapshot_json: "{snapshot_stem}-structure.json"
+
+  vis_bar_plot: "{metric}_bar.png"
+  vis_box_plot: "{metric}_box.png"
+
+weights:
+  saliency_model: "evaluation/visual_saliency/model_weights/saliency_models/UMSI++/umsi++.hdf5"
+
+metrics:
+  required_metrics:
+    - "ssim"
+
+  optional_required_metrics:
+    semantic_match: "blip_caption_similarity"
+    visual_saliency: "saliency_cc"
+
+visualization:
+  skip_keys:
+    - "id"
+    - "model"
+    - "gt_caption"
+    - "gen_caption"
+    - "snapshot_num"
+  dpi: 150

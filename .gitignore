@@ -1,0 +1,9 @@
+node_modules/
+.cursor/
+dist/
+docs/
+.env*
+*__pycache__
+dataset
+__MACOSX
+*google-cloud-sdk

@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Client Debug</title>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --bg-subtle: #f6f8fa;
+            --border: #d0d7de;
+            --text: #24292f;
+            --muted: #57606a;
+            --accent: #0969da;
+            --danger: #cf222e;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            color: var(--text);
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+        }
+
+        .sidebar-panel {
+            width: 320px;
+            padding: 16px;
+            background: var(--bg-subtle);
+            overflow-y: auto;
+        }
+
+        header {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+
+        .section {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-subtle);
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px 12px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            border-bottom: 2px solid transparent;
+            background: var(--bg-subtle);
+        }
+
+        .tab.active {
+            color: var(--accent);
+            background: var(--bg);
+            border-bottom-color: var(--accent);
+        }
+
+        .task-form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-subtle);
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .input, select, textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            background: var(--bg);
+        }
+
+        select {
+            width: auto;
+        }
+
+        textarea {
+            resize: vertical;
+            font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+            font-size: 12px;
+        }
+
+        .button {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .button.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .button.danger {
+            background: var(--danger);
+            border-color: var(--danger);
+            color: white;
+        }
+
+        .file-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-name {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .result {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            background: var(--bg);
+        }
+
+        .message {
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 6px;
+            padding: 12px;
+            background: var(--bg);
+        }
+
+        .meta {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .code {
+            font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+            font-size: 12px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border);
+            padding: 8px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+
+        .workflow {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tool-block {
+            border-left: 2px solid var(--border);
+            padding-left: 10px;
+        }
+
+        .tool-call,
+        .tool-response {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px;
+            margin-top: 6px;
+        }
+
+        .tool-response {
+            margin-left: 12px;
+        }
+
+        .gallery {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            background: var(--bg);
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .gallery img {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .panel-title {
+            font-weight: 600;
+            margin: 0 0 8px;
+        }
+
+        .small {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .hidden { display: none; }
+
+        @media (max-width: 900px) {
+            .container { flex-direction: column; }
+            .sidebar-panel { width: auto; border-top: 1px solid var(--border); }
+            .gallery-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-panel">
+            <header>MCP Client Debug</header>
+
+            <div class="section">
+                <div class="row">
+                    <label for="model-preset">Model</label>
+                    <select id="model-preset">
+                        <option value="models/gemini-2.5-flash|google|0.0003|0.0025|65536|100">models/gemini-2.5-flash</option>
+                        <option value="models/gemini-2.5-pro|google|0.00125|0.01|65536|100">models/gemini-2.5-pro</option>
+                        <option value="gpt-4.1-2025-04-14|openai|0.002|0.008|32768|100">gpt-4.1-2025-04-14</option>
+                        <option value="gpt-4o-2024-08-06|openai|0.0025|0.0125|4096|100">gpt-4o-2024-08-06</option>
+                        <option value="anthropic.claude-3-5-sonnet-20241022-v2:0|amazon|0.003|0.015|8192|100">anthropic.claude-3-5-sonnet-20241022-v2:0</option>
+                    </select>
+
+                    <label for="agent-preset">Agent</label>
+                    <select id="agent-preset">
+                        <option value="react_replication">react_replication</option>
+                        <option value="react_modification">react_modification</option>
+                        <option value="code_replication">code_replication</option>
+                        <option value="single_replication">single_replication</option>
+                        <option value="single_modification">single_modification</option>
+                    </select>
+
+                    <label for="temperature-preset">Temperature</label>
+                    <select id="temperature-preset">
+                        <option value="0.0">0.0</option>
+                        <option value="0.3">0.3</option>
+                        <option value="0.7">0.7</option>
+                        <option value="1.0">1.0</option>
+                    </select>
+
+                    <div class="small" id="preset-info">models/gemini-2.5-flash • react_replication • Temperature: 0.0</div>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" data-task-type="replication">Replication</div>
+                <div class="tab" data-task-type="modification">Modification</div>
+            </div>
+
+            <form id="replication-form" class="task-form">
+                <div class="row">
+                    <label class="file-label">
+                        Select Image
+                        <input type="file" id="replication-image" class="file-input" accept="image/*" required>
+                    </label>
+                    <span id="replication-file-name" class="file-name"></span>
+                </div>
+                <div class="row">
+                    <button type="submit" id="replication-submit" class="button primary">Run Replication</button>
+                </div>
+            </form>
+
+            <form id="modification-form" class="task-form hidden">
+                <div class="row">
+                    <label class="file-label">
+                        Select Image
+                        <input type="file" id="modification-image" class="file-input" accept="image/*" required>
+                    </label>
+                    <span id="modification-file-name" class="file-name"></span>
+                </div>
+                <input type="text" id="modification-text" class="input" placeholder="Modification instruction" required>
+                <textarea id="modification-base-json" rows="4" placeholder="Base JSON structure (required)"></textarea>
+                <div class="row">
+                    <button type="submit" id="modification-submit" class="button primary">Run Modification</button>
+                </div>
+            </form>
+
+            <div id="task-result" class="result"></div>
+
+            <div id="image-gallery" class="gallery hidden">
+                <div class="panel-title">Generated Images</div>
+                <div id="gallery-grid" class="gallery-grid"></div>
+            </div>
+        </div>
+
+        <div class="sidebar-panel">
+            <div class="panel-title">Tools</div>
+            <div class="section" style="background: transparent; border: none; padding: 0 0 12px;">
+                <div class="row" style="align-items: center;">
+                    <div class="small">Current Channel: <span id="current-channel-display">None</span></div>
+                    <button id="refresh-channels" class="button">Refresh</button>
+                </div>
+                <select id="channel-select" class="input" style="margin-top: 8px;">
+                    <option value="">Loading channels...</option>
+                </select>
+            </div>
+
+            <div class="section" style="background: transparent; border: none; padding: 0 0 12px;">
+                <div class="row">
+                    <button id="get-selection" class="button">Get Selection</button>
+                    <button id="delete-all-nodes" class="button danger">Delete All</button>
+                    <button id="retrieve-page-status" class="button">Page Status</button>
+                    <button id="retrieve-page-image" class="button">Page Image</button>
+                </div>
+            </div>
+
+            <div class="panel-title">Tool Results</div>
+            <div id="tool-results" class="code"></div>
+        </div>
+    </div>
+
+    <script>
+        const $ = (selector) => document.querySelector(selector);
+        const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+
+        const presetInfo = $('#preset-info');
+
+        const updatePresetInfo = () => {
+            const modelText = $('#model-preset').selectedOptions[0].text;
+            const agent = $('#agent-preset').value;
+            const temp = $('#temperature-preset').value;
+            presetInfo.textContent = `${modelText} • ${agent} • Temperature: ${temp}`;
+        };
+
+        const getMetadataFromPresets = () => {
+            const [modelName, provider, inputCost, outputCost, maxTokens, maxTurns] = $('#model-preset').value.split('|');
+            return {
+                case_id: `task-${Date.now()}`,
+                model_provider: provider,
+                model_name: modelName,
+                agent_type: $('#agent-preset').value,
+                temperature: parseFloat($('#temperature-preset').value),
+                input_cost: parseFloat(inputCost),
+                output_cost: parseFloat(outputCost),
+                max_tokens: parseInt(maxTokens),
+                max_turns: parseInt(maxTurns),
+                max_retries: 3
+            };
+        };
+
+        const setButtonLoading = (button, label) => {
+            button.dataset.label = label || button.textContent;
+            button.disabled = true;
+            button.textContent = 'Working...';
+        };
+
+        const resetButton = (button, label) => {
+            button.disabled = false;
+            button.textContent = label || button.dataset.label || 'Submit';
+        };
+
+        const escapeHtml = (value) => value.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+        const formatMessageContent = (content) => {
+            if (!Array.isArray(content)) return '';
+            return content.map((c) => {
+                if (c.type === 'text') return c.text.replace(/\n/g, '<br>');
+                if (c.type === 'image') {
+                    return `<div><img src="data:${c.mimeType};base64,${c.data}" alt="Message image" style="max-width:100%;border:1px solid var(--border);border-radius:4px"></div>`;
+                }
+                if (c.type === 'audio') {
+                    return `<audio controls style="width:100%"><source src="${c.data}" type="${c.mimeType || 'audio/wav'}"></audio>`;
+                }
+                if (c.type === 'resource') {
+                    return `<div class="code">${escapeHtml(JSON.stringify(c.resource || {}, null, 2))}</div>`;
+                }
+                return escapeHtml(JSON.stringify(c));
+            }).join('');
+        };
+
+        const formatHistory = (history) => {
+            let workflow = '';
+            let finalMessage = '';
+
+            history.forEach((msg) => {
+                if (msg.role === 'assistant' && msg.type === 'agent_request' && msg.calls) {
+                    msg.calls.forEach((call) => {
+                        workflow += `
+                            <div class="tool-block">
+                                <div class="tool-call"><strong>${call.name}</strong><div class="code">${escapeHtml(JSON.stringify(call.arguments, null, 2))}</div></div>
+                            </div>`;
+                    });
+                } else if (msg.role === 'tool' && msg.type === 'tool_response') {
+                    const resultContent = (msg.results || []).map((r) => {
+                        if (!r.content) return '';
+                        let content = r.content.map((c) => {
+                            if (c.type === 'text') return escapeHtml(c.text);
+                            if (c.type === 'image') return `<img src="${c.data}" alt="Tool image" style="max-width:100%;border:1px solid var(--border);border-radius:4px">`;
+                            return escapeHtml(JSON.stringify(c));
+                        }).join('\n');
+                        if (r.structuredContent) {
+                            content += `<details><summary class="small">Structured</summary><div class="code">${escapeHtml(JSON.stringify(r.structuredContent, null, 2))}</div></details>`;
+                        }
+                        return content;
+                    }).join('\n');
+                    if (resultContent) {
+                        workflow += `
+                            <div class="tool-block">
+                                <div class="tool-response"><strong>${msg.name || 'Tool Response'}</strong><div class="code">${resultContent}</div></div>
+                            </div>`;
+                    }
+                } else if (msg.role === 'user' && (msg.type === 'user_feedback' || msg.type === 'intermediate_request' || msg.type === 'user_request')) {
+                    const label = msg.type === 'user_feedback' ? 'User Feedback' : msg.type === 'intermediate_request' ? 'Intermediate Request' : 'User Request';
+                    workflow += `
+                        <div class="tool-block">
+                            <div class="tool-call"><strong>${label}</strong><div>${formatMessageContent(msg.content) || 'No content'}</div></div>
+                        </div>`;
+                } else if (msg.role === 'assistant' && msg.type === 'agent_completion') {
+                    const textContent = msg.content?.find((c) => c.type === 'text');
+                    if (textContent) finalMessage = textContent.text;
+                }
+            });
+
+            return { workflow, finalMessage };
+        };
+
+        const formatResponseMessage = (response) => {
+            if (!response) return '<div class="code">Empty response</div>';
+
+            if (response.status === 'success' && response.payload) {
+                const parts = [];
+                if (response.payload.cost != null) {
+                    parts.push(`<div class="small">Cost: $${response.payload.cost.toFixed(6)}</div>`);
+                }
+                if (Array.isArray(response.payload.history)) {
+                    const { workflow, finalMessage } = formatHistory(response.payload.history);
+                    if (workflow) parts.push(`<div class="workflow">${workflow}</div>`);
+                    if (finalMessage) parts.push(`<div>${finalMessage}</div>`);
+                }
+                parts.push(`<details><summary class="small">Details</summary><div class="code">${escapeHtml(JSON.stringify(response, null, 2))}</div></details>`);
+                return parts.join('');
+            }
+
+            if (response.status === 'error') {
+                return `
+                    <div class="code" style="border-color: var(--danger);">Error: ${escapeHtml(response.message || 'Unknown error')}</div>
+                    <details><summary class="small">Details</summary><div class="code">${escapeHtml(JSON.stringify(response, null, 2))}</div></details>`;
+            }
+
+            return `<div class="code">${escapeHtml(JSON.stringify(response, null, 2))}</div>`;
+        };
+
+        const addImageToGallery = (imageData) => {
+            if (!imageData) return;
+            const gallery = $('#image-gallery');
+            const grid = $('#gallery-grid');
+            const img = document.createElement('img');
+            img.src = `data:image/png;base64,${imageData}`;
+            img.alt = 'Generated image';
+            grid.appendChild(img);
+            gallery.classList.remove('hidden');
+        };
+
+        const displayTaskResult = (response) => {
+            const container = $('#task-result');
+            const message = document.createElement('div');
+            message.className = 'message';
+            const time = new Date().toLocaleTimeString();
+            message.innerHTML = `
+                <div class="meta">System • ${time}</div>
+                ${formatResponseMessage(response)}
+            `;
+            container.innerHTML = '';
+            container.appendChild(message);
+
+            if (response?.payload?.responses) {
+                response.payload.responses.forEach((resp) => {
+                    resp?.json_response?.images?.forEach((img) => {
+                        if (img?.data && !img.data.startsWith('base64_uris')) addImageToGallery(img.data);
+                    });
+                });
+            }
+        };
+
+        const fetchChannels = async () => {
+            const button = $('#refresh-channels');
+            setButtonLoading(button, 'Refresh');
+            try {
+                const response = await fetch('/tool/get_channels', { method: 'POST' });
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                const data = await response.json();
+                const channelSelect = $('#channel-select');
+                channelSelect.innerHTML = '<option value="">-- Select a channel --</option>';
+
+                if (data.status === 'success' && data.payload?.available_channels) {
+                    const current = data.payload.current_channel || 'None';
+                    data.payload.available_channels.forEach((channel) => {
+                        const option = document.createElement('option');
+                        option.value = channel;
+                        option.textContent = channel;
+                        channelSelect.appendChild(option);
+                    });
+                    if (current && current !== 'None') {
+                        $('#current-channel-display').textContent = current;
+                        channelSelect.value = current;
+                    }
+                } else {
+                    $('#tool-results').textContent = `Error fetching channels: ${data.message || 'Unknown error'}`;
+                }
+            } catch (error) {
+                $('#tool-results').textContent = `Error: ${error.message}`;
+            } finally {
+                resetButton(button, 'Refresh');
+            }
+        };
+
+        const joinSelectedChannel = async (channelName) => {
+            if (!channelName) return;
+            $('#current-channel-display').textContent = `Joining ${channelName}...`;
+            try {
+                const response = await fetch(`/tool/select_channel?channel=${encodeURIComponent(channelName)}`, { method: 'POST' });
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                const data = await response.json();
+                if (data.status === 'success') {
+                    $('#current-channel-display').textContent = data.channel || channelName;
+                    $('#tool-results').textContent = `Joined channel: ${data.channel || channelName}`;
+                } else {
+                    $('#current-channel-display').textContent = 'Connection failed';
+                    $('#tool-results').textContent = `Error joining channel: ${data.message || 'Unknown error'}`;
+                }
+            } catch (error) {
+                $('#current-channel-display').textContent = 'Connection error';
+                $('#tool-results').textContent = `Error: ${error.message}`;
+            }
+        };
+
+        const bindTabs = () => {
+            $$('.tab').forEach((tab) => {
+                tab.addEventListener('click', () => {
+                    $$('.tab').forEach((t) => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    const type = tab.dataset.taskType;
+                    $('#replication-form').classList.toggle('hidden', type !== 'replication');
+                    $('#modification-form').classList.toggle('hidden', type !== 'modification');
+                });
+            });
+        };
+
+        const bindFileName = (inputId, labelId) => {
+            $(inputId).addEventListener('change', (e) => {
+                const fileName = e.target.files.length > 0 ? e.target.files[0].name : '';
+                $(labelId).textContent = fileName;
+            });
+        };
+
+        const handleReplication = async (e) => {
+            e.preventDefault();
+            const imageFile = $('#replication-image').files[0];
+            if (!imageFile) return;
+
+            const button = $('#replication-submit');
+            setButtonLoading(button, 'Run Replication');
+
+            try {
+                const metadata = getMetadataFromPresets();
+                const formData = new FormData();
+                formData.append('image', imageFile);
+                formData.append('metadata', JSON.stringify(metadata));
+
+                const response = await fetch('/replication', { method: 'POST', body: formData });
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                const data = await response.json();
+                displayTaskResult(data);
+            } catch (error) {
+                displayTaskResult({ status: 'error', message: error.message });
+            } finally {
+                resetButton(button, 'Run Replication');
+            }
+        };
+
+        const handleModification = async (e) => {
+            e.preventDefault();
+            const imageFile = $('#modification-image').files[0];
+            const message = $('#modification-text').value;
+            const baseJsonString = $('#modification-base-json').value;
+
+            if (!message || !imageFile || !baseJsonString) {
+                alert('Please fill in all fields before submitting.');
+                return;
+            }
+
+            const button = $('#modification-submit');
+            setButtonLoading(button, 'Run Modification');
+
+            try {
+                const metadata = getMetadataFromPresets();
+                const formData = new FormData();
+                formData.append('message', message);
+                formData.append('image', imageFile);
+                formData.append('baseJsonString', baseJsonString);
+                formData.append('metadata', JSON.stringify(metadata));
+
+                const response = await fetch('/modification', { method: 'POST', body: formData });
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                const data = await response.json();
+                displayTaskResult(data);
+            } catch (error) {
+                displayTaskResult({ status: 'error', message: error.message });
+            } finally {
+                resetButton(button, 'Run Modification');
+            }
+        };
+
+        const bindToolButton = (id, endpoint, label, handler) => {
+            $(id).addEventListener('click', async (e) => {
+                const button = e.target;
+                setButtonLoading(button, label);
+                try {
+                    const response = await fetch(endpoint, { method: 'POST' });
+                    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                    const data = await response.json();
+                    handler(data);
+                } catch (error) {
+                    $('#tool-results').textContent = `Error: ${error.message}`;
+                } finally {
+                    resetButton(button, label);
+                }
+            });
+        };
+
+        const init = () => {
+            updatePresetInfo();
+            ['#model-preset', '#agent-preset', '#temperature-preset'].forEach((id) => $(id).addEventListener('change', updatePresetInfo));
+            bindTabs();
+            bindFileName('#replication-image', '#replication-file-name');
+            bindFileName('#modification-image', '#modification-file-name');
+            $('#replication-form').addEventListener('submit', handleReplication);
+            $('#modification-form').addEventListener('submit', handleModification);
+
+            $('#refresh-channels').addEventListener('click', fetchChannels);
+            $('#channel-select').addEventListener('change', (e) => joinSelectedChannel(e.target.value));
+            fetchChannels();
+
+            bindToolButton('#get-selection', '/tool/get_selection', 'Get Selection', (data) => {
+                $('#tool-results').textContent = JSON.stringify(data, null, 2);
+            });
+            bindToolButton('#delete-all-nodes', '/tool/delete_all_top_level_nodes', 'Delete All', (data) => {
+                $('#tool-results').textContent = JSON.stringify(data, null, 2);
+            });
+            bindToolButton('#retrieve-page-status', '/tool/retrieve_page_status', 'Page Status', (data) => {
+                $('#tool-results').textContent = JSON.stringify(data, null, 2);
+            });
+            bindToolButton('#retrieve-page-image', '/tool/retrieve_page_image', 'Page Image', (data) => {
+                if (data.status === 'success' && data.payload?.image_uri) {
+                    $('#tool-results').innerHTML = `<img src="${data.payload.image_uri}" alt="Page image" style="max-width:100%;border:1px solid var(--border);border-radius:4px;margin-bottom:8px"><div class="code">${escapeHtml(JSON.stringify(data, null, 2))}</div>`;
+                } else {
+                    $('#tool-results').textContent = JSON.stringify(data, null, 2);
+                }
+            });
+        };
+
+        init();
+    </script>
+</body>
+</html>

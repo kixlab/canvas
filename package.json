@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@google/genai": "^1.8.0",
+    "@napi-rs/canvas": "^0.1.73"
+  }
+}
