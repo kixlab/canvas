@@ -26,13 +26,64 @@
 <b>Summary</b>: This repository contains the experiment code accompanying the paper CANVAS: A Benchmark for Vision-Language Models on Tool-Based UI Design (AAAI 2026). CANVAS designed to evaluate a VLM's capability to generate a UI design with tool invocations in two tasks: Design Replication and Design Modification.
 
 
-## Setup
-### 1. Environment setup
+
+# Setup
+### Environments
 We Tested in the following environment:
 - OS: Windows 11 (WSL2) and MacOS
 - Node.js: v18.20.8
 - Python: 3.12.9
 - Figma Desktop + Plugin loaded from `manifest.json` (For WSL2, you should copy the `dist` directory locally to Windows and imported it into Figma.)
+
+### Quick Setup
+You can use the automated setup script to install all dependencies:
+
+```bash
+./setup.sh
+```
+
+**What `setup.sh` does:**
+- Checks prerequisites (conda, node, npm)
+- Creates Python conda environment (`canvasbench`)
+- Installs Node.js dependencies for all services (socket_server, figma_plugin, mcp_server, mcp_client)
+- Builds all TypeScript projects
+- Installs Chrome for Puppeteer
+- Creates `.env` template file
+
+**After running `setup.sh`, you still need to:**
+
+1. **Configure API keys**: Edit `.env` file and add your API keys
+   ```bash
+   # Edit .env file with your actual API keys
+   nano .env  # or use your preferred editor
+   ```
+
+2. **Download dataset** (if not already present):
+   - Download from [Hugging Face](https://huggingface.co/datasets/seooyxx/canvas)
+   - Place it in the `dataset/` directory
+
+3. **Start services** (in separate terminals):
+   ```bash
+   # Terminal 1: Socket Server
+   cd src/socket_server && npm run dev
+   
+   # Terminal 2: MCP Client
+   cd src/mcp_client && npm run dev -- --port=3001
+   ```
+
+4. **Load Figma Plugin**:
+   - Open Figma Desktop
+   - Go to: **Figma logo → Plugins → Development**
+   - Load manifest: `src/figma_plugin/dist/manifest.json`
+   - Click **Connect** and select the same channel as MCP Client
+
+5. **Run experiments**
+   - Check [Here](#running-experiments)
+
+<details>
+<summary><b>Manual Setup</b></summary>
+
+<br/>
 
 **1. Socket Server**
 ```bash
@@ -61,6 +112,7 @@ npm install && npm run build
 # (terminal 4)
 cd src/mcp_client
 npm install
+npx puppeteer browsers install chrome
 npm run dev -- --port=3001
 ```
 * Your MCP client GUI available at localhost:3001
@@ -73,12 +125,13 @@ npm run dev -- --port=3001
 - Click **Connect**
 - Make sure to choose the same channel with your MCP Client.
 
-
 **(Outdated) Debug MCP Server**
 ```bash
 cd src/mcp_server
 npx @modelcontextprotocol/inspector dist/server.js
 ```
+
+</details>
 
 ### 2. Dataset
 Currently, we provide the [CANVAS dataset](https://huggingface.co/datasets/seooyxx/canvas). If you use this dataset, please cite our [BibTex](#bibtex).
@@ -103,10 +156,30 @@ canvas
 ```
 
 ## Running Experiments
-Required environment variables:
+
+### Environment Variables Setup
+
+Required environment variables depend on the model provider you want to use:
+
+**OpenAI (for `gpt-4o`, `gpt-4.1`):**
 ```bash
 export OPENAI_API_KEY="your_openai_key"
 ```
+
+**Google Cloud (for `gemini-2.5-flash`, `gemini-2.5-pro`):**
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="your_gemini_api_key"
+export GOOGLE_API_KEY="your_api_key"
+```
+
+**Amazon Bedrock (for `claude-3-5-sonnet`):**
+```bash
+# pip install boto3 awscli
+AWS_REGION=us-east-1
+export BEDROCK_ACCESS_KEY="your_aws_access_key"
+export BEDROCK_SECRET_KEY="your_aws_secret_key"
+```
+
 Other APIs can be added in the same way. You can define them directly in the `.env` file.
 
 ```
@@ -120,7 +193,7 @@ conda activate canvasbench-eval
 **Single Agent (Code):**
 ```bash
 python -m experiments.run_replication_code_experiment \
-  --config-name single-code-replication \
+  --config-name code-replication \
   --model gpt-4.1 \
   --variants image_only \
   --channel channel_1 \
@@ -129,7 +202,7 @@ python -m experiments.run_replication_code_experiment \
 ```
 
 **Arguments:**
-- `--config-name`: Experiment configuration name (e.g., `single-code-replication`, `multi-react-replication`)
+- `--config-name`: Experiment configuration name (e.g., `code-replication`, `react-replication`, `single-replication`, `react-modification`)
 - `--model`: Model to use. Options: `gpt-4o`, `gpt-4.1`, `gpt-4o-mini`, `o3`, `claude-3-5-sonnet`, `gemini-2.5-flash`, `gemini-2.5-pro`.
 - `--channel`: Channel name from config.yaml. Options: `channel_1` through `channel_7`. You need to change the api_base_url in `src/config/expr/{your_expr}.yaml` file.
 - `--agent-type`: (optional) Agent type. Options: `code_replication`, `single_replication`, `react_replication`, `single_modification`, `react_modification`
@@ -144,7 +217,7 @@ python -m experiments.run_replication_code_experiment \
 **Single Agent (Canvas):**
 ```bash
 python -m experiments.run_replication_canvas_experiment \
-  --config-name single-canvas-replication \
+  --config-name single-replication \
   --model gpt-4.1 \
   --variants image_only \
   --channel channel_1 \
@@ -155,7 +228,7 @@ python -m experiments.run_replication_canvas_experiment \
 **Multi Agent (ReAct):**
 ```bash
 python -m experiments.run_replication_canvas_experiment \
-  --config-name multi-react-replication \
+  --config-name react-replication \
   --model gpt-4.1 \
   --variants image_only \
   --channel channel_1 \
@@ -167,22 +240,11 @@ python -m experiments.run_replication_canvas_experiment \
 * Task 1, 2, 3 are available.
 * For descriptions of each task, please refer to the paper and the huggingface repository.
 
-**Single Agent (Canvas):**
-```bash
-python -m experiments.run_modification_experiment \
-  --config-name single-canvas-modification \
-  --model gemini-2.5-flash \
-  --channel channel_1 \
-  --task task-2 \
-  --agent-type single_modification \
-  --auto
-```
-
 **Multi Agent (ReAct):**
 ```bash
 python -m experiments.run_modification_experiment \
-  --config-name multi-react-modification \
-  --model gemini-2.5-flash \
+  --config-name react-modification \
+  --model gpt-4.1 \
   --channel channel_1 \
   --task task-2 \
   --agent-type react_modification \
