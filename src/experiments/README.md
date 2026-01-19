@@ -15,7 +15,7 @@ conda activate canvasbench-eval
 **Single Agent (Code):**
 ```bash
 python -m experiments.run_replication_code_experiment \
-  --config-name single-code-replication \
+  --config-name code-replication \
   --model gpt-4.1 \
   --variants image_only \
   --channel channel_1 \
@@ -26,7 +26,7 @@ python -m experiments.run_replication_code_experiment \
 **Single Agent (Canvas):**
 ```bash
 python -m experiments.run_replication_canvas_experiment \
-  --config-name single-canvas-replication \
+  --config-name single-replication \
   --model gpt-4.1 \
   --variants image_only \
   --channel channel_1 \
@@ -37,7 +37,7 @@ python -m experiments.run_replication_canvas_experiment \
 **Multi Agent (ReAct):**
 ```bash
 python -m experiments.run_replication_canvas_experiment \
-  --config-name multi-react-replication \
+  --config-name react-replication \
   --model gpt-4.1 \
   --variants image_only \
   --channel channel_1 \
@@ -52,7 +52,7 @@ python -m experiments.run_replication_canvas_experiment \
 **Single Agent (Canvas):**
 ```bash
 python -m experiments.run_modification_experiment \
-  --config-name single-canvas-modification \
+  --config-name react-modification \
   --model gemini-2.5-flash \
   --channel channel_1 \
   --task task-2 \
@@ -63,7 +63,7 @@ python -m experiments.run_modification_experiment \
 **Multi Agent (ReAct):**
 ```bash
 python -m experiments.run_modification_experiment \
-  --config-name multi-react-modification \
+  --config-name react-modification \
   --model gemini-2.5-flash \
   --channel channel_1 \
   --task task-2 \
