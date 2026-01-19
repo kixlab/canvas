@@ -54,21 +54,9 @@ class WeightsConfig:
 
 
 @dataclass
-class CompositeMetricConfig:
-    components: List[str]
-    digits: int
-
-
-@dataclass
 class MetricsConfig:
     required_metrics: List[str]
     optional_required_metrics: Dict[str, str]
-    composite_metrics: Dict[str, CompositeMetricConfig]
-
-    def __post_init__(self):
-        self.composite_metrics = {
-            k: CompositeMetricConfig(**v) for k, v in self.composite_metrics.items()
-        }
 
 
 @dataclass

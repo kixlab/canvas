@@ -5,14 +5,29 @@ np.random.seed(42)
 
 
 def compute_single_position_similarity(box1: Dict, box2: Dict) -> float:
-    """Compute position similarity based on center-point distance between two blocks."""
+    """
+    Compute position similarity based on Euclidean distance between two block centers,
+    normalized by the maximum diagonal length of the two boxes.
+    
+    Formula: SIM_pos = 1 - (||c_i - c_j||_2 / max(diag_i, diag_j))
+    where c_i, c_j are center points and diag_i, diag_j are diagonal lengths.
+    """
     center_x1 = box1["x"] + box1["width"] / 2
     center_y1 = box1["y"] + box1["height"] / 2
     center_x2 = box2["x"] + box2["width"] / 2
     center_y2 = box2["y"] + box2["height"] / 2
 
-    dist = max(abs(center_x1 - center_x2), abs(center_y1 - center_y2))
-    return 1.0 - dist
+    euclidean_dist = np.sqrt((center_x1 - center_x2) ** 2 + (center_y1 - center_y2) ** 2)
+    
+    diag1 = np.sqrt(box1["width"] ** 2 + box1["height"] ** 2)
+    diag2 = np.sqrt(box2["width"] ** 2 + box2["height"] ** 2)
+    max_diag = max(diag1, diag2)
+    
+    if max_diag > 0:
+        normalized_dist = euclidean_dist / max_diag
+        return 1.0 - normalized_dist
+    else:
+        return 1.0
 
 
 def compute_position_similarity(

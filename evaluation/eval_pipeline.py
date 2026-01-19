@@ -8,7 +8,6 @@ designs against ground truth samples using various perceptual, component, and
 semantic similarity metrics.
 """
 
-# Set TensorFlow environment variables BEFORE any imports
 import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -17,7 +16,6 @@ os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 os.environ["PYTHONHASHSEED"] = "42"
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
-# Standard library imports
 import argparse
 import json
 import logging
@@ -29,7 +27,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, DefaultDict, Dict, List, Optional, Tuple
 
-# Third-party imports
 import numpy as np
 
 try:
@@ -65,21 +62,17 @@ try:
 except ImportError:
     tqdm = None
 
-# Local imports
 from evaluation.config import config
 from evaluation.metrics import get_metrics
 
-# Suppress warnings and logging
 warnings.simplefilter(action="ignore", category=FutureWarning)
 warnings.filterwarnings("ignore")
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
 logging.getLogger("keras").setLevel(logging.ERROR)
 
-# Set random seeds for reproducibility
 random.seed(42)
 np.random.seed(42)
 
-# Constants
 PREVIOUS_RESULTS_FILE = "evaluation_results.json"
 
 
@@ -111,7 +104,7 @@ class EvaluationCase:
     gen_json_path: Path
     snapshot_num: Optional[int] = None
     metric_results: Dict[str, Any] = field(default_factory=dict)
-    # Additional fields for modification_gen
+    # for modification_gen
     base_gt_img_path: Optional[Path] = None
     base_gt_json_path: Optional[Path] = None
     is_modification: bool = False
@@ -155,7 +148,6 @@ class EvaluationPipeline:
                 f"Base directory not found: {self.cli_config.base_dir}"
             )
 
-        # Remove '_gen' suffix for gt directory
         task_base = self.cli_config.task.replace("_gen", "")
         path_vars = {
             "base_dir": str(self.base_dir),
@@ -164,7 +156,6 @@ class EvaluationPipeline:
             "variant": self.cli_config.variant,
         }
 
-        # Setup paths for precomputed BLIP scores
         if self.cli_config.task == "replication_gen":
             self.blip_scores_path = Path(
                 self.app_config.paths.precomputed_blip_scores.replication_gen.format(
@@ -188,7 +179,6 @@ class EvaluationPipeline:
                 self.blip_scores_path.parent / "precomputed_blip_scores_snapshot.json"
             )
 
-        # Add model name to BLIP scores paths if model is specified
         if self.cli_config.model:
             if self.cli_config.task == "replication_gen":
                 model_specific_path = (
@@ -202,7 +192,6 @@ class EvaluationPipeline:
                         / f"precomputed_blip_scores_snapshot_{self.cli_config.model}.json"
                     )
                 else:
-                    # Use default file if model-specific file doesn't exist
                     tqdm.write(
                         f"[Info] Model-specific BLIP scores not found: {model_specific_path}"
                     )
@@ -221,7 +210,6 @@ class EvaluationPipeline:
                         / f"precomputed_blip_scores_snapshot_{self.cli_config.model}.json"
                     )
                 else:
-                    # Use default file if model-specific file doesn't exist
                     tqdm.write(
                         f"[Info] Model-specific BLIP scores not found: {model_specific_path}"
                     )
@@ -238,7 +226,6 @@ class EvaluationPipeline:
                 raise ValueError("--variant is required for replication_gen task")
             path_vars["variant"] = self.cli_config.variant
         elif self.cli_config.task == "modification_gen":
-            # For modification_gen, we don't use variant in paths except for GT
             results_dir_template = results_dir_template.replace("/{variant}", "")
             output_dir_template = output_dir_template.replace("/{variant}", "")
             if self.cli_config.variant:
@@ -247,7 +234,6 @@ class EvaluationPipeline:
         self.gt_dir = Path(gt_dir_template.format(**path_vars))
         self.results_dir = Path(results_dir_template.format(**path_vars))
 
-        # Add model name to output directory to separate results by model
         if self.cli_config.model:
             self.output_dir = (
                 Path(output_dir_template.format(**path_vars))
@@ -282,7 +268,6 @@ class EvaluationPipeline:
         if self.cli_config.save_saliency_vis:
             self.saliency_vis_dir.mkdir(exist_ok=True)
 
-        # Load precomputed BLIP scores if available
         if self.blip_scores_path.exists():
             with self.blip_scores_path.open("r", encoding="utf-8") as f:
                 try:
@@ -302,7 +287,6 @@ class EvaluationPipeline:
             )
             self.blip_scores = {}
 
-        # Load precomputed BLIP snapshot scores if available
         if self.blip_snapshot_scores_path.exists():
             with self.blip_snapshot_scores_path.open("r", encoding="utf-8") as f:
                 try:
@@ -347,19 +331,15 @@ class EvaluationPipeline:
                 "[Warning] LPIPS module not found - skipping LPIPS metric caching"
             )
 
-        # Preload saliency model to avoid repeated loading during evaluation
         try:
-            # Import and test saliency model loading
             from evaluation.visual_saliency.core import _load_model
 
-            # Trigger model loading once to cache it
             _ = _load_model()
             tqdm.write("[Info] Saliency model preloaded successfully")
         except Exception as e:
             tqdm.write(f"[Warning] Failed to preload saliency model: {e}")
             tqdm.write("[Info] Saliency metrics will be computed on-demand (slower)")
 
-        # Preload visual saliency metric for better performance
         if "visual_saliency" in self.metric_funcs:
             try:
                 from evaluation.metrics.visual_saliency_metric import get_cache_stats
@@ -411,7 +391,6 @@ class EvaluationPipeline:
 
 
         for case in case_iterator:
-            # Skip already processed cases
             is_previously_processed = any(
                 r.get("case_id") == case.case_id
                 and r.get("snapshot_num") == case.snapshot_num
@@ -457,7 +436,6 @@ class EvaluationPipeline:
 
         items_to_process = list(self.results_dir.iterdir())
 
-        # For modification_gen with variant, look into variant subdirectory
         if self.cli_config.task == "modification_gen" and self.cli_config.variant:
             variant_dir = self.results_dir / self.cli_config.variant
             if variant_dir.exists() and variant_dir.is_dir():
@@ -494,7 +472,6 @@ class EvaluationPipeline:
 
                 prefix = item.name
 
-                # Find which model this directory belongs to
                 if self.cli_config.model:
                     model_name = self.cli_config.model
                     if prefix.endswith(f"-{model_name}"):
@@ -514,7 +491,6 @@ class EvaluationPipeline:
             case_id = item.name
 
             if self.cli_config.task == "modification_gen":
-                # For modification task, we need both base and target GT files
                 if self.cli_config.variant:
                     gt_base_dir = gt_base_dir / self.cli_config.variant
 
@@ -549,7 +525,6 @@ class EvaluationPipeline:
                 gt_img_path = gt_target_img_path
                 gt_json_path = gt_target_json_path
             else:
-                # For replication task, we only need one GT file
                 gt_img_path = gt_base_dir / self.app_config.filenames.gt_image.format(
                     gt_id=gt_id
                 )
@@ -646,7 +621,6 @@ class EvaluationPipeline:
         """Compute metrics for a single evaluation case."""
         flat_result = {}
         if case.is_modification:
-            # Compute base-target metrics only once per case_id if not already computed
             base_target_key = (case.case_id, "base_target")
             if base_target_key not in self.cached_metrics:
                 self.cached_metrics[base_target_key] = (
@@ -654,14 +628,11 @@ class EvaluationPipeline:
                 )
             base_target_metrics = self.cached_metrics[base_target_key]
 
-            # Compute gen-target metrics
             gen_target_metrics = self._compute_gen_target_metrics(case)
 
-            # Add precomputed BLIP scores if available, but only for final results (not snapshots)
             blip_key = case.case_id
             if case.snapshot_num is None and blip_key in self.blip_scores:
                 blip_data = self.blip_scores[blip_key]
-                # For base-vs-target, "generated" is the base image
                 base_target_metrics.update(
                     {
                         "blip_caption_similarity": blip_data.get(
@@ -681,11 +652,9 @@ class EvaluationPipeline:
                     }
                 )
             elif case.snapshot_num is not None:
-                # For snapshots, check if we have snapshot-specific BLIP scores
                 snapshot_key = f"{blip_key}_{case.snapshot_num}"
                 if snapshot_key in self.blip_snapshot_scores:
                     snapshot_blip_data = self.blip_snapshot_scores[snapshot_key]
-                    # For snapshots, the comparison is always snapshot-vs-target
                     common_metrics = {
                         "blip_caption_similarity": snapshot_blip_data.get("blip_score"),
                         "generated_caption": snapshot_blip_data.get("gen_caption"),
@@ -696,7 +665,6 @@ class EvaluationPipeline:
                     base_target_metrics.update(common_metrics)
                     gen_target_metrics.update(common_metrics)
                 else:
-                    # If no snapshot-specific scores, just fill in the target caption for context
                     if blip_key in self.blip_scores:
                         base_target_metrics["ground_truth_caption"] = self.blip_scores[
                             blip_key
@@ -705,7 +673,6 @@ class EvaluationPipeline:
                             blip_key
                         ].get("gt_caption_target")
 
-            # Calculate delta metrics (gen_target - base_target)
             delta_metrics = {}
             for key in base_target_metrics:
                 if isinstance(base_target_metrics[key], (int, float)) and isinstance(
@@ -715,13 +682,11 @@ class EvaluationPipeline:
                         gen_target_metrics[key] - base_target_metrics[key]
                     )
 
-            # Add BLIP improvement directly from precomputed scores
             if blip_key in self.blip_scores:
                 delta_metrics["blip_caption_similarity_delta"] = self.blip_scores[
                     blip_key
                 ].get("blip_score_improvement")
 
-            # Prepare final metrics structure for modification task
             flat_result = {
                 "id": case.gt_id,
                 "case_id": case.case_id,
@@ -729,11 +694,10 @@ class EvaluationPipeline:
                 "snapshot_num": case.snapshot_num,
                 "base_target_metrics": base_target_metrics,
                 "gen_target_metrics": gen_target_metrics,
-                **delta_metrics,  # Include delta metrics at top level
+                **delta_metrics,
             }
 
         else:
-            # For replication task, compute metrics normally
             flat_result = self._compute_metrics(case)
             flat_result.update(
                 {
@@ -744,7 +708,6 @@ class EvaluationPipeline:
                 }
             )
 
-            # Add precomputed BLIP scores for replication task
             blip_key = case.case_id
             if case.snapshot_num is None and blip_key in self.blip_scores:
                 blip_data = self.blip_scores[blip_key]
@@ -756,7 +719,6 @@ class EvaluationPipeline:
                     }
                 )
             elif case.snapshot_num is not None:
-                # For snapshots, check if we have snapshot-specific BLIP scores
                 snapshot_key = f"{blip_key}_{case.snapshot_num}"
                 if snapshot_key in self.blip_snapshot_scores:
                     snapshot_blip_data = self.blip_snapshot_scores[snapshot_key]
@@ -772,15 +734,12 @@ class EvaluationPipeline:
                         }
                     )
                 else:
-                    # If no snapshot-specific scores, just fill in the GT caption for context
                     if blip_key in self.blip_scores:
                         flat_result["ground_truth_caption"] = self.blip_scores[
                             blip_key
                         ].get("gt_caption")
 
-        # Process tool usage for both replication and modification tasks
         if self.tool_metric_func:
-            # For modification_gen with variant, we need to include variant in the path
             if self.cli_config.task == "modification_gen" and self.cli_config.variant:
                 result_path = self.results_dir / self.cli_config.variant / case.case_id
             else:
@@ -795,7 +754,6 @@ class EvaluationPipeline:
         self.results.append(flat_result)
         self.new_processed_count += 1
 
-        # Periodic checkpoint
         if self.new_processed_count % 10 == 0:
             self._save_results()
 
@@ -894,7 +852,6 @@ class EvaluationPipeline:
         snapshot_num: Optional[int],
     ) -> bool:
         """Check if a metric computation should be skipped based on config and state."""
-        # For snapshots, we always skip semantic_match as we don't have precomputed scores
         if name == "semantic_match" and snapshot_num is not None:
             return True
         if gt_img_path is None and name in {
@@ -932,7 +889,6 @@ class EvaluationPipeline:
                     )
             return True
 
-        # Check if already computed
         is_blip_present = (
             self.app_config.metrics.optional_required_metrics["semantic_match"]
             in metric
@@ -973,7 +929,6 @@ class EvaluationPipeline:
             if not result_path:
                 continue
 
-            # Skip if already computed
             if "tool_call_count" in result and result["tool_call_count"] is not None:
                 continue
 
@@ -1036,14 +991,16 @@ class EvaluationPipeline:
                     "text_coverage_f1_score": metrics_dict.get(
                         "text_coverage_f1_score"
                     ),
+                    "component_similarity_score": metrics_dict.get(
+                        "component_similarity_score"
+                    ),
                 },
             }
 
-        # Collect tool usage metrics first from the top level
         tool_usage_metrics = {
             "step_count": get("step_count"),
             "tool_call_count": get("tool_call_count"),
-            "tool_step_count": get("step_count"),  # Note: same as step_count
+            "tool_step_count": get("step_count"),
             "tool_efficiency": get("tool_efficiency"),
             "unique_tool_count": get("unique_tool_count"),
             "unique_tool_list": get("unique_tool_list"),
@@ -1053,12 +1010,9 @@ class EvaluationPipeline:
             "human_tool_recall": get("human_tool_recall"),
         }
 
-        # Modification Task has 'base_target_metrics', Replication does not.
         if "base_target_metrics" in flat_result:
-            # Modification task structure
             base_metrics = build_structured_metrics(get("base_target_metrics", {}))
             if base_metrics:
-                # Rename generated_caption to base_caption for clarity
                 obj_level = base_metrics.get("perceptual_similarity", {}).get(
                     "object_level", {}
                 )
@@ -1070,13 +1024,11 @@ class EvaluationPipeline:
             if gen_metrics:
                 gen_metrics["tool_usage_metrics"] = tool_usage_metrics
 
-            # Build delta metrics structure
             delta_metrics_flat = {
                 k[:-6]: v for k, v in flat_result.items() if k.endswith("_delta")
             }
             delta_metrics = build_structured_metrics(delta_metrics_flat)
             if delta_metrics:
-                # Add captions to delta object level for comparison
                 delta_obj_level = delta_metrics.get("perceptual_similarity", {}).get(
                     "object_level", {}
                 )
@@ -1109,7 +1061,6 @@ class EvaluationPipeline:
                 "delta_metrics": delta_metrics,
             }
         else:
-            # Replication task structure
             metrics = build_structured_metrics(flat_result)
             metrics["tool_usage_metrics"] = tool_usage_metrics
 
@@ -1215,7 +1166,6 @@ class EvaluationPipeline:
                 f"Object of type {type(o).__name__} is not JSON serializable"
             )
 
-        # Ensure parent directory exists
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False, default=_json_default)
@@ -1254,17 +1204,13 @@ class EvaluationPipeline:
         )
         skip_keys = set(self.app_config.visualization.skip_keys)
 
-        # Extract metrics from the new nested structure
         for entry in self.results:
             model_name = entry.get("model", "unknown")
 
-            # Handle both old flat structure and new nested structure
             if "metrics" in entry:
-                # New nested structure (replication_gen)
                 metrics = entry["metrics"]
                 if "perceptual_similarity" in metrics:
                     ps = metrics["perceptual_similarity"]
-                    # Feature level metrics
                     if "feature_level" in ps:
                         fl = ps["feature_level"]
                         for metric_name, value in fl.items():
@@ -1273,7 +1219,6 @@ class EvaluationPipeline:
                                     model_name
                                 ].append(float(value))
 
-                    # Pattern level metrics
                     if "pattern_level" in ps:
                         pl = ps["pattern_level"]
                         for metric_name, value in pl.items():
@@ -1282,7 +1227,6 @@ class EvaluationPipeline:
                                     model_name
                                 ].append(float(value))
 
-                    # Object level metrics
                     if "object_level" in ps:
                         ol = ps["object_level"]
                         for metric_name, value in ol.items():
@@ -1291,7 +1235,6 @@ class EvaluationPipeline:
                                     float(value)
                                 )
 
-                # Component similarity metrics
                 if "component_similarity" in metrics:
                     cs = metrics["component_similarity"]
                     for metric_name, value in cs.items():
@@ -1300,7 +1243,6 @@ class EvaluationPipeline:
                                 float(value)
                             )
 
-                # Tool usage metrics
                 if "tool_usage_metrics" in metrics:
                     tu = metrics["tool_usage_metrics"]
                     for metric_name, value in tu.items():
@@ -1310,8 +1252,6 @@ class EvaluationPipeline:
                             )
 
             elif "base_target_metrics" in entry and "gen_target_metrics" in entry:
-                # Modification task structure
-                # Process base_target_metrics
                 base_metrics = entry["base_target_metrics"]
                 if "perceptual_similarity" in base_metrics:
                     ps = base_metrics["perceptual_similarity"]
@@ -1323,7 +1263,6 @@ class EvaluationPipeline:
                                     model_name
                                 ].append(float(value))
 
-                # Process gen_target_metrics
                 gen_metrics = entry["gen_target_metrics"]
                 if "perceptual_similarity" in gen_metrics:
                     ps = gen_metrics["perceptual_similarity"]
@@ -1336,24 +1275,20 @@ class EvaluationPipeline:
                                 ].append(float(value))
 
             else:
-                # Fallback to old flat structure
                 for k, v in entry.items():
                     if k in skip_keys or k.endswith("_error"):
                         continue
                     if isinstance(v, (int, float)):
                         metric_data[k][model_name].append(float(v))
 
-        # Generate plots for each metric
         for metric, model_dict in metric_data.items():
             models = sorted(model_dict.keys())
             if not models or len(models) == 0:
                 continue
 
-            # Skip if no data
             if all(len(model_dict[m]) == 0 for m in models):
                 continue
 
-            # Bar plot (mean)
             means = []
             valid_models = []
             for m in models:
@@ -1376,7 +1311,6 @@ class EvaluationPipeline:
             )
             plt.close()
 
-            # Box plot (distribution)
             data = [model_dict[m] for m in valid_models if len(model_dict[m]) > 0]
             if data:
                 plt.figure(figsize=(max(6, len(valid_models) * 1.2), 4))
@@ -1403,7 +1337,6 @@ def main():
         description="Run evaluation metrics for generation samples.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    # --- Core Arguments ---
     parser.add_argument(
         "--base_dir",
         type=str,
@@ -1423,8 +1356,6 @@ def main():
         default=None,
         help="Task variant to evaluate (required for replication_gen, optional for modification_gen).",
     )
-
-    # --- Filtering Arguments ---
     parser.add_argument(
         "--model",
         type=str,
@@ -1437,8 +1368,6 @@ def main():
         default=None,
         help="Comma-separated list of GT ids to evaluate (e.g., gid6-27,gid34-35).",
     )
-
-    # --- Feature Flags ---
     parser.add_argument(
         "--vis",
         action="store_true",
@@ -1454,8 +1383,6 @@ def main():
         action="store_true",
         help="Save visual saliency visualizations.",
     )
-
-    # --- Caching Arguments ---
     parser.add_argument(
         "--skip_blip",
         action="store_true",

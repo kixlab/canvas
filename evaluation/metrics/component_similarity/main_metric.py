@@ -32,6 +32,7 @@ def compute_component_similarity_metrics(
             "color_similarity_score": 0.0,
             "position_similarity_score": 0.0,
             "text_coverage_f1_score": 0.0,
+            "component_similarity_score": 0.0,
         }
 
     gt_boxes, _ = load_and_normalize_boxes(gt_path)
@@ -80,10 +81,15 @@ def compute_component_similarity_metrics(
     color_score, _ = compute_color_similarity(gt_boxes, gen_boxes, all_matches)
     position_score, _ = compute_position_similarity(gt_boxes, gen_boxes, all_matches)
     text_coverage = compute_text_coverage_metrics(gt_boxes, gen_boxes)
+    text_f1_score = text_coverage.get("f1_score", 0.0)
+    component_similarity_score = (
+        block_match_score + position_score + color_score + text_f1_score
+    ) / 4.0
 
     return {
         "block_match_score": round(block_match_score, 4),
         "color_similarity_score": round(color_score, 4),
         "position_similarity_score": round(position_score, 4),
-        "text_coverage_f1_score": round(text_coverage.get("f1_score", 0.0), 4),
+        "text_coverage_f1_score": round(text_f1_score, 4),
+        "component_similarity_score": round(component_similarity_score, 4),
     }
