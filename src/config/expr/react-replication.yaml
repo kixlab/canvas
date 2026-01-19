@@ -1,4 +1,4 @@
-agent_type: react
+agent_type: react_replication
 
 benchmark_dir: ../dataset/benchmarks/replication_gt
 results_dir: ../dataset/results/replication_gen/multi_react
